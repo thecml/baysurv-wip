@@ -8,41 +8,43 @@ from sksurv.linear_model.coxph import BreslowEstimator
 from data_loader import load_veterans_ds, load_cancer_ds, prepare_cancer_ds
 from sksurv.metrics import concordance_index_censored
 
-N_EPOCHS = 100
+N_EPOCHS = 200
 
 if __name__ == "__main__":
     X_train, X_valid, X_test, y_train, y_valid, y_test = load_cancer_ds()
     t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_cancer_ds(y_train, y_valid, y_test)
-    
+
     X_train = np.array(X_train)
     X_valid = np.array(X_valid)
     X_test = np.array(X_test)
 
     inputs = tf.keras.layers.Input(shape=X_train.shape[1:])
-    hidden = tf.keras.layers.Dense(30, activation="relu")(inputs)
-    output = tf.keras.layers.Dense(1, activation="linear")(hidden)
+    hidden1 = tf.keras.layers.Dense(30, activation="relu")(inputs)
+    hidden1 = tf.keras.layers.Dense(20, activation="relu")(hidden1)
+    hidden2 = tf.keras.layers.Dense(20, activation="relu")(hidden1)
+    output = tf.keras.layers.Dense(1, activation="linear")(hidden2)
     model = tf.keras.Model(inputs=inputs, outputs=output)
-    
+
     train_fn = InputFunction(X_train, t_train, e_train,
                              drop_last=True, shuffle=True)
-    val_fn = InputFunction(X_valid, t_valid, e_valid)
-    test_fn = InputFunction(X_test, t_test, e_test)
+    val_fn = InputFunction(X_valid, t_valid, e_valid, drop_last=True) # for testing
+    test_fn = InputFunction(X_test, t_test, e_test, drop_last=True) #for testing
 
     optimizer = tf.keras.optimizers.Adam()
     loss_fn = CoxPHLoss()
-    
+
     train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
     val_loss_metric = tf.keras.metrics.Mean(name="val_loss")
     test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
-    
+
     val_cindex_metric = CindexMetric()
     train_loss_scores = list()
     valid_loss_scores, valid_cindex_scores = list(), list()
-    
+
     train_ds = train_fn()
     val_ds = val_fn()
     test_ds = test_fn()
-    
+
     for epoch in range(N_EPOCHS):
         #Training step
         for x, y in train_ds:
@@ -54,7 +56,7 @@ if __name__ == "__main__":
             with tf.name_scope("gradients"):
                 grads = tape.gradient(train_loss, model.trainable_weights)
                 optimizer.apply_gradients(zip(grads, model.trainable_weights))
-                
+
             # Update training metric.
             train_loss_metric.update_state(train_loss)
 
@@ -64,7 +66,7 @@ if __name__ == "__main__":
 
         # Reset training metrics
         train_loss_metric.reset_states()
-        
+
         # Evaluate step
         val_cindex_metric.reset_states()
 
@@ -86,7 +88,7 @@ if __name__ == "__main__":
             val_cindex = val_cindex_metric.result()
             valid_cindex_scores.append(val_cindex['cindex'])
             print(f"Validation: loss = {val_loss:.4f}, cindex = {val_cindex['cindex']:.4f}")
-    
+
     # Compute test loss
     for x, y in test_ds:
         y_event = tf.expand_dims(y["label_event"], axis=1)
@@ -94,7 +96,7 @@ if __name__ == "__main__":
         test_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=test_logits)
         test_loss_metric.update_state(test_loss)
     test_loss = float(test_loss_metric.result())
-    
+
     # Compute Harrell's c-index
     sample_predictions = model.predict(X_test).reshape(-1)
     c_index_result = concordance_index_censored(e_test, t_test, sample_predictions)[0]

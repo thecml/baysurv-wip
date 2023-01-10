@@ -23,26 +23,39 @@ if __name__ == "__main__":
     X_valid = np.array(X_valid)
     X_test = np.array(X_test)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.002)
     loss_fn = CoxPHLoss()
 
     def normal_sp(params):
         return tfd.Normal(loc=params[:,0:1],
-                            scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))# both parameters are learnable
+                          scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))# both parameters are learnable
     def normal(params):
         return tfd.Normal(loc=params, scale=1)
 
     def NLL(y, distr):
       return -distr.log_prob(y)
 
-    # Alternative model with a flexible std
+    kernel_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
+    bias_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
+
+    # VI
     inputs = tf.keras.layers.Input(shape=X_train.shape[1:])
-    out1 = tf.keras.layers.Dense(1)(inputs)
-    hidden1 = tf.keras.layers.Dense(30, activation="relu")(inputs)
-    hidden1 = tf.keras.layers.Dense(20, activation="relu")(hidden1)
-    hidden2 = tf.keras.layers.Dense(20, activation="relu")(hidden1)
-    out2 = tf.keras.layers.Dense(1)(hidden2)
-    params = tf.keras.layers.Concatenate()([out1, out2])
+    hidden = tfp.layers.DenseFlipout(20,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(inputs)
+    hidden = tfp.layers.DenseFlipout(50,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(hidden)
+    hidden = tfp.layers.DenseFlipout(20,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(hidden)
+    params = tfp.layers.DenseFlipout(2,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn)(hidden)
     dist = tfp.layers.DistributionLambda(normal_sp)(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
 
@@ -72,11 +85,14 @@ if __name__ == "__main__":
 
     for epoch in range(N_EPOCHS):
         #Training step
+        kl_loss = list()
         for x, y in train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
                 logits = model(x, training=True).sample()
                 train_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                train_loss = train_loss + tf.reduce_mean(model.losses) # CoxPHLoss + KL-divergence
+                kl_loss.append(tf.reduce_mean(model.losses))
 
             with tf.name_scope("gradients"):
                 grads = tape.gradient(train_loss, model.trainable_weights)
@@ -86,6 +102,7 @@ if __name__ == "__main__":
             train_loss_metric.update_state(train_loss)
 
         # Save metrics
+        print(f"Mean KL loss: {np.mean(kl_loss)}")
         mean_loss = train_loss_metric.result()
         train_loss_scores.append(float(mean_loss))
 

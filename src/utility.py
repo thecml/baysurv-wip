@@ -137,40 +137,6 @@ class InputFunction:
     def __call__(self) -> tf.data.Dataset:
         return self._make_dataset()
 
-def safe_normalize(x: tf.Tensor) -> tf.Tensor:
-    """Normalize risk scores to avoid exp underflowing.
-
-    Note that only risk scores relative to each other matter.
-    If minimum risk score is negative, we shift scores so minimum
-    is at zero.
-    """
-    x_min = tf.reduce_min(x, axis=0)
-    c = tf.zeros_like(x_min)
-    norm = tf.where(x_min < 0, -x_min, c)
-    return x + norm
-
-def logsumexp_masked(risk_scores: tf.Tensor,
-                     mask: tf.Tensor,
-                     axis: int = 0,
-                     keepdims: Optional[bool] = None) -> tf.Tensor:
-    """Compute logsumexp across `axis` for entries where `mask` is true."""
-    risk_scores.shape.assert_same_rank(mask.shape)
-
-    with tf.name_scope("logsumexp_masked"):
-        mask_f = tf.cast(mask, risk_scores.dtype)
-        risk_scores_masked = tf.math.multiply(risk_scores, mask_f)
-        # for numerical stability, substract the maximum value
-        # before taking the exponential
-        amax = tf.reduce_max(risk_scores_masked, axis=axis, keepdims=True)
-        risk_scores_shift = risk_scores_masked - amax
-
-        exp_masked = tf.math.multiply(tf.exp(risk_scores_shift), mask_f)
-        exp_sum = tf.reduce_sum(exp_masked, axis=axis, keepdims=True)
-        output = amax + tf.math.log(exp_sum)
-        if not keepdims:
-            output = tf.squeeze(output, axis=axis)
-    return output
-
 class CoxPHLoss(tf.keras.losses.Loss):
     """Negative partial log-likelihood of Cox's proportional hazards model."""
 
@@ -237,6 +203,7 @@ class CoxPHLoss(tf.keras.losses.Loss):
         # move batch dimension to the end so predictions get broadcast
         # row-wise when multiplying by riskset
         pred_t = tf.transpose(predictions)
+
         # compute log of sum over risk set for each row
         rr = logsumexp_masked(pred_t, riskset, axis=1, keepdims=True)
         assert rr.shape.as_list() == predictions.shape.as_list()
@@ -244,6 +211,41 @@ class CoxPHLoss(tf.keras.losses.Loss):
         losses = tf.math.multiply(event, rr - predictions)
 
         return losses
+
+def safe_normalize(x: tf.Tensor) -> tf.Tensor:
+    """Normalize risk scores to avoid exp underflowing.
+
+    Note that only risk scores relative to each other matter.
+    If minimum risk score is negative, we shift scores so minimum
+    is at zero.
+    """
+    x_min = tf.reduce_min(x, axis=0)
+    c = tf.zeros_like(x_min)
+    norm = tf.where(x_min < 0, -x_min, c)
+    return x + norm
+
+def logsumexp_masked(risk_scores: tf.Tensor,
+                     mask: tf.Tensor,
+                     axis: int = 0,
+                     keepdims: Optional[bool] = None) -> tf.Tensor:
+    """Compute logsumexp across `axis` for entries where `mask` is true."""
+    risk_scores.shape.assert_same_rank(mask.shape)
+
+    with tf.name_scope("logsumexp_masked"):
+        mask_f = tf.cast(mask, risk_scores.dtype)
+        risk_scores_masked = tf.math.multiply(risk_scores, mask_f)
+
+        # for numerical stability, substract the maximum value
+        # before taking the exponential
+        amax = tf.reduce_max(risk_scores_masked, axis=axis, keepdims=True)
+        risk_scores_shift = risk_scores_masked - amax
+
+        exp_masked = tf.math.multiply(tf.exp(risk_scores_shift), mask_f)
+        exp_sum = tf.reduce_sum(exp_masked, axis=axis, keepdims=True)
+        output = amax + tf.math.log(exp_sum)
+        if not keepdims:
+            output = tf.squeeze(output, axis=axis)
+    return output
 
 class CindexMetric:
     """Computes concordance index across one epoch."""
