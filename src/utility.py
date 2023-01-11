@@ -3,6 +3,26 @@ import numpy as np
 from typing import Tuple, Dict, Iterable, Optional, Sequence
 from sksurv.metrics import concordance_index_censored
 
+def convert_to_structured(T, E):
+    """
+    Converts data in time (T) and event (E) format to a structured numpy array.
+    Provides common interface to other libraries such as sksurv and sklearn.
+    Args:
+        T (np.array): Array of times
+        E (np.array): Array of events
+    Returns:
+        np.array: Structured array containing the boolean event indicator
+            as first field, and time of event or time of censoring as second field
+    """
+    # dtypes for conversion
+    default_dtypes = {"names": ("censor", "time"), "formats": ("bool", "f8")}
+
+    # concat of events and times
+    concat = list(zip(E, T))
+
+    # return structured array
+    return np.array(concat, dtype=default_dtypes)
+
 def _make_riskset(time: np.ndarray) -> np.ndarray:
     """Compute mask that represents each sample's risk set.
 

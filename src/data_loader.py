@@ -3,6 +3,7 @@ import pandas as pd
 from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids
 from sksurv.preprocessing import OneHotEncoder, encode_categorical
 from sklearn.model_selection import train_test_split
+import shap
 
 def split_data(X, y):
     X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=0.8, random_state=0)
@@ -26,6 +27,21 @@ def load_aids_ds():
     aids_X_numeric = encode_categorical(aids_X)
     X_train, X_valid, X_test, y_train, y_valid, y_test = split_data(aids_X_numeric, aids_y)
     return X_train, X_valid, X_test, y_train, y_valid, y_test
+
+def load_nhanes_ds():
+    nhanes_X, nhanes_y = shap.datasets.nhanesi()
+    nhanes_X = nhanes_X.dropna(axis=1)
+    X_train, X_valid, X_test, y_train, y_valid, y_test = split_data(nhanes_X, nhanes_y)
+    return X_train, X_valid, X_test, y_train, y_valid, y_test
+
+def prepare_nhanes_ds(y_train, y_valid, y_test):
+    t_train = np.array(y_train)
+    t_valid = np.array(y_valid)
+    t_test = np.array(y_test)
+    e_train = np.ones(len(y_train)) # all observed
+    e_valid = np.ones(len(y_valid))
+    e_test = np.ones(len(y_test))
+    return t_train, t_valid, t_test, e_train, e_valid, e_test
 
 def prepare_veterans_ds(y_train, y_valid, y_test):
     t_train = np.array(y_train['Survival_in_days'])
