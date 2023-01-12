@@ -35,8 +35,8 @@ if __name__ == "__main__":
     def NLL(y, distr):
       return -distr.log_prob(y)
 
-    kernel_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
-    bias_divergence_fn=lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
+    kernel_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
+    bias_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (X_train.shape[0] * 1.0)
 
     # VI
     inputs = tf.keras.layers.Input(shape=X_train.shape[1:])

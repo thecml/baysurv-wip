@@ -11,13 +11,13 @@ from data_loader import prepare_veterans_ds, prepare_cancer_ds, \
 from sksurv.metrics import concordance_index_censored
 from sklearn.preprocessing import StandardScaler
 
-N_EPOCHS = 10
+N_EPOCHS = 100
 
 if __name__ == "__main__":
     # Load and prepare data
     X_train, X_valid, X_test, y_train, y_valid, y_test = load_nhanes_ds()
     t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_nhanes_ds(y_train, y_valid, y_test)
-    
+
     # Scale data
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     train_cindex_metric = CindexMetric()
     val_cindex_metric = CindexMetric()
-    
+
     train_loss_scores, train_cindex_scores = list(), list()
     valid_loss_scores, valid_cindex_scores = list(), list()
 

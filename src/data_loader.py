@@ -38,9 +38,9 @@ def prepare_nhanes_ds(y_train, y_valid, y_test):
     t_train = np.array(y_train)
     t_valid = np.array(y_valid)
     t_test = np.array(y_test)
-    e_train = np.ones(len(y_train)) # all observed
-    e_valid = np.ones(len(y_valid))
-    e_test = np.ones(len(y_test))
+    e_train = np.array([True if x > 0 else False for x in y_train]) # negative means right-censored
+    e_valid = np.array([True if x > 0 else False for x in y_valid])
+    e_test = np.array([True if x > 0 else False for x in y_test])
     return t_train, t_valid, t_test, e_train, e_valid, e_test
 
 def prepare_veterans_ds(y_train, y_valid, y_test):
