@@ -6,54 +6,40 @@ from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 import tensorflow_probability as tfp
-from data_loader import load_cancer_ds, prepare_cancer_ds
+from data_loader import load_cancer_ds, prepare_cancer_ds, load_nhanes_ds, prepare_nhanes_ds
 from sksurv.metrics import concordance_index_censored
-
+from sklearn.preprocessing import StandardScaler
+    
 tfd = tfp.distributions
 tfb = tfp.bijectors
 
-N_EPOCHS = 200
-PLOT_SURV_FUNCS = False
+N_EPOCHS = 10
 
 if __name__ == "__main__":
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_cancer_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_cancer_ds(y_train, y_valid, y_test)
-
-    X_train = np.array(X_train)
-    X_valid = np.array(X_valid)
-    X_test = np.array(X_test)
-
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    # Load data
+    X_train, X_valid, X_test, y_train, y_valid, y_test = load_nhanes_ds()
+    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_nhanes_ds(y_train, y_valid, y_test)
+    
+    # Scale data
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_valid = scaler.transform(X_valid)
+    X_test = scaler.transform(X_test)
+   
+    # MC    
+    def normal_exp(params): 
+        return tfd.Normal(loc=params[:,0:1], scale=tf.math.exp(params[:,1:2]))# both parameters are learnable
+    
+    optimizer = tf.keras.optimizers.Adam()
     loss_fn = CoxPHLoss()
 
-    def normal_sp(params):
-        return tfd.Normal(loc=params[:,0:1],
-                            scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))# both parameters are learnable
-    def normal(params):
-        return tfd.Normal(loc=params, scale=1)
-
-    def NLL(y, distr):
-      return -distr.log_prob(y)
-
-    # Alternative model with a flexible std
     inputs = tf.keras.layers.Input(shape=X_train.shape[1:])
-    out1 = tf.keras.layers.Dense(1)(inputs)
     hidden1 = tf.keras.layers.Dense(30, activation="relu")(inputs)
-    hidden1= tf.keras.layers.Dropout(0.5)(hidden1)
-    hidden1 = tf.keras.layers.BatchNormalization()(hidden1)
-    out2 = tf.keras.layers.Dense(1)(hidden1)
-    params = tf.keras.layers.Concatenate()([out1, out2])
-    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    hidden1= tf.keras.layers.Dropout(0.5)(hidden1, training=True) # run dropout in testing too
+    params = tf.keras.layers.Dense(2)(hidden1)
+    dist = tfp.layers.DistributionLambda(normal_exp, name='normal_exp')(params) 
     model = tf.keras.Model(inputs=inputs, outputs=dist)
-
-    '''
-    inputs = tf.keras.layers.Input(shape=X_train.shape[1:])
-    hidden = tf.keras.layers.Dense(30, activation="relu")(inputs)
-    params = tf.keras.layers.Dense(2)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_sp)(params)
-    model = tf.keras.Model(inputs=inputs, outputs=dist)
-    '''
-
+    
     train_fn = InputFunction(X_train, t_train, e_train, drop_last=True, shuffle=True)
     val_fn = InputFunction(X_valid, t_valid, e_valid, drop_last=True) #for testing
     test_fn = InputFunction(X_test, t_test, e_test, drop_last=True) #for testing
@@ -127,50 +113,19 @@ if __name__ == "__main__":
             print(f"Validation: loss = {val_loss:.4f}, cindex = {val_cindex['cindex']:.4f}, " \
                 + f"std val loss = {std_val_loss:.4f}, std val logits = {std_val_logits:.4f}")
 
-    # Compute test loss
-    for x, y in test_ds:
-        y_event = tf.expand_dims(y["label_event"], axis=1)
-        test_logits = model(x, training=False).sample()
-        test_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=test_logits)
-        test_loss_metric.update_state(test_loss)
-    test_loss = float(test_loss_metric.result())
-
-    # Compute average Harrell's c-index
-    runs = 10
-    model_cpd = np.zeros((runs, len(X_test)))
-    for i in range(0, runs):
-        model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=0), len(X_test))
-    cpd_se = np.std(model_cpd, ddof=1) / np.sqrt(np.size(model_cpd)) # standard error
-    c_index_result = concordance_index_censored(e_test, t_test, model_cpd.mean(axis=0))[0] # use mean cpd for c-index
-    print(f"Training completed, test loss/C-index/CPD SE: " \
-          + f"{round(test_loss, 4)}/{round(c_index_result, 4)}/{round(cpd_se, 4)}")
-
-    # Make predictions by sampling from the Gaussian posterior
+    # Get MC dropout predictions
     x_pred = X_test[:3]
-    for _ in range(5): #Predictions for 5 runs
-        print(model.predict(x_pred, verbose=0)[:3].T)
-
-    if PLOT_SURV_FUNCS:
-        # Obtain survival functions
-        sample_train_ds = tf.data.Dataset.from_tensor_slices(X_train[..., np.newaxis]).batch(64)
-        train_predictions = model.predict(sample_train_ds, verbose=0).reshape(-1)
-        breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-
-        test_sample = train_test_split(X_test, y_test, e_test, t_test,
-                                       test_size=10, stratify=e_test, random_state=0)
-        x_sample, y_sample, event_sample, time_sample = test_sample[1::2]
-        sample_test_ds = tf.data.Dataset.from_tensor_slices(x_sample[..., np.newaxis]).batch(64)
-        test_predictions = model.predict(sample_test_ds, verbose=0).reshape(-1)
-        test_surv_fn = breslow.get_survival_function(test_predictions)
-
-        styles = ('-', '--')
-        plt.figure(figsize=(6, 4.5))
-        for surv_fn, lbl in zip(test_surv_fn, event_sample):
-            plt.step(surv_fn.x, surv_fn.y, where="post",
-                    linestyle=styles[int(lbl)])
-        plt.ylim(0, 1)
-        plt.ylabel("Probability of survival $P(T > t)$")
-        plt.xlabel("Time $t$")
-        plt.legend()
-        plt.grid()
-        plt.show()
+    runs = 10
+    mc_cpd = np.zeros((runs,len(x_pred)))
+    for i in range(0,runs):
+        mc_cpd[i,:] = np.reshape(model.predict(x_pred, verbose=0), len(x_pred))
+    print(mc_cpd)
+    
+    # No dropout at test time
+    #model_mc_pred = K.function([model.input, tf.constant(K.learning_phase())], [model.output])
+    #for _ in range(5): #Predictions for 5 runs
+    #    print(model_mc_pred([X_test[:3],0])[0])
+    
+   # Dropout at test time
+    #for _ in range(5):
+    #    print(model_mc_pred([X_test[:3],1])[0])
