@@ -1,3 +1,3 @@
-# bayes-surv-analysis
+# baysurv
 
 WIP
