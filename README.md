@@ -1,3 +1,3 @@
-# deep-bayesian-survival
+# baysurv
 
 WIP
