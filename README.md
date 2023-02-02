@@ -1,3 +1,3 @@
-# bayes-surv-analysis
+# bayesian-survival
 
 WIP
