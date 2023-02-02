@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from neural_risk_model import TrainAndEvaluateModel, Predictor
+from model_builder import TrainAndEvaluateModel, Predictor
+from model_builder import make_baseline_model
 from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
@@ -10,13 +11,15 @@ from data_loader import prepare_veterans_ds, prepare_cancer_ds, \
                         prepare_aids_ds, prepare_nhanes_ds # prepare funcs
 from sksurv.metrics import concordance_index_censored
 from sklearn.preprocessing import StandardScaler
+import os
+from pathlib import Path
 
-N_EPOCHS = 100
+N_EPOCHS = 10
 
 if __name__ == "__main__":
     # Load and prepare data
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_nhanes_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_nhanes_ds(y_train, y_valid, y_test)
+    X_train, X_valid, X_test, y_train, y_valid, y_test = load_veterans_ds()
+    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_veterans_ds(y_train, y_valid, y_test)
 
     # Scale data
     scaler = StandardScaler()
@@ -24,20 +27,14 @@ if __name__ == "__main__":
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
 
-    inputs = tf.keras.layers.Input(shape=X_train.shape[1:])
-    hidden1 = tf.keras.layers.Dense(30, activation="relu")(inputs)
-    hidden1= tf.keras.layers.Dropout(0.5)(hidden1)
-    hidden1 = tf.keras.layers.BatchNormalization()(hidden1)
-    output = tf.keras.layers.Dense(1, activation="linear")(hidden1)
-    model = tf.keras.Model(inputs=inputs, outputs=output)
+    optimizer = tf.keras.optimizers.Adam()
+    loss_fn = CoxPHLoss()
+    model = make_baseline_model(input_shape=X_train.shape[1:], output_dim=1) # scalar risk
 
     train_fn = InputFunction(X_train, t_train, e_train,
                              drop_last=True, shuffle=True)
-    val_fn = InputFunction(X_valid, t_valid, e_valid, drop_last=True) # for testing
-    test_fn = InputFunction(X_test, t_test, e_test, drop_last=True) #for testing
-
-    optimizer = tf.keras.optimizers.Adam()
-    loss_fn = CoxPHLoss()
+    val_fn = InputFunction(X_valid, t_valid, e_valid)
+    test_fn = InputFunction(X_test, t_test, e_test)
 
     train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
     val_loss_metric = tf.keras.metrics.Mean(name="val_loss")
@@ -81,7 +78,6 @@ if __name__ == "__main__":
 
         # Evaluate step
         val_cindex_metric.reset_states()
-
         if epoch % 10 == 0:
             for x_val, y_val in val_ds:
                 y_event = tf.expand_dims(y_val["label_event"], axis=1)
@@ -116,3 +112,8 @@ if __name__ == "__main__":
     sample_predictions = model.predict(X_test).reshape(-1)
     c_index_result = concordance_index_censored(e_test.astype(bool), t_test, sample_predictions)[0]
     print(f"Training completed, test loss/C-index: {round(test_loss, 4)}/{round(c_index_result, 4)}")
+
+    # Save model weights
+    curr_dir = os.getcwd()
+    root_dir = Path(curr_dir).absolute()
+    model.save_weights(f'{root_dir}/models/baseline/')

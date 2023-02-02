@@ -1,6 +1,38 @@
 import tensorflow as tf
+import tensorflow_probability as tfp
 import numpy as np
 from utility import CoxPHLoss, CindexMetric
+from sksurv.linear_model import CoxPHSurvivalAnalysis
+
+tfd = tfp.distributions
+tfb = tfp.bijectors
+
+def normal_sp(params):
+    return tfd.Normal(loc=params[:,0:1],
+                        scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
+
+def make_cox_model():
+    model = CoxPHSurvivalAnalysis(alpha=0.0001)
+    return model
+
+def make_baseline_model(input_shape, output_dim):
+    inputs = tf.keras.layers.Input(input_shape)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(inputs)
+    hidden = tf.keras.layers.Dense(50, activation="relu")(hidden)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(hidden)
+    output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+    return model
+
+def make_nobay_model(input_shape, output_dim):
+    inputs = tf.keras.layers.Input(shape=input_shape)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(inputs)
+    hidden = tf.keras.layers.Dense(50, activation="relu")(hidden)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(hidden)
+    params = tf.keras.layers.Dense(output_dim)(hidden)
+    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    model = tf.keras.Model(inputs=inputs, outputs=dist)
+    return model
 
 class Predictor:
     def __init__(self, model):

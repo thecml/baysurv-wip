@@ -6,3 +6,4 @@ matplotlib
 scikit-survival
 scikit-learn
 shap
+notebook
