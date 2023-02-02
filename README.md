@@ -1,3 +1,3 @@
-# bayesian-survival
+# deep-bayesian-survival
 
 WIP
