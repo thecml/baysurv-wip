@@ -26,8 +26,8 @@ if __name__ == "__main__":
     X_valid = scaler.transform(X_valid)
     X_test = scaler.transform(X_test)
    
-    # MC    
-    def normal_exp(params): 
+    # MC Dropout
+    def normal_exp(params):
         return tfd.Normal(loc=params[:,0:1], scale=tf.math.exp(params[:,1:2]))# both parameters are learnable
     
     optimizer = tf.keras.optimizers.Adam()
