@@ -67,7 +67,7 @@ if __name__ == "__main__":
     step_size = 0.1
     
     initial_chain_state = [
-        tf.cast(1., dtype=tf.float32) * tf.ones([], name='init_alpha', dtype=tf.float32),s
+        tf.cast(1., dtype=tf.float32) * tf.ones([], name='init_alpha', dtype=tf.float32),
         tf.cast(0.01, dtype=tf.float32) * tf.ones([], name='init_beta', dtype=tf.float32),
     ]
     
