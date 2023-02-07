@@ -1,7 +1,56 @@
 import tensorflow as tf
+import tensorflow_probability as tfp
 import numpy as np
 from typing import Tuple, Dict, Iterable, Optional, Sequence
 from sksurv.metrics import concordance_index_censored
+
+class _TFColor(object):
+    """Enum of colors used in TF docs."""
+    red = '#F15854'
+    blue = '#5DA5DA'
+    orange = '#FAA43A'
+    green = '#60BD68'
+    pink = '#F17CB0'
+    brown = '#B2912F'
+    purple = '#B276B2'
+    yellow = '#DECF3F'
+    gray = '#4D4D4D'
+    def __getitem__(self, i):
+        return [
+            self.red,
+            self.orange,
+            self.green,
+            self.blue,
+            self.pink,
+            self.brown,
+            self.purple,
+            self.yellow,
+            self.gray,
+        ][i % 9]
+TFColor = _TFColor()
+
+@tf.function
+def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
+    inner_kernel=tfp.mcmc.HamiltonianMonteCarlo(
+        target_log_prob_fn=log_prob,
+        step_size=0.1,
+        num_leapfrog_steps=8
+    )
+    if bijectors_list is not None:
+        inner_kernel = tfp.mcmc.TransformedTransitionKernel(inner_kernel, bijectors_list)
+
+    adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
+        inner_kernel=inner_kernel,
+        num_adaptation_steps=int(n_burnin_steps * 0.8)
+    )
+
+    return tfp.mcmc.sample_chain(
+        num_results=n_steps,
+        current_state=inits,
+        kernel=adaptive_kernel,
+        num_burnin_steps=n_burnin_steps,
+        trace_fn=None
+    )
 
 def convert_to_structured(T, E):
     """
