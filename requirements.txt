@@ -7,3 +7,4 @@ scikit-survival
 scikit-learn
 shap
 notebook
+seaborn
