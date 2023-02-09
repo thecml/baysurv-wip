@@ -46,13 +46,10 @@ def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
 
     return tfp.mcmc.sample_chain(
         num_results=n_steps,
-        current_state=[
-            tf.convert_to_tensor([[1.0], [1.0]], dtype=tf.float32),
-            tf.convert_to_tensor([1.0], dtype=tf.float32),
-        ],
+        current_state=inits,
         kernel=adaptive_kernel,
         num_burnin_steps=n_burnin_steps,
-        trace_fn=lambda _, pkr: pkr.inner_results.is_accepted
+        trace_fn=None
     )
 
 def convert_to_structured(T, E):

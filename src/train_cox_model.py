@@ -25,8 +25,13 @@ if __name__ == "__main__":
 
     model = make_cox_model()
     model.fit(X_train, y_train)
+    predictions = model.predict(X_valid)
 
-    #result = concordance_index_censored(y_test["Status"], y_test["Survival_in_days"], prediction) # veteran
+    print(model.coef_)
+    print(predictions)
+
+    result = concordance_index_censored(y_test["Status"], y_test["Survival_in_days"], predictions)[0] # veteran
+    print(result)
     #result = concordance_index_censored(y_test["cens"], y_test["time"], prediction) # cancer
     #result = concordance_index_censored(y_test["censor"], y_test["time"], prediction) # aids
     #result = concordance_index_censored(y_test["censor"], y_test["time"], prediction) # nhanes
