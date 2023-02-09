@@ -46,7 +46,10 @@ def load_veteran_ds():
 if __name__ == "__main__":
     x_cens, x_obs, y_cens, y_obs = load_veteran_ds()
 
-    #https://www.tensorflow.org/probability/examples/JointDistributionAutoBatched_A_Gentle_Tutorial
+    # Sources:
+    # https://adamhaber.github.io/post/survival-analysis/
+    # https://juanitorduz.github.io/tfp_lm/
+    # https://www.tensorflow.org/probability/examples/JointDistributionAutoBatched_A_Gentle_Tutorial
     obs_model = tfd.JointDistributionSequentialAutoBatched([
             tfd.Normal(loc=0, scale=1), # alpha
             tfd.Normal(loc=[[tf.cast(0.0, DTYPE)], [tf.cast(0.0, DTYPE)]],
