@@ -49,7 +49,7 @@ def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
         current_state=inits,
         kernel=adaptive_kernel,
         num_burnin_steps=n_burnin_steps,
-        trace_fn=None
+        trace_fn=lambda _, pkr: pkr.inner_results.is_accepted
     )
 
 def convert_to_structured(T, E):
@@ -64,7 +64,7 @@ def convert_to_structured(T, E):
             as first field, and time of event or time of censoring as second field
     """
     # dtypes for conversion
-    default_dtypes = {"names": ("censor", "time"), "formats": ("bool", "f8")}
+    default_dtypes = {"names": ("Event", "Time"), "formats": ("bool", "f8")}
 
     # concat of events and times
     concat = list(zip(E, T))
