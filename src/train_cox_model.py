@@ -19,32 +19,27 @@ if __name__ == "__main__":
     X_train, X_valid, X_test, y_train, y_valid, y_test = load_veterans_ds()
     t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_veterans_ds(y_train, y_valid, y_test)
 
-    y_train_struc = convert_to_structured(t_train, e_train) # for convience
-    y_valid_struc = convert_to_structured(t_valid, e_valid)
-
     # For nhanes only
     if DATASET == 'NHANES':
         y_train = convert_to_structured(y_train, np.ones(len(y_train)))
         y_test = convert_to_structured(y_test, np.ones(len(y_test)))
 
     model = make_cox_model()
-    model.fit(X_train, y_train) # test
-    predictions = model.predict(X_valid)
+    model.fit(X_train, y_train)
 
-    print(model.coef_)
-    print(predictions)
-
-    # Calculate C-index
-    c_index = concordance_index_censored(y_test["Status"], y_test["Survival_in_days"], predictions)[0] # veteran
-    print(c_index)
-    
-    # Calculate Brier score
-    lower, upper = np.percentile(t_valid[t_valid.dtype.names], [10, 90])
+    # Calculate scores
+    predictions = model.predict(X_test)
+    c_index = concordance_index_censored(y_test["Status"], y_test["Survival_in_days"], predictions)[0] # veteran    
+    lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
     times = np.arange(lower, upper+1)
-    survs = model.predict_survival_function(X_valid)
+    survs = model.predict_survival_function(X_test)
     preds = np.asarray([[fn(t) for t in times] for fn in survs])
-    ibs = integrated_brier_score(y_train_struc, y_valid_struc, preds, times)
-    print(ibs)
+    
+    y_train_struc = convert_to_structured(t_train, e_train)
+    y_test_struc = convert_to_structured(t_test, e_test)
+    
+    ibs = integrated_brier_score(y_train_struc, y_test_struc, preds, times)
+    print(f"Training completed, test C-index/BS: {round(c_index, 4)}/{round(ibs, 4)}")
     
     #result = concordance_index_censored(y_test["cens"], y_test["time"], prediction) # cancer
     #result = concordance_index_censored(y_test["censor"], y_test["time"], prediction) # aids

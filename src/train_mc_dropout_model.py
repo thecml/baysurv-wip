@@ -1,7 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from neural_risk_model import TrainAndEvaluateModel, Predictor
 from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator

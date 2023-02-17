@@ -11,6 +11,9 @@ def normal_sp(params):
     return tfd.Normal(loc=params[:,0:1],
                         scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
 
+def normal_fs(params):
+    return tfd.Normal(loc=params[:,0:1], scale=1)
+
 def make_cox_model():
     model = CoxPHSurvivalAnalysis(alpha=0.0001)
     return model
@@ -31,6 +34,30 @@ def make_nobay_model(input_shape, output_dim):
     hidden = tf.keras.layers.Dense(20, activation="relu")(hidden)
     params = tf.keras.layers.Dense(output_dim)(hidden)
     dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    model = tf.keras.Model(inputs=inputs, outputs=dist)
+    return model
+
+def make_vi_model(n_train_samples, input_shape, output_dim):
+    kernel_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
+    bias_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
+    inputs = tf.keras.layers.Input(shape=input_shape)
+    hidden = tfp.layers.DenseFlipout(20,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(inputs)
+    hidden = tfp.layers.DenseFlipout(50,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(hidden)
+    hidden = tfp.layers.DenseFlipout(20,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn,activation="relu")(hidden)
+    params = tfp.layers.DenseFlipout(output_dim,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                     bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                     kernel_divergence_fn=kernel_divergence_fn,
+                                     bias_divergence_fn=bias_divergence_fn)(hidden)
+    dist = tfp.layers.DistributionLambda(normal_fs)(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 
