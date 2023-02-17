@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
-from data_loader import load_veterans_ds, prepare_veterans_ds
+from data_loader import load_veterans_ds, prepare_veterans_ds, load_cancer_ds, \
+                        prepare_cancer_ds, load_aids_ds, prepare_aids_ds
 from sklearn.preprocessing import StandardScaler
 from utility import InputFunction, CindexMetric, CoxPHLoss, _make_riskset, sample_hmc
 import matplotlib.pyplot as plt
@@ -18,9 +19,9 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 
 DTYPE = tf.float32
-N_CHAINS = 1
+N_CHAINS = 8
 
-def load_cats_ds():
+def load_cats():
     curr_dir = os.getcwd()
     root_dir = Path(curr_dir).absolute().parent.parent
     df = pd.read_csv(Path().joinpath(root_dir, "downloads/AustinCats.csv"), delimiter=";")
@@ -32,10 +33,33 @@ def load_cats_ds():
     y_obs = tf.convert_to_tensor(df.query('adopted==1').days_to_event, dtype=DTYPE)
     return x_cens, x_obs, y_cens, y_obs
 
-def load_veteran_ds():
+def load_veteran():
     X_train, _, _, y_train, y_valid, y_test = load_veterans_ds()
     t_train, _, _, e_train, _, _  = prepare_veterans_ds(y_train, y_valid, y_test)
-    X_train = np.array(X_train)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    y_obs = tf.convert_to_tensor(t_train[e_train], dtype=DTYPE)
+    y_cens = tf.convert_to_tensor(t_train[~e_train], dtype=DTYPE)
+    x_obs = tf.convert_to_tensor(X_train[e_train], dtype=DTYPE)
+    x_cens = tf.convert_to_tensor(X_train[~e_train], dtype=DTYPE)
+    return x_cens, x_obs, y_cens, y_obs
+
+def load_cancer():
+    X_train, _, _, y_train, y_valid, y_test = load_cancer_ds()
+    t_train, _, _, e_train, _, _  = prepare_cancer_ds(y_train, y_valid, y_test)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    y_obs = tf.convert_to_tensor(t_train[e_train], dtype=DTYPE)
+    y_cens = tf.convert_to_tensor(t_train[~e_train], dtype=DTYPE)
+    x_obs = tf.convert_to_tensor(X_train[e_train], dtype=DTYPE)
+    x_cens = tf.convert_to_tensor(X_train[~e_train], dtype=DTYPE)
+    return x_cens, x_obs, y_cens, y_obs
+
+def load_aids():
+    X_train, _, _, y_train, y_valid, y_test = load_aids_ds()
+    t_train, _, _, e_train, _, _  = prepare_aids_ds(y_train, y_valid, y_test)
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
     y_obs = tf.convert_to_tensor(t_train[e_train], dtype=DTYPE)
     y_cens = tf.convert_to_tensor(t_train[~e_train], dtype=DTYPE)
     x_obs = tf.convert_to_tensor(X_train[e_train], dtype=DTYPE)
@@ -43,8 +67,8 @@ def load_veteran_ds():
     return x_cens, x_obs, y_cens, y_obs
 
 if __name__ == "__main__":
-    x_cens, x_obs, y_cens, y_obs = load_cats_ds()
-    n_dims = 1
+    x_cens, x_obs, y_cens, y_obs = load_cancer()
+    n_dims = x_cens.shape[1]
 
     obs_model = tfd.JointDistributionSequentialAutoBatched([
             tfd.Normal(loc=tf.zeros([1]), scale=tf.ones([1])), # alpha
@@ -62,7 +86,7 @@ if __name__ == "__main__":
 
     number_of_steps = 10000
     number_burnin_steps = 1000
-
+    
     # Sample from the prior
     initial_coeffs = obs_model.sample(1)
 
@@ -70,11 +94,25 @@ if __name__ == "__main__":
     unnormalized_post_log_prob = lambda *args: log_prob(x_obs, x_cens, y_obs, y_cens, *args)
     chains = [sample_hmc(unnormalized_post_log_prob, [tf.zeros_like(initial_coeffs[0]),
                                                       tf.zeros_like(initial_coeffs[1])],
-                         n_steps=number_of_steps, n_burnin_steps=number_burnin_steps) for i in range(N_CHAINS)]
+                         n_steps=number_of_steps, n_burnin_steps=number_burnin_steps) for _ in range(N_CHAINS)]
     
-    # Calculate accepted mean
-    accepted_samples = chains[0][1][number_burnin_steps:]
-    print('Acceptance rate: %0.1f%%' % (100*np.mean(accepted_samples)))
+    # Calculate target accept prob
+    for chain_id in range(N_CHAINS):
+        log_accept_ratio = chains[chain_id][1][1][number_burnin_steps:]
+        target_accept_prob = tf.math.exp(tfp.math.reduce_logmeanexp(tf.minimum(log_accept_ratio, 0.))).numpy()
+        print(f'Target acceptance probability for {chain_id}: {round(100*target_accept_prob)}%')
+
+    # Calculate accepted rate
+    plt.figure(figsize=(10,6))
+    for chain_id in range(N_CHAINS):
+        accepted_samples = chains[chain_id][1][0][number_burnin_steps:]
+        print(f'Acceptance rate chain for {chain_id}: {round(100*np.mean(accepted_samples), 2)}%')
+        n_accepted_samples = len(accepted_samples)
+        n_bins = int(n_accepted_samples/100)
+        sample_indicies = np.linspace(0, n_accepted_samples, n_bins)
+        means = [np.mean(accepted_samples[:int(idx)]) for idx in sample_indicies[5:]]
+        plt.plot(np.arange(len(means)), means)
+    plt.show()
     
     # Save chains
     curr_dir = os.getcwd()

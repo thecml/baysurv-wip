@@ -23,7 +23,7 @@ if __name__ == "__main__":
     X_valid = np.array(X_valid)
     X_test = np.array(X_test)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.002)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     loss_fn = CoxPHLoss()
 
     def normal_sp(params):

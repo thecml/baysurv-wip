@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 import shap
 
 def split_data(X, y):
-    X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=0.8, random_state=0)
+    X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=0.7, random_state=0)
     X_valid, X_test, y_valid, y_test = train_test_split(X_rem, y_rem, test_size=0.5, random_state=0)
     return X_train, X_valid, X_test, y_train, y_valid, y_test
 
