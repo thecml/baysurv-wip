@@ -1,21 +1,34 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
 import numpy as np
-from utility import CoxPHLoss, CindexMetric
+from utility.loss import CoxPHLoss
+from utility.metrics import CindexMetric
 from sksurv.linear_model import CoxPHSurvivalAnalysis
+from sksurv.ensemble import RandomSurvivalForest
+
+class MonteCarloDropout(tf.keras.layers.Dropout):
+  def call(self, inputs):
+    return super().call(inputs, training=True)
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
 
 def normal_sp(params):
     return tfd.Normal(loc=params[:,0:1],
-                        scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
+                      scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
 
 def normal_fs(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
 
+def normal_exp(params):
+    return tfd.Normal(loc=params[:,0:1], scale=tf.math.exp(params[:,1:2]))
+
 def make_cox_model():
     model = CoxPHSurvivalAnalysis(alpha=0.0001)
+    return model
+
+def make_rsf_model():
+    model = RandomSurvivalForest(random_state=0)
     return model
 
 def make_baseline_model(input_shape, output_dim):
@@ -57,7 +70,20 @@ def make_vi_model(n_train_samples, input_shape, output_dim):
                                      bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
                                      kernel_divergence_fn=kernel_divergence_fn,
                                      bias_divergence_fn=bias_divergence_fn)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_fs)(params)
+    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    model = tf.keras.Model(inputs=inputs, outputs=dist)
+    return model
+
+def make_mc_dropout_model(input_shape, output_dim):
+    inputs = tf.keras.layers.Input(shape=input_shape)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(inputs)
+    hidden = MonteCarloDropout(0.25)(hidden) # run dropout in testing too
+    hidden = tf.keras.layers.Dense(50, activation="relu")(hidden)
+    hidden = MonteCarloDropout(0.25)(hidden)
+    hidden = tf.keras.layers.Dense(20, activation="relu")(hidden)
+    hidden = MonteCarloDropout(0.25)(hidden)
+    params = tf.keras.layers.Dense(output_dim)(hidden)
+    dist = tfp.layers.DistributionLambda(normal_exp, name='normal_exp')(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 

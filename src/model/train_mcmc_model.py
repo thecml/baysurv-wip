@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import tensorflow as tf
-from data_loader import load_veterans_ds, prepare_veterans_ds, load_cancer_ds, \
+from tools.data_loader import load_veterans_ds, prepare_veterans_ds, load_cancer_ds, \
                         prepare_cancer_ds, load_aids_ds, prepare_aids_ds
 from sklearn.preprocessing import StandardScaler
 from utility import InputFunction, CindexMetric, CoxPHLoss, _make_riskset, sample_hmc, convert_to_structured

@@ -1,44 +1,50 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from model_builder import TrainAndEvaluateModel, Predictor
 from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 import tensorflow_probability as tfp
-from data_loader import load_cancer_ds, prepare_cancer_ds, load_veterans_ds, prepare_veterans_ds
-from model_builder import make_vi_model
+from tools.data_loader import load_cancer_ds, prepare_cancer_ds, load_nhanes_ds, prepare_nhanes_ds, load_support_ds, prepare_support_ds
 from sksurv.metrics import concordance_index_censored
+from tools.model_builder import make_mc_dropout_model
+from sklearn.preprocessing import StandardScaler
 import os
 from pathlib import Path
-from sklearn.preprocessing import StandardScaler
+from tools.preprocessor import Preprocessor
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
 
-N_EPOCHS = 25
+N_EPOCHS = 10
 
 if __name__ == "__main__":
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_veterans_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_veterans_ds(y_train, y_valid, y_test)
-
+    # Load data
+    X_train, X_valid, X_test, y_train, y_valid, y_test = load_support_ds()
+    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_support_ds(y_train, y_valid, y_test)
+    
     # Scale data
-    scaler = StandardScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_valid = scaler.transform(X_valid)
-    X_test = scaler.transform(X_test)
-
+    cat_feats = ['sex', 'dzgroup', 'dzclass', 'income', 'race', 'ca']
+    num_feats = ['age', 'num.co', 'meanbp', 'wblc', 'hrt', 'resp', 
+                'temp', 'pafi', 'alb', 'bili', 'crea', 'sod', 'ph', 
+                'glucose', 'bun', 'urine', 'adlp', 'adls']
+    preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat= 'mean') 
+    transformer = preprocessor.fit(X_train, cat_feats=cat_feats, num_feats=num_feats,
+                                   one_hot=True, fill_value=-1)
+    x_tr = transformer.transform(X_train)
+    x_val = transformer.transform(X_valid)
+    x_te = transformer.transform(X_test)
+    
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     loss_fn = CoxPHLoss()
-  
-    # VI
-    model = make_vi_model(n_train_samples=X_train.shape[0],
-                          input_shape=X_train.shape[1:],
-                          output_dim=1) # output_dim=1 to only model epistemic uncertainty
 
+    # MC Dropout
+    model = make_mc_dropout_model(input_shape=X_train.shape[1:],
+                                  output_dim=2)
+    
     train_fn = InputFunction(X_train, t_train, e_train, drop_last=True, shuffle=True)
-    val_fn = InputFunction(X_valid, t_valid, e_valid)
-    test_fn = InputFunction(X_test, t_test, e_test)
+    val_fn = InputFunction(X_valid, t_valid, e_valid, drop_last=True) #for testing
+    test_fn = InputFunction(X_test, t_test, e_test, drop_last=True) #for testing
 
     train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
     val_loss_metric = tf.keras.metrics.Mean(name="val_loss")
@@ -53,16 +59,12 @@ if __name__ == "__main__":
     test_ds = test_fn()
 
     for epoch in range(N_EPOCHS):
-        # Run training loop
-        train_loss_metric.reset_states()
-        kl_loss = list()
+        #Training step
         for x, y in train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
                 logits = model(x, training=True).sample()
                 train_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                train_loss = train_loss + tf.reduce_mean(model.losses) # CoxPHLoss + KL-divergence
-                kl_loss.append(tf.reduce_mean(model.losses))
 
             with tf.name_scope("gradients"):
                 grads = tape.gradient(train_loss, model.trainable_weights)
@@ -74,29 +76,29 @@ if __name__ == "__main__":
         # Save metrics
         mean_loss = train_loss_metric.result()
         train_loss_scores.append(float(mean_loss))
-        train_loss_metric.reset_states()
-        val_cindex_metric.reset_states()
-
+        
         # Run validation loop
-        val_loss_metric.reset_states()
+        train_loss_metric.reset_states()
         val_cindex_metric.reset_states()
         for x_val, y_val in val_ds:
             y_event = tf.expand_dims(y_val["label_event"], axis=1)
             val_logits = model(x_val, training=False).sample()
             val_loss = loss_fn(y_true=[y_event, y_val["label_riskset"]], y_pred=val_logits)
-
+            
             # Update val metrics
             val_loss_metric.update_state(val_loss)
             val_cindex_metric.update_state(y_val, val_logits)
-
+        
         val_loss = val_loss_metric.result()
         val_cindex = val_cindex_metric.result()
         
         val_loss_scores.append(float(val_loss))
         val_cindex_scores.append(val_cindex['cindex'])
-
-        print(f"Training loss = {train_loss:.4f}, Validation: loss = {val_loss:.4f}, C-index = {val_cindex['cindex']:.4f}")
-
+        
+        print(f"Training loss = {train_loss:.4f} - " + \
+              f"Validation loss = {val_loss:.4f} - " + \
+              f"C-index = {val_cindex['cindex']:.4f}")
+    
     # Compute test loss
     for x, y in test_ds:
         y_event = tf.expand_dims(y["label_event"], axis=1)
@@ -104,7 +106,7 @@ if __name__ == "__main__":
         test_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=test_logits)
         test_loss_metric.update_state(test_loss)
     test_loss = float(test_loss_metric.result())
-
+    
     # Compute average Harrell's c-index
     runs = 100
     model_cpd = np.zeros((runs, len(X_test)))
@@ -118,4 +120,21 @@ if __name__ == "__main__":
     # Save model weights
     curr_dir = os.getcwd()
     root_dir = Path(curr_dir).absolute()
-    model.save_weights(f'{root_dir}/models/vi/')
+    model.save_weights(f'{root_dir}/models/mc_dropout/')
+        
+    # Get MC dropout predictions
+    #x_pred = X_test[:3]
+    #runs = 10
+    #mc_cpd = np.zeros((runs,len(x_pred)))
+    #for i in range(0,runs):
+    #    mc_cpd[i,:] = np.reshape(model.predict(x_pred, verbose=0), len(x_pred))
+    #print(mc_cpd)
+    
+    # No dropout at test time
+    #model_mc_pred = K.function([model.input, tf.constant(K.learning_phase())], [model.output])
+    #for _ in range(5): #Predictions for 5 runs
+    #    print(model_mc_pred([X_test[:3],0])[0])
+    
+   # Dropout at test time
+    #for _ in range(5):
+    #    print(model_mc_pred([X_test[:3],1])[0])

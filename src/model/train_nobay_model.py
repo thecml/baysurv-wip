@@ -1,24 +1,24 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from model_builder import TrainAndEvaluateModel, Predictor, make_nobay_model
+from tools.model_builder import TrainAndEvaluateModel, Predictor, make_nobay_model
 from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 import tensorflow_probability as tfp
-from data_loader import load_cancer_ds, prepare_cancer_ds, \
+from tools.data_loader import load_cancer_ds, prepare_cancer_ds, \
                         load_veterans_ds, prepare_veterans_ds
 from sksurv.metrics import concordance_index_censored
 import os
 from pathlib import Path
 from sklearn.preprocessing import StandardScaler
 
-N_EPOCHS = 10
+N_EPOCHS = 20
 
 if __name__ == "__main__":
     # Load data
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_veterans_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_veterans_ds(y_train, y_valid, y_test)
+    X_train, X_valid, X_test, y_train, y_valid, y_test = load_cancer_ds()
+    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_cancer_ds(y_train, y_valid, y_test)
     
     # Scale data
     scaler = StandardScaler()
@@ -94,12 +94,13 @@ if __name__ == "__main__":
     test_loss = float(test_loss_metric.result())
 
     # Compute average Harrell's c-index
-    runs = 10
+    runs = 100
     model_nobay = np.zeros((runs, len(X_test)))
     for i in range(0, runs):
         model_nobay[i,:] = np.reshape(model.predict(X_test, verbose=0), len(X_test))
     cpd_se = np.std(model_nobay, ddof=1) / np.sqrt(np.size(model_nobay)) # standard error
-    c_index_result = concordance_index_censored(e_test, t_test, model_nobay.mean(axis=0))[0] # use mean cpd for c-index
+    predictions = model_nobay.mean(axis=0)
+    c_index_result = concordance_index_censored(e_test, t_test, predictions)[0] # use mean cpd for c-index
     print(f"Training completed, test loss/C-index/CPD SE: " \
           + f"{round(test_loss, 4)}/{round(c_index_result, 4)}/{round(cpd_se, 4)}")
 

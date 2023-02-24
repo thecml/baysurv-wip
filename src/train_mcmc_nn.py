@@ -12,7 +12,7 @@ import tensorflow as tf
 import tensorflow_probability as tfp
 from utility import sample_hmc
 from sklearn.preprocessing import StandardScaler
-from data_loader import load_veterans_ds, prepare_veterans_ds
+from tools.data_loader import load_veterans_ds, prepare_veterans_ds
 from utility import _make_riskset
 from utility import CoxPHLoss
 
