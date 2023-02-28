@@ -24,18 +24,18 @@ if __name__ == "__main__":
     # Load data
     X_train, _, X_test, y_train, y_valid, y_test = load_veterans_ds()
     t_train, _, t_test, e_train, _, e_test  = prepare_veterans_ds(y_train, y_valid, y_test)
-    
+
     # Scale data
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_test = scaler.transform(X_test)
-    
+
     # Split training data in observed/unobserved
     y_obs = tf.convert_to_tensor(t_train[e_train], dtype=DTYPE)
     y_cens = tf.convert_to_tensor(t_train[~e_train], dtype=DTYPE)
     x_obs = tf.convert_to_tensor(X_train[e_train], dtype=DTYPE)
     x_cens = tf.convert_to_tensor(X_train[~e_train], dtype=DTYPE)
- 
+
     n_dims = x_cens.shape[1]
 
     obs_model = tfd.JointDistributionSequentialAutoBatched([
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     n_chains = 5
     number_of_steps = 10000
     number_burnin_steps = int(number_of_steps/10)
-    
+
     # Sample from the prior
     initial_coeffs = obs_model.sample(1)
 
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     chains = [sample_hmc(unnormalized_post_log_prob, [tf.zeros_like(initial_coeffs[0]),
                                                       tf.zeros_like(initial_coeffs[1])],
                          n_steps=number_of_steps, n_burnin_steps=number_burnin_steps) for _ in range(n_chains)]
-    
+
     # Calculate target accept prob
     for chain_id in range(n_chains):
         log_accept_ratio = chains[chain_id][1][1][number_burnin_steps:]
@@ -82,10 +82,10 @@ if __name__ == "__main__":
         means = [np.mean(accepted_samples[:int(idx)]) for idx in sample_indicies[5:]]
         plt.plot(np.arange(len(means)), means)
     plt.show()
-    
+
     # Take mean of combined chains to get alpha and beta values
     chains = [chain[0] for chain in chains] # leave out traces
-    
+
     chain_index = 0
     samples_index = 0
     beta_index = 1
@@ -94,15 +94,17 @@ if __name__ == "__main__":
     chains_samples = [tf.squeeze(tf.concat(samples, axis=0)) for samples in chains_t]
     alpha = tf.reduce_mean(chains_samples[0]).numpy().flatten()
     betas = tf.reduce_mean(chains_samples[1], axis=0).numpy().flatten()
-    
+
     # Make predictions on test set
     predict_func = lambda data: np.exp(alpha + np.dot(betas, np.transpose(data)))
     test_preds = np.zeros((len(X_test)))
     for i, data in enumerate(X_test):
         test_preds[i] = predict_func(data)
-        
-    # Calculate scores based on test predictions
+
+    # Calculate concordance index
     c_index = concordance_index_censored(e_test, t_test, -test_preds)[0]
+
+    # Calculate Brier score
     lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
     times = np.arange(lower, upper+1)
     estimate = np.zeros((len(X_test), len(times)))

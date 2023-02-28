@@ -1,21 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tools.model_builder import TrainAndEvaluateModel, Predictor
-from utility import InputFunction, CindexMetric, CoxPHLoss
-from sklearn.model_selection import train_test_split
-from sksurv.linear_model.coxph import BreslowEstimator
+from utility.risk import InputFunction
+from utility.metrics import CindexMetric
+from utility.loss import CoxPHLoss
 import tensorflow_probability as tfp
-from tools.data_loader import load_cancer_ds, prepare_cancer_ds, \
-                        load_veterans_ds, prepare_veterans_ds, \
-                        load_aids_ds, prepare_aids_ds, \
-                        load_nhanes_ds, prepare_nhanes_ds
 
 from tools.model_builder import make_vi_model
 from sksurv.metrics import concordance_index_censored
 from sklearn.preprocessing import StandardScaler
 import os
 from pathlib import Path
+from tools import data_loader
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
@@ -23,8 +19,9 @@ tfb = tfp.bijectors
 N_EPOCHS = 50
 
 if __name__ == "__main__":
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_cancer_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_cancer_ds(y_train, y_valid, y_test)
+    dl = data_loader.CancerDataLoader().load_data()
+    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data()
+    t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
 
     # Scale data
     scaler = StandardScaler()
@@ -34,7 +31,7 @@ if __name__ == "__main__":
 
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     loss_fn = CoxPHLoss()
-  
+
     # VI
     model = make_vi_model(n_train_samples=X_train.shape[0],
                           input_shape=X_train.shape[1:],
@@ -95,7 +92,7 @@ if __name__ == "__main__":
 
         val_loss = val_loss_metric.result()
         val_cindex = val_cindex_metric.result()
-        
+
         val_loss_scores.append(float(val_loss))
         val_cindex_scores.append(val_cindex['cindex'])
 
@@ -120,7 +117,7 @@ if __name__ == "__main__":
     c_index_result = concordance_index_censored(e_test, t_test, model_cpd.mean(axis=0))[0] # use mean cpd for c-index
     print(f"Training completed, test loss/C-index/CPD SE: " \
           + f"{round(test_loss, 4)}/{round(c_index_result, 4)}/{round(cpd_se, 4)}")
-    
+
     # Save model weights
     curr_dir = os.getcwd()
     root_dir = Path(curr_dir).absolute()

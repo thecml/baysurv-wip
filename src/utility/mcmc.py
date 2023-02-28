@@ -8,7 +8,7 @@ def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
         step_size=0.1,
         num_leapfrog_steps=2
     )
-    
+
     if bijectors_list is not None:
         inner_kernel = tfp.mcmc.TransformedTransitionKernel(inner_kernel, bijectors_list)
 

@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids
-from auton_survival import datasets
 from sklearn.model_selection import train_test_split
 import shap
 from abc import ABC, abstractmethod
@@ -19,11 +18,11 @@ class BaseDataLoader(ABC):
         self.y: np.ndarray = None
         self.num_features: List[str] = None
         self.cat_features: List[str] = None
-        
+
     @abstractmethod
     def load_data(self) -> None:
         """Loads the data from a data set at startup"""
-    
+
     @abstractmethod
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
         """Makes time/event split of y"""
@@ -53,23 +52,23 @@ class BaseDataLoader(ABC):
         y = self.y
         cat_features = self.cat_features
         num_features = self.num_features
-        
+
         X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=test_size, random_state=0)
         X_valid, X_test, y_valid, y_test = train_test_split(X_rem, y_rem, test_size=0.5, random_state=0)
-        
+
         preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
         transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                        one_hot=True, fill_value=-1)
         X_train = transformer.transform(X_train)
         X_valid = transformer.transform(X_valid)
         X_test = transformer.transform(X_test)
-    
-        X_train = np.array(X_train)
-        X_valid = np.array(X_valid)
-        X_test = np.array(X_test)
+
+        X_train = np.array(X_train, dtype=np.float32)
+        X_valid = np.array(X_valid, dtype=np.float32)
+        X_test = np.array(X_test, dtype=np.float32)
 
         return X_train, X_valid, X_test, y_train, y_valid, y_test
-    
+
 class SupportDataLoader(BaseDataLoader):
     """
     Data loader for SUPPORT dataset
@@ -81,7 +80,7 @@ class SupportDataLoader(BaseDataLoader):
         self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
         self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
         return self
-    
+
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
         t_train = np.array(y_train['time'])
         t_valid = np.array(y_valid['time'])
@@ -90,7 +89,7 @@ class SupportDataLoader(BaseDataLoader):
         e_valid = np.array(y_valid['event'])
         e_test = np.array(y_test['event'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
-    
+
 class NhanesDataLoader(BaseDataLoader):
     """
     Data loader for NHANES dataset
@@ -102,7 +101,7 @@ class NhanesDataLoader(BaseDataLoader):
         self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
         self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
         return self
-    
+
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
         t_train = np.array(y_train)
         t_valid = np.array(y_valid)
@@ -138,7 +137,7 @@ class CancerDataLoader(BaseDataLoader):
         self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
         self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
         return self
-    
+
     def make_time_event_split(self, y_train, y_valid, y_test) -> Tuple[np.ndarray, np.ndarray,
                                                                        np.ndarray, np.ndarray,
                                                                        np.ndarray, np.ndarray]:
@@ -149,7 +148,7 @@ class CancerDataLoader(BaseDataLoader):
         e_valid = np.array(y_valid['cens'])
         e_test = np.array(y_test['cens'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
-    
+
 class VeteransDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         data_x, data_y = load_veterans_lung_cancer()
@@ -158,7 +157,7 @@ class VeteransDataLoader(BaseDataLoader):
         self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
         self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
         return self
-    
+
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
         t_train = np.array(y_train['Survival_in_days'])
         t_valid = np.array(y_valid['Survival_in_days'])
