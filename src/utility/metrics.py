@@ -8,6 +8,12 @@ from utility.survival import convert_to_structured
     
 class CindexMetric:
     """Computes concordance index across one epoch."""
+    def __init__(self) -> None:
+        self._data = {
+            "label_time": [],
+            "label_event": [],
+            "prediction": []
+        }
 
     def reset_states(self) -> None:
         """Clear the buffer of collected values."""

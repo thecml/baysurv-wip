@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids
 from sklearn.model_selection import train_test_split
+from auton_survival import datasets
 import shap
 from abc import ABC, abstractmethod
 from typing import Tuple, List
@@ -36,16 +37,16 @@ class BaseDataLoader(ABC):
 
     def get_features(self) -> List[str]:
         """
-        This method returns the feature names
+        This method returns the names of numerical and categorial features
         :return: the columns of X as a list
         """
-        return self.X.columns
+        return self.num_features, self.cat_features
 
-    def prepare_data(self, test_size: float = 0.7) -> Tuple[np.ndarray, np.ndarray,
-                                                      np.ndarray, np.ndarray]:
+    def prepare_data(self, train_size: float = 0.7) -> Tuple[np.ndarray, np.ndarray,
+                                                             np.ndarray, np.ndarray]:
         """
         This method prepares and splits the data from a data set
-        :param test_size: the size of the test set
+        :param train_size: the size of the train set
         :return: a split train and test dataset
         """
         X = self.X
@@ -53,7 +54,7 @@ class BaseDataLoader(ABC):
         cat_features = self.cat_features
         num_features = self.num_features
 
-        X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=test_size, random_state=0)
+        X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=train_size, random_state=0)
         X_valid, X_test, y_valid, y_test = train_test_split(X_rem, y_rem, test_size=0.5, random_state=0)
 
         preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
@@ -78,16 +79,17 @@ class SupportDataLoader(BaseDataLoader):
         self.X = pd.DataFrame(features)
         self.y = np.array(outcomes)
         self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.cat_features = self.X.select_dtypes(['category']).columns.tolist() \
+                            + self.X.select_dtypes(['object']).columns.tolist()
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
-        t_train = np.array(y_train['time'])
-        t_valid = np.array(y_valid['time'])
-        t_test = np.array(y_test['time'])
-        e_train = np.array(y_train['event'])
-        e_valid = np.array(y_valid['event'])
-        e_test = np.array(y_test['event'])
+        t_train = np.array(y_train[:,1])
+        t_valid = np.array(y_valid[:,1])
+        t_test = np.array(y_test[:,1])
+        e_train = np.array(y_train[:,0])
+        e_valid = np.array(y_valid[:,0])
+        e_test = np.array(y_test[:,0])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
 
 class NhanesDataLoader(BaseDataLoader):

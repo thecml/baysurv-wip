@@ -13,7 +13,7 @@ class InputFunction:
         Observed time.
     event : np.ndarray, shape=(n_samples,)
         Event indicator.
-    batch_size : int, optional, default=64
+    batch_size : int, optional, default=32
         Number of samples per batch.
     drop_last : int, optional, default=False
         Whether to drop the last incomplete batch.
@@ -27,7 +27,7 @@ class InputFunction:
                  data: np.ndarray,
                  time: np.ndarray,
                  event: np.ndarray,
-                 batch_size: int = 64,
+                 batch_size: int = 32,
                  drop_last: bool = False,
                  shuffle: bool = False,
                  seed: int = 0) -> None:

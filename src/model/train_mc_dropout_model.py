@@ -1,17 +1,21 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from utility import InputFunction, CindexMetric, CoxPHLoss
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 import tensorflow_probability as tfp
-from tools.data_loader import load_cancer_ds, prepare_cancer_ds, load_nhanes_ds, prepare_nhanes_ds, load_support_ds, prepare_support_ds
 from sksurv.metrics import concordance_index_censored
 from tools.model_builder import make_mc_dropout_model
 from sklearn.preprocessing import StandardScaler
 import os
 from pathlib import Path
 from tools.preprocessor import Preprocessor
+from tools import data_loader
+from tools.model_builder import Trainer, Predictor
+from tools.model_builder import make_baseline_model
+from utility.risk import InputFunction
+from utility.metrics import CindexMetric
+from utility.loss import CoxPHLoss
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
@@ -20,20 +24,9 @@ N_EPOCHS = 10
 
 if __name__ == "__main__":
     # Load data
-    X_train, X_valid, X_test, y_train, y_valid, y_test = load_support_ds()
-    t_train, t_valid, t_test, e_train, e_valid, e_test  = prepare_support_ds(y_train, y_valid, y_test)
-    
-    # Scale data
-    cat_feats = ['sex', 'dzgroup', 'dzclass', 'income', 'race', 'ca']
-    num_feats = ['age', 'num.co', 'meanbp', 'wblc', 'hrt', 'resp', 
-                'temp', 'pafi', 'alb', 'bili', 'crea', 'sod', 'ph', 
-                'glucose', 'bun', 'urine', 'adlp', 'adls']
-    preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat= 'mean') 
-    transformer = preprocessor.fit(X_train, cat_feats=cat_feats, num_feats=num_feats,
-                                   one_hot=True, fill_value=-1)
-    x_tr = transformer.transform(X_train)
-    x_val = transformer.transform(X_valid)
-    x_te = transformer.transform(X_test)
+    dl = data_loader.CancerDataLoader().load_data()
+    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data()
+    t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
     
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     loss_fn = CoxPHLoss()

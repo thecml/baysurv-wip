@@ -1,0 +1,11 @@
+"""
+paths.py
+====================================
+Module to hold paths of files.
+"""
+
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).absolute().parent.parent
+MODELS_DIR = Path.joinpath(ROOT_DIR, 'models')
+CONFIGS_DIR = Path.joinpath(ROOT_DIR, 'configs')

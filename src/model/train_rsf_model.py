@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tools.model_builder import TrainAndEvaluateModel, Predictor, make_rsf_model
+from tools.model_builder import Trainer, Predictor, make_rsf_model
 from utility import convert_to_structured
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator

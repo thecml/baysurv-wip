@@ -1,0 +1,20 @@
+# Data
+test_size: 0.7
+
+# Network
+batch_size: 32
+num_epochs: 10
+verbose: False
+network_layers: [128]
+activiation_fn: "relu"
+
+optimizer: 
+  class_name: Adam
+  config:
+    learning_rate: 0.001
+
+loss_fn:
+  class_name: CoxPHLoss
+  config:
+    reduction: 'auto'
+    name: None

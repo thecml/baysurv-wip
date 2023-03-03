@@ -1,114 +1,54 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import tensorflow as tf
-from tools.model_builder import TrainAndEvaluateModel, Predictor
 from tools.model_builder import make_baseline_model
 from utility.risk import InputFunction
-from utility.metrics import CindexMetric
 from utility.loss import CoxPHLoss
-from sklearn.model_selection import train_test_split
-from sksurv.linear_model.coxph import BreslowEstimator
-from sksurv.metrics import concordance_index_censored
-from sklearn.preprocessing import StandardScaler
-from tools import data_loader
+from tools import data_loader, model_trainer
+from utility.config import load_config
 import os
 from pathlib import Path
-
-N_EPOCHS = 10
+import paths as pt
 
 if __name__ == "__main__":
+    # Load config
+    config = load_config(pt.CONFIGS_DIR, "baseline.yaml")
+    test_size = config['test_size']
+    optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+    custom_objects = {"CoxPHLoss": CoxPHLoss()}
+    with tf.keras.utils.custom_object_scope(custom_objects):
+        loss_fn = tf.keras.losses.deserialize(config['loss_fn'])
+    activation_fn = config['activiation_fn']
+    num_epochs = config['num_epochs']
+    layers = config['network_layers']
+    batch_size = config['batch_size']
+
     # Load data
     dl = data_loader.CancerDataLoader().load_data()
-    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data()
+    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data(test_size=test_size)
     t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    loss_fn = CoxPHLoss()
-    model = make_baseline_model(input_shape=X_train.shape[1:], output_dim=1) # scalar risk
+    model = make_baseline_model(input_shape=X_train.shape[1:], output_dim=1,
+                                layers=layers, activation_fn=activation_fn) # scalar risk
 
-    train_fn = InputFunction(X_train, t_train, e_train,
+    train_fn = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
                              drop_last=True, shuffle=True)
-    val_fn = InputFunction(X_valid, t_valid, e_valid)
-    test_fn = InputFunction(X_test, t_test, e_test)
-
-    train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
-    val_loss_metric = tf.keras.metrics.Mean(name="val_loss")
-    test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
-
-    train_cindex_metric = CindexMetric()
-    val_cindex_metric = CindexMetric()
-
-    train_loss_scores, train_cindex_scores = list(), list()
-    valid_loss_scores, valid_cindex_scores = list(), list()
-
+    valid_fn = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)
+    test_fn = InputFunction(X_test, t_test, e_test, batch_size=batch_size)
+    
     train_ds = train_fn()
-    val_ds = val_fn()
+    valid_ds = valid_fn()
     test_ds = test_fn()
-
-    for epoch in range(N_EPOCHS):
-        #Training step
-        train_cindex_metric.reset_states()
-
-        for x, y in train_ds:
-            y_event = tf.expand_dims(y["label_event"], axis=1)
-            with tf.GradientTape() as tape:
-                logits = model(x, training=True)
-                train_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                train_cindex_metric.update_state(y, logits)
-
-            with tf.name_scope("gradients"):
-                grads = tape.gradient(train_loss, model.trainable_weights)
-                optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-            # Update training metric.
-            train_loss_metric.update_state(train_loss)
-
-        # Save metrics
-        mean_loss = train_loss_metric.result()
-        mean_cindex = train_cindex_metric.result()
-        train_loss_scores.append(float(mean_loss))
-        train_cindex_scores.append(mean_cindex['cindex'])
-
-        # Reset training metrics
-        train_loss_metric.reset_states()
-
-        # RUn validation loop
-        val_loss_metric.reset_states()
-        val_cindex_metric.reset_states()
-        for x_val, y_val in val_ds:
-            y_event = tf.expand_dims(y_val["label_event"], axis=1)
-            val_logits = model(x_val, training=False)
-            val_loss = loss_fn(y_true=[y_event, y_val["label_riskset"]], y_pred=val_logits)
-
-            val_loss_metric.update_state(val_loss)
-            val_cindex_metric.update_state(y_val, val_logits)
-
-        val_loss = val_loss_metric.result()
-        val_loss_metric.reset_states()
-
-        valid_loss_scores.append(float(val_loss))
-        val_cindex = val_cindex_metric.result()
-        valid_cindex_scores.append(val_cindex['cindex'])
-        latest_train_loss = train_loss_scores[-1]
-        latest_train_cindex = train_cindex_scores[-1]
-
-        print(f"Train loss = {latest_train_loss:.4f}, Train CI = {latest_train_cindex:.4f}, " \
-            + f"Valid loss = {val_loss:.4f}, Valid CI = {val_cindex['cindex']:.4f}")
-
-    # Compute test loss
-    for x, y in test_ds:
-        y_event = tf.expand_dims(y["label_event"], axis=1)
-        test_logits = model(x, training=False)
-        test_loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=test_logits)
-        test_loss_metric.update_state(test_loss)
-    test_loss = float(test_loss_metric.result())
-
-    # Compute Harrell's c-index
-    predictions = model.predict(X_test).reshape(-1)
-    c_index_result = concordance_index_censored(e_test.astype(bool), t_test, predictions)[0]
-    print(f"Training completed, test loss/C-index: {round(test_loss, 4)}/{round(c_index_result, 4)}")
-
+    
+    trainer = model_trainer.Trainer(model=model,
+                                    train_dataset=train_ds,
+                                    valid_dataset=valid_ds,
+                                    test_dataset=test_ds,
+                                    optimizer=optimizer,
+                                    loss_function=loss_fn,
+                                    num_epochs=num_epochs)
+    trainer.train_and_evaluate()
+    
     # Save model weights
+    model = trainer.model
     curr_dir = os.getcwd()
     root_dir = Path(curr_dir).absolute()
     model.save_weights(f'{root_dir}/models/baseline/')

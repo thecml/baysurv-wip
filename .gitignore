@@ -16,6 +16,7 @@ models/
 eggs/
 .eggs/
 lib/
+wandb/
 lib64/
 parts/
 sdist/
