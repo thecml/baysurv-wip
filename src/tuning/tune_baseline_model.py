@@ -30,6 +30,7 @@ random.seed(0)
 
 N_RUNS = 100
 N_EPOCHS = 50
+N_SPLITS = 5
 PROJECT_NAME = "baysurv"
 GROUP_NAME = "baseline"
 DATASET = "SUPPORT"
@@ -78,7 +79,7 @@ def train_model():
     # Perform K-fold cross-validation
     split_train_loss_scores, split_train_ci_scores = list(), list()
     split_valid_loss_scores, split_valid_ci_scores = list(), list()
-    kf = KFold(n_splits=3, shuffle=True, random_state=0)
+    kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=0)
     for train, test in kf.split(T1[0], T1[1]):
         ti_X = T1[0].iloc[train]
         ti_y = T1[1][train]
