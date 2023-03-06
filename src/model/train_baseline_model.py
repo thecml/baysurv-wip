@@ -11,7 +11,7 @@ import paths as pt
 if __name__ == "__main__":
     # Load config
     config = load_config(pt.CONFIGS_DIR, "baseline.yaml")
-    test_size = config['test_size']
+    train_size = config['train_size']
     optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
     custom_objects = {"CoxPHLoss": CoxPHLoss()}
     with tf.keras.utils.custom_object_scope(custom_objects):
@@ -20,14 +20,20 @@ if __name__ == "__main__":
     num_epochs = config['num_epochs']
     layers = config['network_layers']
     batch_size = config['batch_size']
+    dropout_rate = config['dropout_rate']
+    regularization_pen = config['l2_kernel_regularization']
 
     # Load data
-    dl = data_loader.CancerDataLoader().load_data()
-    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data(test_size=test_size)
+    dl = data_loader.MetabricDataLoader().load_data()
+    X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data(train_size=train_size)
     t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
 
-    model = make_baseline_model(input_shape=X_train.shape[1:], output_dim=1,
-                                layers=layers, activation_fn=activation_fn) # scalar risk
+    model = make_baseline_model(input_shape=X_train.shape[1:],
+                                output_dim=1,
+                                layers=layers,
+                                activation_fn=activation_fn,
+                                dropout_rate=dropout_rate,
+                                regularization_pen=regularization_pen)
 
     train_fn = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
                              drop_last=True, shuffle=True)

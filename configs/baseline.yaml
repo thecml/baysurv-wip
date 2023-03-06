@@ -1,5 +1,5 @@
 # Data
-test_size: 0.7
+train_size: 0.7
 
 # Network
 batch_size: 32
@@ -7,6 +7,8 @@ num_epochs: 10
 verbose: False
 network_layers: [128]
 activiation_fn: "relu"
+dropout_rate: null
+l2_kernel_regularization: null
 
 optimizer: 
   class_name: Adam

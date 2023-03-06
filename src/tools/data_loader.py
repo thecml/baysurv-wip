@@ -7,6 +7,9 @@ import shap
 from abc import ABC, abstractmethod
 from typing import Tuple, List
 from tools.preprocessor import Preprocessor
+import paths as pt
+from pathlib import Path
+from pycox import datasets
 
 class BaseDataLoader(ABC):
     """
@@ -42,6 +45,13 @@ class BaseDataLoader(ABC):
         """
         return self.num_features, self.cat_features
 
+    def _get_num_features(self, data) -> List[str]:
+        return data.select_dtypes(include=np.number).columns.tolist()
+    
+    def _get_cat_features(self, data) -> List[str]:
+        return data.select_dtypes(['category']).columns.tolist() \
+            + data.select_dtypes(['object']).columns.tolist()
+
     def prepare_data(self, train_size: float = 0.7) -> Tuple[np.ndarray, np.ndarray,
                                                              np.ndarray, np.ndarray]:
         """
@@ -75,12 +85,21 @@ class SupportDataLoader(BaseDataLoader):
     Data loader for SUPPORT dataset
     """
     def load_data(self):
-        outcomes, features = datasets.load_dataset("SUPPORT")
-        self.X = pd.DataFrame(features)
+        data = datasets.support.read_df()
+        
+        outcomes = data.copy()
+        outcomes['event'] =  data['event']
+        outcomes['time'] = data['duration']
+        outcomes = outcomes[['event', 'time']]
+        
+        num_feats =  ['x0', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6',
+                      'x7', 'x8', 'x9', 'x10', 'x11', 'x12', 'x13']
+        
+        self.num_features = num_feats
+        self.cat_features = []
+        self.X = pd.DataFrame(data[num_feats])
         self.y = np.array(outcomes)
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist() \
-                            + self.X.select_dtypes(['object']).columns.tolist()
+        
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
@@ -100,8 +119,8 @@ class NhanesDataLoader(BaseDataLoader):
         nhanes_X, nhanes_y = shap.datasets.nhanesi()
         self.X = pd.DataFrame(nhanes_X)
         self.y = np.array(nhanes_y)
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
@@ -118,8 +137,8 @@ class AidsDataLoader(BaseDataLoader):
         aids_X, aids_y = load_aids()
         self.X = aids_X
         self.y = aids_y
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
@@ -131,13 +150,13 @@ class AidsDataLoader(BaseDataLoader):
         e_test = np.array(y_test['censor'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
 
-class CancerDataLoader(BaseDataLoader):
+class GbsgDataLoader(BaseDataLoader):
     def load_data(self) -> BaseDataLoader:
         gbsg_X, gbsg_y = load_gbsg2()
         self.X = gbsg_X
         self.y = gbsg_y
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> Tuple[np.ndarray, np.ndarray,
@@ -151,31 +170,13 @@ class CancerDataLoader(BaseDataLoader):
         e_test = np.array(y_test['cens'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
 
-class VeteransDataLoader(BaseDataLoader):
-    def load_data(self) -> None:
-        data_x, data_y = load_veterans_lung_cancer()
-        self.X = data_x
-        self.y = data_y
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
-        return self
-
-    def make_time_event_split(self, y_train, y_valid, y_test) -> None:
-        t_train = np.array(y_train['Survival_in_days'])
-        t_valid = np.array(y_valid['Survival_in_days'])
-        t_test = np.array(y_test['Survival_in_days'])
-        e_train = np.array(y_train['Status'])
-        e_valid = np.array(y_valid['Status'])
-        e_test = np.array(y_test['Status'])
-        return t_train, t_valid, t_test, e_train, e_valid, e_test
-    
 class WhasDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         data_x, data_y = load_whas500()
         self.X = data_x
         self.y = data_y
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
@@ -192,8 +193,8 @@ class FlchainDataLoader(BaseDataLoader):
         data_x, data_y = load_flchain()
         self.X = data_x
         self.y = data_y
-        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
-        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
         return self
 
     def make_time_event_split(self, y_train, y_valid, y_test) -> None:
@@ -203,5 +204,33 @@ class FlchainDataLoader(BaseDataLoader):
         e_train = np.array(y_train['death'])
         e_valid = np.array(y_valid['death'])
         e_test = np.array(y_test['death'])
+        return t_train, t_valid, t_test, e_train, e_valid, e_test
+
+class MetabricDataLoader(BaseDataLoader):
+    def load_data(self) -> None:
+        data = datasets.metabric.read_df()
+        
+        outcomes = data.copy()
+        outcomes['event'] =  data['event']
+        outcomes['time'] = data['duration']
+        outcomes = outcomes[['event', 'time']]
+        
+        num_feats =  ['x0', 'x1', 'x2', 'x3', 'x8'] \
+                     + ['x4', 'x5', 'x6', 'x7']
+        
+        self.num_features = num_feats
+        self.cat_features = []
+        self.X = pd.DataFrame(data[num_feats])
+        self.y = np.array(outcomes)
+        
+        return self
+
+    def make_time_event_split(self, y_train, y_valid, y_test) -> None:
+        t_train = np.array(y_train[:,1])
+        t_valid = np.array(y_valid[:,1])
+        t_test = np.array(y_test[:,1])
+        e_train = np.array(y_train[:,0])
+        e_valid = np.array(y_valid[:,0])
+        e_test = np.array(y_test[:,0])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
 

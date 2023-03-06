@@ -61,14 +61,15 @@ def train_model():
         dl = data_loader.SupportDataLoader().load_data()
     elif wandb.config['dataset_name'] == "NHANES":
         dl = data_loader.NhanesDataLoader().load_data()
-    elif wandb.config['dataset_name'] == "CANCER":
-        dl = data_loader.CancerDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "GBSG":
+        dl = data_loader.GbsgDataLoader().load_data()
     elif wandb.config['dataset_name'] == "WHAS":
         dl = data_loader.WhasDataLoader().load_data()
     elif wandb.config['dataset_name'] == "FLCHAIN":
         dl = data_loader.FlchainDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "METABRIC":
+        dl = data_loader.MetabricDataLoader().load_data()
         
-    dl = data_loader.CancerDataLoader().load_data()
     num_features, cat_features = dl.get_features()
     X, y = dl.get_data()
     

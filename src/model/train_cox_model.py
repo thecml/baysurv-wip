@@ -17,7 +17,7 @@ from utility.survival import compute_survival_times, convert_to_structured
 DATASET = 'VETERANS'
 
 if __name__ == "__main__":
-    dl = data_loader.CancerDataLoader().load_data()
+    dl = data_loader.GbsgDataLoader().load_data()
     X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data()
     t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
     
