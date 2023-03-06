@@ -10,6 +10,7 @@ from tools.preprocessor import Preprocessor
 import paths as pt
 from pathlib import Path
 from pycox import datasets
+from utility.survival import convert_to_structured
 
 class BaseDataLoader(ABC):
     """
@@ -98,7 +99,7 @@ class SupportDataLoader(BaseDataLoader):
         self.num_features = num_feats
         self.cat_features = []
         self.X = pd.DataFrame(data[num_feats])
-        self.y = np.array(outcomes)
+        self.y = convert_to_structured(outcomes['time'], outcomes['event'])
         
         return self
 
@@ -118,7 +119,11 @@ class NhanesDataLoader(BaseDataLoader):
     def load_data(self):
         nhanes_X, nhanes_y = shap.datasets.nhanesi()
         self.X = pd.DataFrame(nhanes_X)
-        self.y = np.array(nhanes_y)
+        
+        event = np.array([True if x > 0 else False for x in nhanes_y])
+        time = np.array(abs(nhanes_y))
+        self.y = convert_to_structured(time, event)
+        
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -136,7 +141,7 @@ class AidsDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         aids_X, aids_y = load_aids()
         self.X = aids_X
-        self.y = aids_y
+        self.y = convert_to_structured(aids_y['time'], aids_y['censor'])
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -154,7 +159,7 @@ class GbsgDataLoader(BaseDataLoader):
     def load_data(self) -> BaseDataLoader:
         gbsg_X, gbsg_y = load_gbsg2()
         self.X = gbsg_X
-        self.y = gbsg_y
+        self.y = convert_to_structured(gbsg_y['time'], gbsg_y['cens'])
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -174,7 +179,7 @@ class WhasDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         data_x, data_y = load_whas500()
         self.X = data_x
-        self.y = data_y
+        self.y = convert_to_structured(data_y['lenfol'], data_y['fstat'])
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -192,7 +197,7 @@ class FlchainDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         data_x, data_y = load_flchain()
         self.X = data_x
-        self.y = data_y
+        self.y = convert_to_structured(data_y['futime'], data_y['death'])
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -221,7 +226,7 @@ class MetabricDataLoader(BaseDataLoader):
         self.num_features = num_feats
         self.cat_features = []
         self.X = pd.DataFrame(data[num_feats])
-        self.y = np.array(outcomes)
+        self.y = convert_to_structured(outcomes['time'], outcomes['event'])
         
         return self
 
