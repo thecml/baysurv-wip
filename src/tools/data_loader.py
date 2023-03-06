@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids
+from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids, load_whas500, load_flchain
 from sklearn.model_selection import train_test_split
 from auton_survival import datasets
 import shap
@@ -168,3 +168,40 @@ class VeteransDataLoader(BaseDataLoader):
         e_valid = np.array(y_valid['Status'])
         e_test = np.array(y_test['Status'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
+    
+class WhasDataLoader(BaseDataLoader):
+    def load_data(self) -> None:
+        data_x, data_y = load_whas500()
+        self.X = data_x
+        self.y = data_y
+        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
+        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        return self
+
+    def make_time_event_split(self, y_train, y_valid, y_test) -> None:
+        t_train = np.array(y_train['lenfol'])
+        t_valid = np.array(y_valid['lenfol'])
+        t_test = np.array(y_test['lenfol'])
+        e_train = np.array(y_train['fstat'])
+        e_valid = np.array(y_valid['fstat'])
+        e_test = np.array(y_test['fstat'])
+        return t_train, t_valid, t_test, e_train, e_valid, e_test
+
+class FlchainDataLoader(BaseDataLoader):
+    def load_data(self) -> None:
+        data_x, data_y = load_flchain()
+        self.X = data_x
+        self.y = data_y
+        self.num_features = self.X.select_dtypes(include=np.number).columns.tolist()
+        self.cat_features = self.X.select_dtypes(['category']).columns.tolist()
+        return self
+
+    def make_time_event_split(self, y_train, y_valid, y_test) -> None:
+        t_train = np.array(y_train['futime'])
+        t_valid = np.array(y_valid['futime'])
+        t_test = np.array(y_test['futime'])
+        e_train = np.array(y_train['death'])
+        e_valid = np.array(y_valid['death'])
+        e_test = np.array(y_test['death'])
+        return t_train, t_valid, t_test, e_train, e_valid, e_test
+

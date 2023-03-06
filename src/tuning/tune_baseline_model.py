@@ -19,6 +19,7 @@ import paths as pt
 import random
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
+from utility.tuning import get_baseline_sweep_config
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -27,44 +28,14 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_RUNS = 10
-N_EPOCHS = 10
+N_RUNS = 100
+N_EPOCHS = 50
 PROJECT_NAME = "baysurv"
 GROUP_NAME = "baseline"
-
-sweep_config = {
-    "method": "random", # try grid or random
-    "metric": {
-      "name": "val_loss",
-      "goal": "minimize"
-    },
-    "parameters": {
-        "batch_size": {
-            "values": [8, 16, 32, 64, 128]
-        },
-        "network_layers": {
-            "values": [[32], [32, 64], [32, 32], [16, 32],
-                       [128], [128, 64], [64, 64, 32]]
-        },
-        "learning_rate": {
-            "values": [0.0001, 0.001, 0.01, 0.1],
-        },
-        "optimizer": {
-            "values": ["Adam", "RMSprop", "SGD", "Nadam"],
-        },
-        "activation_fn": {
-            "values": ["relu", "selu"]
-        },
-        "dropout": {
-            "values": [None, 0.1, 0.25, 0.3, 0.5]
-        },
-        "l2_kernel_regularization": {
-            "values": [None, 0.1, 0.01, 0.001]
-        }
-    }
-}
+DATASET = "SUPPORT"
 
 def main():
+    sweep_config = get_baseline_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
@@ -82,9 +53,20 @@ def train_model():
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=GROUP_NAME)
     wandb.config.epochs = N_EPOCHS
-    wandb.config.dataset_name = "CANCER"
-
+    wandb.config.dataset_name = DATASET
+    
     # Load data
+    if wandb.config['dataset_name'] == "SUPPORT":
+        dl = data_loader.SupportDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "NHANES":
+        dl = data_loader.NhanesDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "CANCER":
+        dl = data_loader.CancerDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "WHAS":
+        dl = data_loader.WhasDataLoader().load_data()
+    elif wandb.config['dataset_name'] == "FLCHAIN":
+        dl = data_loader.FlchainDataLoader().load_data()
+        
     dl = data_loader.CancerDataLoader().load_data()
     num_features, cat_features = dl.get_features()
     X, y = dl.get_data()
@@ -97,7 +79,7 @@ def train_model():
     split_train_loss_scores, split_train_ci_scores = list(), list()
     split_valid_loss_scores, split_valid_ci_scores = list(), list()
     kf = KFold(n_splits=3, shuffle=True, random_state=0)
-    for n_fold, (train, test) in enumerate(kf.split(T1[0], T1[1])):
+    for train, test in kf.split(T1[0], T1[1]):
         ti_X = T1[0].iloc[train]
         ti_y = T1[1][train]
         cvi_X = T1[0].iloc[test]
@@ -121,7 +103,8 @@ def train_model():
         valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=wandb.config['batch_size'])()
         
         # Make model
-        model = make_baseline_model(input_shape=ti_X.shape[1:], output_dim=1, # scalar risk
+        model = make_baseline_model(input_shape=ti_X.shape[1:],
+                                    output_dim=1, # scalar risk
                                     layers=wandb.config['network_layers'],
                                     activation_fn=wandb.config['activation_fn'],
                                     dropout_rate=wandb.config['dropout'],
