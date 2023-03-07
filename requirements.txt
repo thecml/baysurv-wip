@@ -10,3 +10,4 @@ notebook
 seaborn
 wandb
 pycox
+torch

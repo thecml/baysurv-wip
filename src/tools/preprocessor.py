@@ -11,7 +11,7 @@ sys.modules['sklearn.neighbors.base'] = sklearn.neighbors._base
 class Imputer:
 
   r"""Source: https://github.com/autonlab/auton-survival/blob/master/auton_survival/preprocessing.py
-  
+
     A class to impute missing values in the input features.
     Real world datasets are often subject to missing covariates.
     Imputation replaces the missing values allowing downstream experiments.
@@ -96,9 +96,9 @@ class Imputer:
       elif self.num_feat_strat == 'knn':
         self._num_base_imputer = KNNImputer(n_neighbors=n_neighbors,
                                             **kwargs).fit(df[num_feats])
-      elif self.num_feat_strat == 'missforest':
-        from missingpy import MissForest
-        self._num_base_imputer = MissForest(**kwargs).fit(df[num_feats])
+      #elif self.num_feat_strat == 'missforest':
+      #  from missingpy import MissForest
+      #  self._num_base_imputer = MissForest(**kwargs).fit(df[num_feats])
 
     self.fitted = True
     return self
@@ -296,9 +296,9 @@ class Preprocessor:
     self._cat_feats = cat_feats
     self._num_feats = num_feats
 
-    self.imputer.fit(data, 
+    self.imputer.fit(data,
                      cat_feats=self._cat_feats,
-                     num_feats=self._num_feats, 
+                     num_feats=self._num_feats,
                      fill_value=fill_value,
                      n_neighbors=n_neighbors,
                      **kwargs)
@@ -323,7 +323,7 @@ class Preprocessor:
                                         drop_first=True)
     return data_transformed
 
-  def fit_transform(self, data, cat_feats, num_feats, 
+  def fit_transform(self, data, cat_feats, num_feats,
                     fill_value=-1, n_neighbors=5, **kwargs):
     """Imputes and scales dataset.
     Parameters

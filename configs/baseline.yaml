@@ -3,14 +3,14 @@ train_size: 0.7
 
 # Network
 batch_size: 32
-num_epochs: 10
+num_epochs: 1
 verbose: False
 network_layers: [128]
 activiation_fn: "relu"
 dropout_rate: null
 l2_kernel_regularization: null
 
-optimizer: 
+optimizer:
   class_name: Adam
   config:
     learning_rate: 0.001

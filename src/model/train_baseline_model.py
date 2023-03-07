@@ -24,7 +24,7 @@ if __name__ == "__main__":
     regularization_pen = config['l2_kernel_regularization']
 
     # Load data
-    dl = data_loader.GbsgDataLoader().load_data()
+    dl = data_loader.SupportDataLoader().load_data()
     X_train, X_valid, X_test, y_train, y_valid, y_test = dl.prepare_data(train_size=train_size)
     t_train, t_valid, t_test, e_train, e_valid, e_test = dl.make_time_event_split(y_train, y_valid, y_test)
 
@@ -39,11 +39,11 @@ if __name__ == "__main__":
                              drop_last=True, shuffle=True)
     valid_fn = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)
     test_fn = InputFunction(X_test, t_test, e_test, batch_size=batch_size)
-    
+
     train_ds = train_fn()
     valid_ds = valid_fn()
     test_ds = test_fn()
-    
+
     trainer = model_trainer.Trainer(model=model,
                                     train_dataset=train_ds,
                                     valid_dataset=valid_ds,
@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                     loss_function=loss_fn,
                                     num_epochs=num_epochs)
     trainer.train_and_evaluate()
-    
+
     # Save model weights
     model = trainer.model
     curr_dir = os.getcwd()
