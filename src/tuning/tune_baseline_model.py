@@ -31,7 +31,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 N_RUNS = 50
-N_EPOCHS = 50
+N_EPOCHS = 25
 N_SPLITS = 5
 PROJECT_NAME = "baysurv"
 
