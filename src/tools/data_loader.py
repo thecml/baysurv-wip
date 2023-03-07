@@ -8,7 +8,6 @@ from typing import Tuple, List
 from tools.preprocessor import Preprocessor
 import paths as pt
 from pathlib import Path
-from pycox import datasets
 from utility.survival import convert_to_structured
 
 class BaseDataLoader(ABC):
@@ -89,7 +88,8 @@ class SupportDataLoader(BaseDataLoader):
     Data loader for SUPPORT dataset
     """
     def load_data(self):
-        data = datasets.support.read_df()
+        path = Path.joinpath(pt.DATA_DIR, 'support.feather')
+        data = pd.read_feather(path)
 
         outcomes = data.copy()
         outcomes['event'] =  data['event']
@@ -189,7 +189,8 @@ class FlchainDataLoader(BaseDataLoader):
 
 class MetabricDataLoader(BaseDataLoader):
     def load_data(self) -> None:
-        data = datasets.metabric.read_df()
+        path = Path.joinpath(pt.DATA_DIR, 'metabric.feather')
+        data = pd.read_feather(path)
 
         outcomes = data.copy()
         outcomes['event'] =  data['event']

@@ -9,5 +9,3 @@ shap
 notebook
 seaborn
 wandb
-pycox
-torch
