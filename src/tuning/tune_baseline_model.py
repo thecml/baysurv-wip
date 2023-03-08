@@ -7,16 +7,12 @@ Tuning script for baseline model
 
 import numpy as np
 import os
-from pathlib import Path
 import tensorflow as tf
 from tools.model_builder import make_baseline_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from tools import data_loader, model_trainer
-from utility.config import load_config
 import os
-from pathlib import Path
-import paths as pt
 import random
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
@@ -30,10 +26,11 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_RUNS = 50
-N_EPOCHS = 25
+N_RUNS = 10
+N_EPOCHS = 10
 N_SPLITS = 5
-PROJECT_NAME = "baysurv"
+BATCH_SIZE = 32
+PROJECT_NAME = "baysurv_bay"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -51,13 +48,11 @@ def main():
 
 def train_model():
     config_defaults = {
-        'batch_size': [32],
-        'network_layers': [32, 32, 32],
+        'network_layers': [32],
         'learning_rate': [0.001],
         'optimizer': ["Adam"],
         'activation_fn': ["relu"],
         'dropout': [None],
-        'l2_kernel_regularization': [None]
     }
 
     # Initialize a new wandb run
@@ -110,17 +105,16 @@ def train_model():
         e_train = np.array(ti_y['Event'])
         e_valid = np.array(cvi_y['Event'])
 
-        train_ds = InputFunction(ti_X, t_train, e_train, batch_size=wandb.config['batch_size'],
+        train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
                                 drop_last=True, shuffle=True)()
-        valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=wandb.config['batch_size'])()
+        valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=BATCH_SIZE)()
 
         # Make model
         model = make_baseline_model(input_shape=ti_X.shape[1:],
                                     output_dim=1, # scalar risk
                                     layers=wandb.config['network_layers'],
                                     activation_fn=wandb.config['activation_fn'],
-                                    dropout_rate=wandb.config['dropout'],
-                                    regularization_pen=wandb.config['l2_kernel_regularization'])
+                                    dropout_rate=wandb.config['dropout'])
 
         # Define optimizer
         if wandb.config['optimizer'] == "Adam":
@@ -156,8 +150,8 @@ def train_model():
     for i in range(N_EPOCHS): # log mean for every epoch
         wandb.log({'loss': train_loss_per_epoch[i],
                    'ci': train_ci_per_epoch[i],
-                   'valid loss': valid_loss_per_epoch[i],
-                   'valid ci': valid_ci_per_epoch[i]})
+                   'val_loss': valid_loss_per_epoch[i],
+                   'val_ci': valid_ci_per_epoch[i]})
 
 if __name__ == "__main__":
     main()
