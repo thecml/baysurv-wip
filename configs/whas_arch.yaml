@@ -1,16 +1,15 @@
 # Network
-batch_size: 16
+batch_size: 32
 num_epochs: 25
 verbose: False
-network_layers: [16, 16, 16]
+network_layers: [32]
 activiation_fn: "selu"
-dropout_rate: 0.25
-l2_kernel_regularization: null
+dropout_rate: 0.5
 
 optimizer:
-  class_name: RMSprop
+  class_name: Adam
   config:
-    learning_rate: 0.001
+    learning_rate: 0.01
 
 loss_fn:
   class_name: CoxPHLoss

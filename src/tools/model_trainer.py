@@ -24,14 +24,19 @@ class Trainer:
 
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_cindex_metric = CindexMetric()
+        
+        self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
+        self.test_cindex_metric = CindexMetric()
 
         self.train_loss_scores, self.train_ci_scores = list(), list()
         self.valid_loss_scores, self.valid_ci_scores = list(), list()
-
+        self.test_loss_scores, self.test_ci_scores = list(), list()
+        
     def train_and_evaluate(self):
         for _ in range(self.num_epochs):
             self.train()
-            self.validate()
+            if self.valid_ds is not None:
+                self.validate()
             if self.test_ds is not None:
                 self.test()
             self.cleanup()
@@ -72,19 +77,18 @@ class Trainer:
         self.train_cindex_metric.reset_states()
         self.valid_loss_metric.reset_states()
         self.valid_cindex_metric.reset_states()
+        self.test_loss_metric.reset_states()
+        self.test_cindex_metric.reset_states()
 
     def test(self):
-        risk_scores, e_test, t_test = [], [], []
         for x, y in self.test_ds:
-            e_test.extend(y['label_event'].numpy())
-            t_test.extend(y['label_time'].numpy())
-            y_pred = self.model(x, training=False)
-            risk_scores.append(y_pred.numpy())
-
-        # Compute Harrell's C-index
-        test_predictions = np.row_stack(risk_scores).reshape(-1)
-        e_test = np.array(e_test, dtype=bool)
-        t_test = np.array(t_test)
-        self.test_ci = concordance_index_censored(e_test, t_test, test_predictions)[0]
-
-
+            y_event = tf.expand_dims(y["label_event"], axis=1)
+            logits = self.model(x, training=False)
+            loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+            self.test_loss_metric.update_state(loss)
+            self.test_cindex_metric.update_state(y, logits)
+            
+        epoch_test_loss = self.test_loss_metric.result()
+        epoch_test_ci = self.test_cindex_metric.result()['cindex']
+        self.test_loss_scores.append(float(epoch_test_loss))
+        self.test_ci_scores.append(float(epoch_test_ci))

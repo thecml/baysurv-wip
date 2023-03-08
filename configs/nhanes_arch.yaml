@@ -5,7 +5,6 @@ verbose: False
 network_layers: [16]
 activiation_fn: "selu"
 dropout_rate: null
-l2_kernel_regularization: 0.001
 
 optimizer:
   class_name: Nadam
