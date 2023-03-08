@@ -2,8 +2,12 @@ def get_baseline_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-        "name": "val_ci",
-        "goal": "maximize"
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "early_terminate": {
+            "type": "hyperband",
+            "min_iter": 3
         },
         "parameters": {
             "network_layers": {
