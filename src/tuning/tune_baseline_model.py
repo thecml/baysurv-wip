@@ -36,7 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
-                        default=None) # SUPPORT, NHANES, GBSG, WHAS, FLCHAIN or METABRIC
+                        default=None) # SUPPORT, GBSG, WHAS, FLCHAIN or METABRIC
     args = parser.parse_args()
     global dataset
     if args.dataset:
@@ -50,8 +50,10 @@ def train_model():
     config_defaults = {
         'network_layers': [32],
         'learning_rate': [0.001],
+        'momentum': [0.0],
         'optimizer': ["Adam"],
         'activation_fn': ["relu"],
+        'weight_decay': [None],
         'dropout': [None],
         'l2_reg': [None]
     }
@@ -63,8 +65,6 @@ def train_model():
     # Load data
     if dataset == "SUPPORT":
         dl = data_loader.SupportDataLoader().load_data()
-    elif dataset == "NHANES":
-        dl = data_loader.NhanesDataLoader().load_data()
     elif dataset == "GBSG":
         dl = data_loader.GbsgDataLoader().load_data()
     elif dataset == "WHAS":
@@ -107,7 +107,7 @@ def train_model():
         e_valid = np.array(cvi_y['Event'])
 
         train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
-                                drop_last=True, shuffle=True)()
+                                 drop_last=True, shuffle=True)()
         valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=BATCH_SIZE)()
 
         # Make model
@@ -120,15 +120,16 @@ def train_model():
 
         # Define optimizer
         if wandb.config['optimizer'] == "Adam":
-            optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "Nadam":
-            optimizer = tf.keras.optimizers.Nadam(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "Adagrad":
-            optimizer = tf.keras.optimizers.Adagrad(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "Adadelta":
-            optimizer = tf.keras.optimizers.Adadelta(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "Adamax":
-            optimizer = tf.keras.optimizers.Adamax(learning_rate=wandb.config.learning_rate)
+            optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate,
+                                                 weight_decay=wandb.config.weight_decay)
+        elif wandb.config['optimizer'] == "SGD":
+            optimizer = tf.keras.optimizers.SGD(learning_rate=wandb.config.learning_rate,
+                                                weight_decay=wandb.config.weight_decay,
+                                                momentum=wandb.config.momentum)
+        elif wandb.config['optimizer'] == "RMSprop":
+            optimizer = tf.keras.optimizers.RMSprop(learning_rate=wandb.config.learning_rate,
+                                                    weight_decay=wandb.config.weight_decay,
+                                                    momentum=wandb.config.momentum)
 
         # Train model
         loss_fn = CoxPHLoss()

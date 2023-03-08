@@ -12,10 +12,16 @@ def get_baseline_sweep_config():
                            [64], [64, 64], [64, 64, 64]]
             },
             "learning_rate": {
-                "values": [0.001, 0.005, 0.01, 0.05, 0.1, 1],
+                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
+            },
+            "weight_decay": {
+                "values": [1e-3, 1e-4, 1e-5, None]
+            },
+            "momentum": {
+                "values": [0.99, 0.97, 0.95, 0.9, 0.0]
             },
             "optimizer": {
-                "values": ["Adam", "Nadam", "Adagrad", "Adadelta", "Adamax"],
+                "values": ["Adam", "SGD", "RMSprop"]
             },
             "activation_fn": {
                 "values": ["relu", "selu"]
