@@ -22,7 +22,7 @@ def get_baseline_sweep_config():
                 "values": ["relu", "selu"]
             },
             "dropout": {
-                "values": [None, 0.1, 0.25, 0.5]
+                "values": [None, 0.1, 0.25, 0.5, 0.6]
             }
         }
     }

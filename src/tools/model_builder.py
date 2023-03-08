@@ -28,48 +28,30 @@ def make_rsf_model():
     model = RandomSurvivalForest(random_state=0)
     return model
 
-def make_baseline_model(input_shape, output_dim, layers, activation_fn,
-                        dropout_rate, regularization_pen):
+def make_baseline_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
     output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
     model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
-def make_nobay_model(input_shape, output_dim, layers, activation_fn,
-                     dropout_rate, regularization_pen):
+def make_nobay_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(shape=input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
     params = tf.keras.layers.Dense(output_dim)(hidden)
@@ -104,22 +86,14 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_f
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 
-def make_mc_dropout_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
+def make_mc_dropout_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(shape=input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             hidden = MonteCarloDropout(dropout_rate)(hidden)  
         else:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               kernel_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
     params = tf.keras.layers.Dense(output_dim)(hidden)
     dist = tfp.layers.DistributionLambda(normal_sp)(params)

@@ -27,7 +27,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 N_RUNS = 10
-N_EPOCHS = 10
+N_EPOCHS = 25
 N_SPLITS = 5
 BATCH_SIZE = 32
 PROJECT_NAME = "baysurv_bay"
