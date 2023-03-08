@@ -121,12 +121,14 @@ def train_model():
         # Define optimizer
         if wandb.config['optimizer'] == "Adam":
             optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "RMSprop":
-            optimizer = tf.keras.optimizers.RMSprop(learning_rate=wandb.config.learning_rate)
-        elif wandb.config['optimizer'] == "SGD":
-            optimizer = tf.keras.optimizers.SGD(learning_rate=wandb.config.learning_rate)
         elif wandb.config['optimizer'] == "Nadam":
             optimizer = tf.keras.optimizers.Nadam(learning_rate=wandb.config.learning_rate)
+        elif wandb.config['optimizer'] == "Adagrad":
+            optimizer = tf.keras.optimizers.Adagrad(learning_rate=wandb.config.learning_rate)
+        elif wandb.config['optimizer'] == "Adadelta":
+            optimizer = tf.keras.optimizers.Adadelta(learning_rate=wandb.config.learning_rate)
+        elif wandb.config['optimizer'] == "Adamax":
+            optimizer = tf.keras.optimizers.Adamax(learning_rate=wandb.config.learning_rate)
 
         # Train model
         loss_fn = CoxPHLoss()
