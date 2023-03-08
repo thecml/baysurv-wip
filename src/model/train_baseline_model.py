@@ -7,6 +7,12 @@ from utility.config import load_config
 import os
 from pathlib import Path
 import paths as pt
+import numpy as np
+import random
+
+np.random.seed(0)
+tf.random.set_seed(0)
+random.seed(0)
 
 if __name__ == "__main__":
     # Load config

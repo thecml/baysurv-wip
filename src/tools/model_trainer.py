@@ -1,7 +1,5 @@
 import tensorflow as tf
 from utility.metrics import CindexMetric
-import numpy as np
-from sksurv.metrics import concordance_index_censored
 
 class Trainer:
     def __init__(self, model, train_dataset, valid_dataset,

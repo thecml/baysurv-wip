@@ -26,11 +26,11 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_RUNS = 10
+N_RUNS = 50
 N_EPOCHS = 25
 N_SPLITS = 5
 BATCH_SIZE = 32
-PROJECT_NAME = "baysurv_bay"
+PROJECT_NAME = "baysurv_bo_baseline"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -53,6 +53,7 @@ def train_model():
         'optimizer': ["Adam"],
         'activation_fn': ["relu"],
         'dropout': [None],
+        'l2_reg': [None]
     }
 
     # Initialize a new wandb run
@@ -111,10 +112,11 @@ def train_model():
 
         # Make model
         model = make_baseline_model(input_shape=ti_X.shape[1:],
-                                    output_dim=1, # scalar risk
+                                    output_dim=1,
                                     layers=wandb.config['network_layers'],
                                     activation_fn=wandb.config['activation_fn'],
-                                    dropout_rate=wandb.config['dropout'])
+                                    dropout_rate=wandb.config['dropout'],
+                                    regularization_pen=wandb.config['l2_reg'])
 
         # Define optimizer
         if wandb.config['optimizer'] == "Adam":

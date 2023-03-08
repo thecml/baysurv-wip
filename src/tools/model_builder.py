@@ -28,15 +28,23 @@ def make_rsf_model():
     model = RandomSurvivalForest(random_state=0)
     return model
 
-def make_baseline_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
+def make_baseline_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            if regularization_pen is not None:
+                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
+                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
+            else:
+                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
-            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            if regularization_pen is not None:
+                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
+                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
+            else:
+                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
     output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
@@ -70,7 +78,7 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_f
                                              kernel_divergence_fn=kernel_divergence_fn,
                                              bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(inputs)
             if dropout_rate is not None:
-                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)  
+                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
             hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
                                              bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
