@@ -94,7 +94,7 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_f
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 
-def make_mc_dropout_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
+def make_mc_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(shape=input_shape)
     for i, units in enumerate(layers):
         if i == 0:

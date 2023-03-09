@@ -1,15 +1,15 @@
 # Network
-batch_size: 16
-num_epochs: 25
-verbose: False
-network_layers: [16, 16]
-activiation_fn: "relu"
-dropout_rate: 0.25
+network_layers: [16, 16, 16]
+activiation_fn: "selu"
+dropout_rate: null
+l2_reg: 0.1
 
 optimizer:
-  class_name: RMSprop
+  class_name: Adam
   config:
     learning_rate: 0.001
+    momentum: 0
+    weight_decay: 0.0001
 
 loss_fn:
   class_name: CoxPHLoss

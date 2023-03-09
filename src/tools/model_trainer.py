@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 from utility.metrics import CindexMetric
 
 class Trainer:
@@ -81,10 +82,14 @@ class Trainer:
     def test(self):
         for x, y in self.test_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
-            logits = self.model(x, training=False)
-            loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+            runs = 100
+            logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+            for i in range(0, runs):
+                logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+            mean_logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+            loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=mean_logits)
             self.test_loss_metric.update_state(loss)
-            self.test_cindex_metric.update_state(y, logits)
+            self.test_cindex_metric.update_state(y, mean_logits)
             
         epoch_test_loss = self.test_loss_metric.result()
         epoch_test_ci = self.test_cindex_metric.result()['cindex']

@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 import tensorflow_probability as tfp
 from sksurv.metrics import concordance_index_censored
-from tools.model_builder import make_mc_dropout_model
+from tools.model_builder import make_mc_model
 from sklearn.preprocessing import StandardScaler
 import os
 from pathlib import Path
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     loss_fn = CoxPHLoss()
 
     # MC Dropout
-    model = make_mc_dropout_model(input_shape=X_train.shape[1:],
+    model = make_mc_model(input_shape=X_train.shape[1:],
                                   output_dim=2)
     
     train_fn = InputFunction(X_train, t_train, e_train, drop_last=True, shuffle=True)
