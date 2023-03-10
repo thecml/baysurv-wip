@@ -3,7 +3,7 @@ import tensorflow_probability as tfp
 import numpy as np
 from utility.loss import CoxPHLoss
 from utility.metrics import CindexMetric
-from sksurv.linear_model import CoxPHSurvivalAnalysis
+from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
 
 class MonteCarloDropout(tf.keras.layers.Dropout):
@@ -21,12 +21,13 @@ def normal_fs(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
 
 def make_cox_model():
-    model = CoxPHSurvivalAnalysis(alpha=0.0001)
-    return model
+    return CoxPHSurvivalAnalysis(alpha=0.0001)
 
 def make_rsf_model():
-    model = RandomSurvivalForest(random_state=0)
-    return model
+    return RandomSurvivalForest(random_state=0)
+
+def make_coxnet_model():
+    return CoxnetSurvivalAnalysis(fit_baseline_model=True)
 
 def make_baseline_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)

@@ -16,16 +16,17 @@ from sklearn.model_selection import train_test_split
 from tools.preprocessor import Preprocessor
 from utility.config import load_config
 import paths as pt
+from pathlib import Path
 
 tfd = tfp.distributions
 tfb = tfp.bijectors
 
-N_EPOCHS = 25
+N_EPOCHS = 1
 BATCH_SIZE = 32
 
 if __name__ == "__main__":
     # Load data
-    dl = data_loader.WhasDataLoader().load_data()
+    dl = data_loader.FlchainDataLoader().load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
 
@@ -65,6 +66,7 @@ if __name__ == "__main__":
                           layers=layers, activation_fn=activation_fn,
                           dropout_rate=dropout_rate)
     trainer = model_trainer.Trainer(model=model,
+                                    model_type="MC",
                                     train_dataset=train_ds,
                                     valid_dataset=None,
                                     test_dataset=test_ds,
@@ -73,11 +75,13 @@ if __name__ == "__main__":
                                     num_epochs=N_EPOCHS)
     trainer.train_and_evaluate()
     
-    plt.figure()
+    fig = plt.figure()
     epochs = range(1, N_EPOCHS+1)
     plt.plot(epochs, trainer.test_loss_scores, label='MC Loss')
-    plt.show()
+    fig.savefig(Path.joinpath(pt.RESULTS_DIR, "loss.pdf"),
+                format='pdf', bbox_inches="tight")
 
+    '''
     # Compute average Harrell's c-index
     runs = 100
     model_cpd = np.zeros((runs, len(X_test)))
@@ -92,3 +96,4 @@ if __name__ == "__main__":
     curr_dir = os.getcwd()
     root_dir = Path(curr_dir).absolute()
     model.save_weights(f'{root_dir}/models/vi/')
+    '''
