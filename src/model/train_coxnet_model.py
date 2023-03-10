@@ -25,7 +25,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
     
     # Scale data
-    preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
+    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
     transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                    one_hot=True, fill_value=-1)
     X_train = np.array(transformer.transform(X_train))

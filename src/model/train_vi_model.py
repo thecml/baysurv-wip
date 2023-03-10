@@ -26,7 +26,7 @@ BATCH_SIZE = 32
 
 if __name__ == "__main__":
     # Load data
-    dl = data_loader.FlchainDataLoader().load_data()
+    dl = data_loader.WhasDataLoader().load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
 

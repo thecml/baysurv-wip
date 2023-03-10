@@ -134,6 +134,7 @@ def train_model():
         # Train model
         loss_fn = CoxPHLoss()
         trainer = model_trainer.Trainer(model=model,
+                                        model_type="BASELINE",
                                         train_dataset=train_ds,
                                         valid_dataset=valid_ds,
                                         test_dataset=None,

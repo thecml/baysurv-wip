@@ -70,7 +70,7 @@ class BaseDataLoader(ABC):
         X_train, X_rem, y_train, y_rem = train_test_split(X, y, train_size=train_size, random_state=0)
         X_valid, X_test, y_valid, y_test = train_test_split(X_rem, y_rem, test_size=0.5, random_state=0)
 
-        preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
+        preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
         transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                        one_hot=True, fill_value=-1)
         X_train = transformer.transform(X_train)
