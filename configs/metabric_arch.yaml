@@ -1,15 +1,15 @@
 # Network
-batch_size: 32
-num_epochs: 10
-verbose: False
-network_layers: [64, 64, 64]
+network_layers: [64]
 activiation_fn: "relu"
-dropout_rate: 0.5
+dropout_rate: 0.25
+l2_reg: 0.01
 
 optimizer:
-  class_name: Adam
+  class_name: SGD
   config:
-    learning_rate: 0.001
+    learning_rate: 0.01
+    momentum: 0
+    decay: 0
 
 loss_fn:
   class_name: CoxPHLoss

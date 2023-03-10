@@ -8,8 +8,7 @@ optimizer:
   class_name: Adam
   config:
     learning_rate: 0.001
-    momentum: 0.9
-    weight_decay: null
+    decay: 0
 
 loss_fn:
   class_name: CoxPHLoss

@@ -1,7 +1,7 @@
 import pandas as pd
 
 import sklearn
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
 from sklearn.impute import SimpleImputer, KNNImputer
 
 import sys
@@ -282,6 +282,7 @@ class Preprocessor:
                      remaining='drop'):
 
     self.one_hot = one_hot
+    self.one_hot_encoder = OneHotEncoder(drop='first', sparse=False)
 
     self.imputer = Imputer(cat_feat_strat=cat_feat_strat,
                            num_feat_strat=num_feat_strat,
@@ -306,6 +307,8 @@ class Preprocessor:
     data_imputed = self.imputer.transform(data)
 
     self.scaler.fit(data_imputed, num_feats=self._num_feats)
+    
+    self.one_hot_encoder.fit(data_imputed[self._cat_feats])
 
     self.fitted = True
     return self
@@ -314,13 +317,20 @@ class Preprocessor:
     """Impute and scale the dataset."""
 
     data_imputed = self.imputer.transform(data)
-    data_transformed = self.scaler.transform(data_imputed)
+    data_transformed = self.scaler.fit_transform(data_imputed, self._num_feats)
+    
+    data_transformed = data_transformed.reset_index(drop=True)
 
     if self.one_hot:
       data_transformed[self._cat_feats] = data_transformed[self._cat_feats].astype('category')
-      data_transformed = pd.get_dummies(data_transformed,
-                                        dummy_na=False,
-                                        drop_first=True)
+      features = self._cat_feats
+      data_encoded = self.one_hot_encoder.transform(data_transformed[self._cat_feats])
+
+      column_names = self.one_hot_encoder.get_feature_names_out(features)
+      one_hot_encoded_frame = pd.DataFrame(data_encoded, columns=column_names)
+      
+      data_transformed = pd.concat([data_transformed[self._num_feats], one_hot_encoded_frame], axis=1)
+      
     return data_transformed
 
   def fit_transform(self, data, cat_feats, num_feats,
@@ -354,9 +364,17 @@ class Preprocessor:
                                                 n_neighbors=n_neighbors,
                                                 **kwargs)
     output = self.scaler.fit_transform(imputer_output, num_feats=num_feats)
+    
+    output = output.reset_index(drop=True)
 
     if self.one_hot:
       output[cat_feats] = output[cat_feats].astype('category')
-      output = pd.get_dummies(output, dummy_na=False, drop_first=True)
+      features = cat_feats
+      data_encoded = self.one_hot_encoder.transform(output[self.cat_feats])
+
+      column_names = self.one_hot_encoder.get_feature_names_out(features)
+      one_hot_encoded_frame = pd.DataFrame(data_encoded, columns=column_names)
+      
+      output = pd.concat([output[num_feats], one_hot_encoded_frame], axis=1)
 
     return output

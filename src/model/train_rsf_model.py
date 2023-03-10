@@ -13,7 +13,7 @@ from utility.survival import convert_to_structured
 
 if __name__ == "__main__":
     # Load data
-    dl = data_loader.WhasDataLoader().load_data()
+    dl = data_loader.MetabricDataLoader().load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
 
@@ -21,7 +21,7 @@ if __name__ == "__main__":
     X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
     
     # Scale data
-    preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
+    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
     transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                 one_hot=True, fill_value=-1)
     X_train = np.array(transformer.transform(X_train))
@@ -49,8 +49,3 @@ if __name__ == "__main__":
     
     ibs = integrated_brier_score(y_train_struc, y_test_struc, preds, times)
     print(f"Training completed, test C-index/BS: {round(c_index, 4)}/{round(ibs, 4)}")
-    
-    #result = concordance_index_censored(y_test["Status"], y_test["Survival_in_days"], predictions)[0] # veteran 
-    #result = concordance_index_censored(y_test["cens"], y_test["time"], prediction) # cancer
-    #result = concordance_index_censored(y_test["censor"], y_test["time"], prediction) # aids
-    #result = concordance_index_censored(y_test["censor"], y_test["time"], prediction) # nhanes
