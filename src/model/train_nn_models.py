@@ -24,22 +24,23 @@ import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from sklearn.model_selection import train_test_split
 from tools.preprocessor import Preprocessor
 import pandas as pd
+from utility import plotter
 
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
+DATASETS = ["WHAS"] # ["WHAS", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["Baseline", "MC"]
-N_EPOCHS = 2
+N_EPOCHS = 5
 BATCH_SIZE = 32
 results = pd.DataFrame()
 
 if __name__ == "__main__":
     # For each dataset, train three models (Baseline, VI, MC) and plot scores
-    for dataset in DATASETS:
+    for dataset_name in DATASETS:
         # Load training parameters
-        config = load_config(pt.CONFIGS_DIR, f"{dataset.lower()}_arch.yaml")            
+        config = load_config(pt.CONFIGS_DIR, f"{dataset_name.lower()}_arch.yaml")            
         optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
         custom_objects = {"CoxPHLoss": CoxPHLoss()}
         with tf.keras.utils.custom_object_scope(custom_objects):
@@ -50,7 +51,7 @@ if __name__ == "__main__":
         l2_reg = config['l2_reg']
         
         # Load data
-        dl = get_data_loader(dataset).load_data()
+        dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
         
@@ -93,21 +94,36 @@ if __name__ == "__main__":
         baseline_trainer.train_and_evaluate()
         mc_trainer.train_and_evaluate()
         
-        # Save results
+        # Save results per dataset
         trainers = [baseline_trainer, mc_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
-            loss = trainer.test_loss_scores
-            ci = trainer.test_ci_scores
-            ctd = trainer.test_ctd_scores
-            ibs = trainer.test_ibs_scores
-            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs]),
-                                  columns=["Loss", "CI", "CTD", "IBS"])
-            res_df['Dataset'] = dataset
-            res_df['Model'] = model_name
-            results = pd.concat([results, res_df], axis=0)
-        
-    # TODO: Add call to plot performance
+            # Training
+            train_loss = trainer.train_loss_scores
+            train_ci = trainer.train_ci_scores
+            train_ctd = trainer.train_ctd_scores
+            train_ibs = trainer.train_ibs_scores
             
-    print(0)
-        
+            # Test            
+            test_loss = trainer.test_loss_scores
+            tests_ci = trainer.test_ci_scores
+            test_ctd = trainer.test_ctd_scores
+            test_ibs = trainer.test_ibs_scores
+            train_times = trainer.train_times
+            test_times = trainer.test_times
+            
+            res_df = pd.DataFrame(np.column_stack([train_loss, train_ci, train_ctd, train_ibs, # train
+                                                   test_loss, tests_ci, test_ctd, test_ibs, # test
+                                                   train_times, test_times]), # times
+                                  columns=["TrainLoss", "TrainCI", "TrainCTD", "TrainIBS",
+                                           "TestLoss", "TestCI", "TestCTD", "TestIBS",
+                                           "TrainTime", "TestTime"])
+            res_df['ModelName'] = model_name
+            res_df['DatasetName'] = dataset_name
+            results = pd.concat([results, res_df], axis=0)
+            
+    # Save results
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"training_results.csv"), index=False)
+    
+    # Plot training curves
+    plotter.plot_training_curves(results)
         
