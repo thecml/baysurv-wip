@@ -29,7 +29,7 @@ def make_rsf_model():
 def make_coxnet_model():
     return CoxnetSurvivalAnalysis(fit_baseline_model=True)
 
-def make_baseline_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
+def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)
     for i, units in enumerate(layers):
         if i == 0:
@@ -98,7 +98,7 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers,
                                 activity_regularizer=tf.keras.regularizers.L2(regularization_pen),
                                 kernel_divergence_fn=kernel_divergence_fn,
                                 bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(hidden)
-            else:       
+            else:
                 hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
                                                 bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
                                                 kernel_divergence_fn=kernel_divergence_fn,
@@ -125,7 +125,7 @@ def make_mc_model(input_shape, output_dim, layers,
             else:
                 hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
-            hidden = MonteCarloDropout(dropout_rate)(hidden)  
+            hidden = MonteCarloDropout(dropout_rate)(hidden)
         else:
             if regularization_pen is not None:
                 hidden = tf.keras.layers.Dense(units, activation=activation_fn,

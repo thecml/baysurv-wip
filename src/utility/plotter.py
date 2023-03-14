@@ -37,6 +37,7 @@ def plot_training_curves(results):
     n_epochs = int(results.index.max() + 1)
     for dataset_name in datasets:
         mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
+        vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
         mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MC")]
         mlp_train_loss = mlp_results[['TrainLoss']]
         mlp_train_ci = mlp_results[['TrainCI']]
@@ -46,6 +47,15 @@ def plot_training_curves(results):
         mlp_test_ci = mlp_results[['TestCI']]
         mlp_test_ctd = mlp_results[['TestCTD']]
         mlp_test_ibs = mlp_results[['TestIBS']]
+
+        vi_train_loss = vi_results[['TrainLoss']]
+        vi_train_ci = vi_results[['TrainCI']]
+        vi_train_ctd = vi_results[['TrainCTD']]
+        vi_train_ibs = vi_results[['TrainIBS']]
+        vi_test_loss = vi_results[['TestLoss']]
+        vi_test_ci = vi_results[['TestCI']]
+        vi_test_ctd = vi_results[['TestCTD']]
+        vi_test_ibs = vi_results[['TestIBS']]
 
         mc_train_loss = mc_results[['TrainLoss']]
         mc_train_ci = mc_results[['TrainCI']]
@@ -60,6 +70,8 @@ def plot_training_curves(results):
         fig, axs = plt.subplots(1, 4, figsize=(18, 3))
         axs[0].plot(epochs, mlp_train_loss, label='Training set (MLP)', marker="o", color=TFColor[0], linewidth=1)
         axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
+        axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
+        axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
         axs[0].plot(epochs, mc_train_loss, label='Training set (MC)', marker="o", color=TFColor[3], linewidth=1)
         axs[0].plot(epochs, mc_test_loss, label='Test set (MC)', marker="s", color=TFColor[3], linewidth=1)
         axs[0].legend(loc="best")
@@ -68,6 +80,8 @@ def plot_training_curves(results):
 
         axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)
         axs[1].plot(epochs, mlp_test_ci, marker="s", color=TFColor[0], linewidth=1)
+        axs[1].plot(epochs, vi_train_ci, marker="o", color=TFColor[2], linewidth=1)
+        axs[1].plot(epochs, vi_test_ci, marker="s", color=TFColor[2], linewidth=1)
         axs[1].plot(epochs, mc_train_ci, marker="o", color=TFColor[3], linewidth=1)
         axs[1].plot(epochs, mc_test_ci, marker="s", color=TFColor[3], linewidth=1)
         axs[1].set_xlabel('Epoch', fontsize="medium")
@@ -75,6 +89,8 @@ def plot_training_curves(results):
 
         axs[2].plot(epochs, mlp_train_ctd, marker="o", color=TFColor[0], linewidth=1)
         axs[2].plot(epochs, mlp_test_ctd, marker="s", color=TFColor[0], linewidth=1)
+        axs[2].plot(epochs, vi_train_ctd, marker="o", color=TFColor[2], linewidth=1)
+        axs[2].plot(epochs, vi_test_ctd, marker="s", color=TFColor[2], linewidth=1)
         axs[2].plot(epochs, mc_train_ctd, marker="o", color=TFColor[3], linewidth=1)
         axs[2].plot(epochs, mc_test_ctd, marker="s", color=TFColor[3], linewidth=1)
         axs[2].set_xlabel('Epoch', fontsize="medium")
@@ -82,6 +98,8 @@ def plot_training_curves(results):
 
         axs[3].plot(epochs, mlp_train_ibs, marker="o", color=TFColor[0], linewidth=1)
         axs[3].plot(epochs, mlp_test_ibs, marker="s", color=TFColor[0], linewidth=1)
+        axs[3].plot(epochs, vi_train_ibs, marker="o", color=TFColor[2], linewidth=1)
+        axs[3].plot(epochs, vi_test_ibs, marker="s", color=TFColor[2], linewidth=1)
         axs[3].plot(epochs, mc_train_ibs, marker="o", color=TFColor[3], linewidth=1)
         axs[3].plot(epochs, mc_test_ibs, marker="s", color=TFColor[3], linewidth=1)
         axs[3].set_xlabel('Epoch', fontsize="medium")

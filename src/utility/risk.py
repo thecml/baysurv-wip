@@ -106,7 +106,7 @@ class InputFunction:
 
     def __call__(self) -> tf.data.Dataset:
         return self._make_dataset()
-    
+
 def _make_riskset(time: np.ndarray) -> np.ndarray:
     """Compute mask that represents each sample's risk set.
 

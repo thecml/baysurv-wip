@@ -11,7 +11,7 @@ from tools.model_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.plotter import plot_training_curves
-from tools.model_builder import make_baseline_model, make_vi_model, make_mc_model
+from tools.model_builder import make_mlp_model, make_vi_model, make_mc_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from pathlib import Path
@@ -21,8 +21,8 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS"] # ["WHAS", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["MLP", "MC"]
+DATASETS = ["WHAS", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
+MODEL_NAMES = ["MLP", "VI", "MC"]
 N_EPOCHS = 50
 BATCH_SIZE = 32
 results = pd.DataFrame()
@@ -61,9 +61,9 @@ if __name__ == "__main__":
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=BATCH_SIZE)()
 
         # Make models
-        baseline_model = make_baseline_model(input_shape=X_train.shape[1:], output_dim=1,
-                                             layers=layers, activation_fn=activation_fn,
-                                             dropout_rate=dropout_rate, regularization_pen=l2_reg)
+        mlp_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
+                                   layers=layers, activation_fn=activation_fn,
+                                   dropout_rate=dropout_rate, regularization_pen=l2_reg)
         vi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
                                  output_dim=2, layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
@@ -72,21 +72,26 @@ if __name__ == "__main__":
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
 
         # Make trainers
-        baseline_trainer = Trainer(model=baseline_model, model_type="MLP",
-                                   train_dataset=train_ds, valid_dataset=None,
-                                   test_dataset=test_ds, optimizer=optimizer,
-                                   loss_function=loss_fn, num_epochs=N_EPOCHS)
+        mlp_trainer = Trainer(model=mlp_model, model_type="MLP",
+                              train_dataset=train_ds, valid_dataset=None,
+                              test_dataset=test_ds, optimizer=optimizer,
+                              loss_function=loss_fn, num_epochs=N_EPOCHS)
+        vi_trainer = Trainer(model=vi_model, model_type="VI",
+                             train_dataset=train_ds, valid_dataset=None,
+                             test_dataset=test_ds, optimizer=optimizer,
+                             loss_function=loss_fn, num_epochs=N_EPOCHS)
         mc_trainer = Trainer(model=mc_model, model_type="MC",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS)
 
         # Train models
-        baseline_trainer.train_and_evaluate()
+        mlp_trainer.train_and_evaluate()
+        vi_trainer.train_and_evaluate()
         mc_trainer.train_and_evaluate()
 
         # Save results per dataset
-        trainers = [baseline_trainer, mc_trainer]
+        trainers = [mlp_trainer, vi_trainer, mc_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
             # Training
             train_loss = trainer.train_loss_scores
@@ -102,7 +107,7 @@ if __name__ == "__main__":
             test_ibs = trainer.test_ibs_scores
             test_times = trainer.test_times
 
-            # Put everything in a DF
+            # Save to df
             res_df = pd.DataFrame(np.column_stack([train_loss, train_ci, train_ctd, train_ibs, # train
                                                    test_loss, tests_ci, test_ctd, test_ibs, # test
                                                    train_times, test_times]), # times
@@ -114,8 +119,7 @@ if __name__ == "__main__":
             results = pd.concat([results, res_df], axis=0)
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"training_results.csv"), index=False)
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"nn_training_results.csv"), index=False)
 
-    # Plot training curves
+    # Plot training curves for MLP, VI and MC
     plot_training_curves(results)
-
