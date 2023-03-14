@@ -35,14 +35,12 @@ PROJECT_NAME = "baysurv_bo_baseline"
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
-                        required=False,
+                        required=True,
                         default=None) # SUPPORT, GBSG, WHAS, FLCHAIN or METABRIC
     args = parser.parse_args()
     global dataset
     if args.dataset:
         dataset = args.dataset
-        
-    dataset = "METABRIC"
 
     sweep_config = get_baseline_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
