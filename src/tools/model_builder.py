@@ -13,9 +13,11 @@ class MonteCarloDropout(tf.keras.layers.Dropout):
 tfd = tfp.distributions
 tfb = tfp.bijectors
 
-def normal_sp(params):
-    return tfd.Normal(loc=params[:,0:1],
-                      scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
+def normal_loc(params):
+    return tfd.Normal(loc=params[:,0:1], scale=1)
+
+def normal_loc_scale(params):
+    return tfd.Normal(loc=params[:,0:1], scale=1e-3 + tf.math.softplus(0.05 * params[:,1:2]))
 
 def normal_fs(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
@@ -50,28 +52,15 @@ def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate,
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
-    output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
-    model = tf.keras.Model(inputs=inputs, outputs=output)
-    return model
-
-def make_nobay_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
-    inputs = tf.keras.layers.Input(shape=input_shape)
-    for i, units in enumerate(layers):
-        if i == 0:
-            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
-            if dropout_rate is not None:
-                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
-        else:
-            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
-            if dropout_rate is not None:
-                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
-    params = tf.keras.layers.Dense(output_dim)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    params = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+    if output_dim == 2: # If 2, then model aleatoric uncertain.
+        dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+    else: # Do not model aleatoric uncertain
+        dist = tfp.layers.DistributionLambda(normal_loc)(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 
-def make_vi_model(n_train_samples, input_shape, output_dim, layers,
-                  activation_fn, dropout_rate, regularization_pen):
+def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     kernel_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
     bias_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
     inputs = tf.keras.layers.Input(shape=input_shape)
@@ -110,7 +99,10 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers,
                                      bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
                                      kernel_divergence_fn=kernel_divergence_fn,
                                      bias_divergence_fn=bias_divergence_fn)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    if output_dim == 2: # If 2, then model both aleatoric and epistemic uncertain.
+        dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+    else: # model only epistemic uncertain.
+        dist = tfp.layers.DistributionLambda(normal_loc)(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model
 
@@ -135,6 +127,6 @@ def make_mc_model(input_shape, output_dim, layers,
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
     params = tf.keras.layers.Dense(output_dim)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_sp)(params)
+    dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
     model = tf.keras.Model(inputs=inputs, outputs=dist)
     return model

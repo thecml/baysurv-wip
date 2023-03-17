@@ -1,5 +1,5 @@
-from tools.data_loader import (BaseDataLoader, FlchainDataLoader, GbsgDataLoader,
-                               MetabricDataLoader, SupportDataLoader, WhasDataLoader)
+from tools.data_loader import (BaseDataLoader, FlchainDataLoader, GbsgDataLoader, MetabricDataLoader,
+                               SupportDataLoader, WhasDataLoader, AidsDataLoader)
 from tools.preprocessor import Preprocessor
 from typing import Tuple
 import numpy as np
@@ -15,6 +15,8 @@ def get_data_loader(dataset_name:str) -> BaseDataLoader:
         return SupportDataLoader()
     elif dataset_name == "WHAS":
         return WhasDataLoader()
+    elif dataset_name == "AIDS":
+        return AidsDataLoader()
     else:
         raise ValueError("Data loader not found")
 

@@ -1,12 +1,13 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
+import numpy as np
 
 @tf.function
 def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
     inner_kernel=tfp.mcmc.HamiltonianMonteCarlo(
         target_log_prob_fn=log_prob,
         step_size=0.1,
-        num_leapfrog_steps=2
+        num_leapfrog_steps=3
     )
 
     if bijectors_list is not None:
@@ -14,7 +15,8 @@ def sample_hmc(log_prob, inits, n_steps, n_burnin_steps, bijectors_list = None):
 
     adaptive_kernel = tfp.mcmc.SimpleStepSizeAdaptation(
         inner_kernel=inner_kernel,
-        num_adaptation_steps=int(n_burnin_steps * 0.8)
+        num_adaptation_steps=int(n_burnin_steps * 0.8),
+        target_accept_prob=np.float64(0.75)
     )
 
     return tfp.mcmc.sample_chain(

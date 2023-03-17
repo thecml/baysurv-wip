@@ -26,6 +26,7 @@ from pathlib import Path
 tfd = tfp.distributions
 
 DTYPE = tf.float32
+BATCH_SIZE = 32
 
 loss_fn = CoxPHLoss()
 
@@ -86,6 +87,12 @@ def bnn_joint_log_prob_fn(weight_prior, bias_prior, X_train, e_train, t_train, *
     lp = sum([tf.reduce_sum(weight_prior.log_prob(weights)) for weights in weights_list])
     lp += sum([tf.reduce_sum(bias_prior.log_prob(bias)) for bias in biases_list])
 
+    # get random batch
+    #idx = np.random.randint(10, size=32)
+    #X_sample = X_train[idx,:]
+    #e_train_sample = e_train[idx]
+    #t_train_sample = t_train[idx]
+
     # get logits
     network = build_network(weights_list, biases_list)
     logits = network(X_train).sample()
@@ -97,7 +104,7 @@ def bnn_joint_log_prob_fn(weight_prior, bias_prior, X_train, e_train, t_train, *
 
     # reduce loss
     loss = loss_fn(y_true=[train_event_set, train_risk_set], y_pred=logits)
-    lp += -tf.reduce_sum(loss)
+    lp + -tf.reduce_sum(loss)
     return lp
 
 def plot_curves(chains):
@@ -106,23 +113,41 @@ def plot_curves(chains):
         weights_list = chain[::2]
         biases_list = chain[1::2]
 
-        train_trace, valid_trace = [], []
+        train_trace, test_trace = [], []
         for i in range(number_burnin_steps, len(weights_list[0]), 100):
             network = build_network([w[i] for w in weights_list], [b[i] for b in biases_list])
             logits = tf.reshape(network(X_test).sample(), (X_test.shape[0], 1))
             event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
             risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
-            valid_loss = loss_fn(y_true=[event_set, risk_set], y_pred=logits)
-            valid_trace.append(valid_loss.numpy())
-
-        plt.plot(valid_trace, label=f'C{chain_id} valid loss')
+            test_loss = loss_fn(y_true=[event_set, risk_set], y_pred=logits)
+            test_trace.append(test_loss.numpy())
+    
+        plt.plot(test_trace, label=f'C{chain_id} test loss')
 
     plt.legend(loc='best')
     plt.show()
 
+def get_map(target_log_prob_fn, state, num_iters=1000, save_every=100):
+    state_vars = [tf.Variable(s) for s in state]
+    opt = tf.optimizers.Adam()
+    def map_loss():
+        return -target_log_prob_fn(*state_vars)
+    
+    @tf.function
+    def minimize():
+        opt.minimize(map_loss, state_vars)
+    
+    traces = [[] for _ in range(len(state))]
+    for i in range(num_iters):
+        if i % save_every == 0:
+            for t, s in zip(traces, state_vars):
+                t.append(s.numpy())
+        minimize()
+    return [np.array(t) for t in traces]
+
 if __name__ == "__main__":
     weight_prior = tfd.Normal(0.0, 0.1)
-    bias_prior = tfd.Normal(0.0, 1.0)  # near-uniform
+    bias_prior = tfd.Normal(0.0, 1) # near-uniform
 
     # Load data
     dl = get_data_loader("WHAS").load_data()
@@ -152,10 +177,16 @@ if __name__ == "__main__":
     print("Total params", z)
 
     # Results is tuple with shape [chains, trace]
-    n_chains = 12
-    number_of_steps = 20000
-    number_burnin_steps = 5000
-    chains = [sample_hmc(bnn_joint_log_prob, initial_state,
+    n_chains = 10
+    number_of_steps = 1000000
+    number_burnin_steps = 100000
+    
+    # Get MAP estimate
+    map_trace = get_map(bnn_joint_log_prob, initial_state, num_iters=15000, save_every=50)
+    map_initial_state = [tf.constant(t[-1]) for t in map_trace]
+    
+    # Use MAP estiamte as initial state
+    chains = [sample_hmc(bnn_joint_log_prob, map_initial_state,
                          n_steps=number_of_steps, n_burnin_steps=number_burnin_steps)
               for _ in range(n_chains)]
 

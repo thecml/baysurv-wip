@@ -13,6 +13,8 @@ from utility.risk import _make_riskset
 from utility.loss import CoxPHLoss
 from pathlib import Path
 import paths as pt
+import joblib
+import os
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -78,6 +80,11 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
+            
+            # Save model
+            curr_dir = os.getcwd()
+            root_dir = Path(curr_dir).absolute()
+            joblib.dump(model, f'{root_dir}/models/{model_name.lower()}.joblib')
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"std_training_results.csv"), index=False)
