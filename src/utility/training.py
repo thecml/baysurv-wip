@@ -1,5 +1,5 @@
 from tools.data_loader import (BaseDataLoader, FlchainDataLoader, GbsgDataLoader, MetabricDataLoader,
-                               SupportDataLoader, WhasDataLoader, AidsDataLoader)
+                               SupportDataLoader, WhasDataLoader, AidsDataLoader, SeerDataLoader)
 from tools.preprocessor import Preprocessor
 from typing import Tuple
 import numpy as np
@@ -7,6 +7,8 @@ import numpy as np
 def get_data_loader(dataset_name:str) -> BaseDataLoader:
     if dataset_name == "FLCHAIN":
         return FlchainDataLoader()
+    elif dataset_name == "SEER":
+        return SeerDataLoader()
     elif dataset_name == "GBSG":
         return GbsgDataLoader()
     elif dataset_name == "METABRIC":

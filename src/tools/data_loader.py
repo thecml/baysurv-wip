@@ -82,6 +82,36 @@ class BaseDataLoader(ABC):
         X_test = np.array(X_test, dtype=np.float32)
 
         return X_train, X_valid, X_test, y_train, y_valid, y_test
+    
+class SeerDataLoader(BaseDataLoader):
+    """
+    Data loader for SEER dataset
+    """
+    def load_data(self):
+        path = Path.joinpath(pt.DATA_DIR, 'seer.csv')
+        data = pd.read_csv(path)
+
+        outcomes = data.copy()
+        outcomes['event'] =  data['Status']
+        outcomes['time'] = data['Survival Months']
+        outcomes = outcomes[['event', 'time']]
+        outcomes.loc[outcomes['event'] == 'Alive', ['event']] = 0
+        outcomes.loc[outcomes['event'] == 'Dead', ['event']] = 1
+        
+        data = data.drop(['Status', "Survival Months"], axis=1)
+
+        obj_cols = data.select_dtypes(['bool']).columns.tolist() \
+                   + data.select_dtypes(['object']).columns.tolist()
+        for col in obj_cols:
+            data[col] = data[col].astype('category')
+        
+        self.X = pd.DataFrame(data)
+
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
+        self.y = convert_to_structured(outcomes['time'], outcomes['event'])
+
+        return self
 
 class SupportDataLoader(BaseDataLoader):
     """

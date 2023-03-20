@@ -26,8 +26,8 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_RUNS = 10
-N_EPOCHS = 5
+N_RUNS = 100
+N_EPOCHS = 25
 N_SPLITS = 5
 BATCH_SIZE = 32
 PROJECT_NAME = "baysurv_bo_baseline"
@@ -36,7 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
-                        default=None) # SUPPORT, GBSG, WHAS, FLCHAIN or METABRIC
+                        default=None) # SUPPORT, AIDS, GBSG, WHAS, FLCHAIN or METABRIC
     args = parser.parse_args()
     global dataset
     if args.dataset:
@@ -73,6 +73,8 @@ def train_model():
         dl = data_loader.FlchainDataLoader().load_data()
     elif dataset == "METABRIC":
         dl = data_loader.MetabricDataLoader().load_data()
+    elif dataset == "SEER":
+        dl = data_loader.SeerDataLoader().load_data()
     else:
         raise ValueError("Dataset not found")
 
@@ -112,11 +114,11 @@ def train_model():
 
         # Make model
         model = make_mlp_model(input_shape=ti_X.shape[1:],
-                                    output_dim=1,
-                                    layers=wandb.config['network_layers'],
-                                    activation_fn=wandb.config['activation_fn'],
-                                    dropout_rate=wandb.config['dropout'],
-                                    regularization_pen=wandb.config['l2_reg'])
+                               output_dim=1,
+                               layers=wandb.config['network_layers'],
+                               activation_fn=wandb.config['activation_fn'],
+                               dropout_rate=wandb.config['dropout'],
+                               regularization_pen=wandb.config['l2_reg'])
 
         # Define optimizer
         if wandb.config['optimizer'] == "Adam":

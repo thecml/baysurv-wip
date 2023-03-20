@@ -85,7 +85,7 @@ def plot_training_curves(results):
         axs[1].plot(epochs, mc_train_ci, marker="o", color=TFColor[3], linewidth=1)
         axs[1].plot(epochs, mc_test_ci, marker="s", color=TFColor[3], linewidth=1)
         axs[1].set_xlabel('Epoch', fontsize="medium")
-        axs[1].set_ylabel('C-Index', fontsize="medium")
+        axs[1].set_ylabel('CI', fontsize="medium")
 
         axs[2].plot(epochs, mlp_train_ctd, marker="o", color=TFColor[0], linewidth=1)
         axs[2].plot(epochs, mlp_test_ctd, marker="s", color=TFColor[0], linewidth=1)

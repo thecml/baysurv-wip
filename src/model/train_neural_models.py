@@ -22,14 +22,14 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS"] # "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
+DATASETS = ["SEER"] # WHAS "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MC"] # TODO: Rename to MCD
 N_EPOCHS = 5
 BATCH_SIZE = 32
 results = pd.DataFrame()
 
 if __name__ == "__main__":
-    # For each dataset, train three models (MLP, VI, MC) and plot scores
+    # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
         # Load training parameters
         config = load_config(pt.CONFIGS_DIR, f"{dataset_name.lower()}_arch.yaml")
