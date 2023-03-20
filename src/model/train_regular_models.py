@@ -15,12 +15,13 @@ from pathlib import Path
 import paths as pt
 import joblib
 import os
+from time import time
 
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
+DATASETS = ["WHAS", "SEER", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["Cox", "CoxNet", "RSF"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
@@ -49,11 +50,21 @@ if __name__ == "__main__":
         rsf_model = make_rsf_model()
 
         # Train models
+        cox_train_start_time = time()
         cox_model.fit(X_train, y_train)
+        cox_train_time = time() - cox_train_start_time
+        
+        coxnet_train_start_time = time()
         coxnet_model.fit(X_train, y_train)
+        coxnet_train_time = time() - coxnet_train_start_time
+        
+        rsf_train_start_time = time()
         rsf_model.fit(X_train, y_train)
+        rsf_train_time = time() - rsf_train_start_time
+        
         trained_models = [cox_model, coxnet_model, rsf_model]
-
+        train_times = [cox_train_time, coxnet_train_time, rsf_train_time]
+        
         # Compute scores
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
         times = np.arange(lower, upper+1)
@@ -61,8 +72,12 @@ if __name__ == "__main__":
         y_test_struc = convert_to_structured(t_test, e_test)
         event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
         risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
-        for model, model_name in zip(trained_models, MODEL_NAMES):
+        for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
+            
+            test_start_time = time()
             preds = model.predict(X_test)
+            test_time = time() - test_start_time
+            
             if model_name != "RSF":
                 preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
                 loss = loss_fn(y_true=[event_set, risk_set], y_pred=preds_tn).numpy()
@@ -75,8 +90,9 @@ if __name__ == "__main__":
             ibs = integrated_brier_score(y_train_struc, y_test_struc, preds_t, times)
 
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs]),
-                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS"])
+            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs, train_time, test_time]),
+                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS",
+                                           "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
@@ -87,6 +103,6 @@ if __name__ == "__main__":
             joblib.dump(model, f'{root_dir}/models/{model_name.lower()}.joblib')
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"std_training_results.csv"), index=False)
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"regular_training_results.csv"), index=False)
 
 

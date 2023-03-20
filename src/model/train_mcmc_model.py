@@ -178,11 +178,11 @@ if __name__ == "__main__":
 
     # Results is tuple with shape [chains, trace]
     n_chains = 10
-    number_of_steps = 1000000
-    number_burnin_steps = 100000
+    number_of_steps = 100000
+    number_burnin_steps = 10000
     
     # Get MAP estimate
-    map_trace = get_map(bnn_joint_log_prob, initial_state, num_iters=15000, save_every=50)
+    map_trace = get_map(bnn_joint_log_prob, initial_state, num_iters=25000, save_every=50)
     map_initial_state = [tf.constant(t[-1]) for t in map_trace]
     
     # Use MAP estiamte as initial state

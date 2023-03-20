@@ -22,7 +22,7 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["SEER"] # WHAS "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
+DATASETS = ["WHAS", "SEER", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MC"] # TODO: Rename to MCD
 N_EPOCHS = 5
 BATCH_SIZE = 32
