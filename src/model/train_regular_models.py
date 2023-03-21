@@ -16,6 +16,7 @@ import paths as pt
 import joblib
 import os
 from time import time
+from utility.config import load_config
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -44,10 +45,15 @@ if __name__ == "__main__":
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
 
+        # Load training parameters
+        rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        cox_config = load_config(pt.COX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        coxnet_config = load_config(pt.COXNET_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+
         # Make models
-        cox_model = make_cox_model()
-        coxnet_model = make_coxnet_model()
-        rsf_model = make_rsf_model()
+        rsf_model = make_rsf_model(rsf_config)
+        cox_model = make_cox_model(cox_config)
+        coxnet_model = make_coxnet_model(coxnet_config)
 
         # Train models
         cox_train_start_time = time()

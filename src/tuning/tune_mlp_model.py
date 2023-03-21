@@ -1,7 +1,7 @@
 """
-tune_baseline_model.py
+tune_mlp_model.py
 ====================================
-Tuning script for baseline model
+Tuning script for mlp model
 --dataset: Dataset name, one of "SUPPORT", "NHANES", "GBSG", "WHAS", "FLCHAIN", "METABRIC"
 """
 
@@ -16,7 +16,7 @@ import os
 import random
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
-from utility.tuning import get_baseline_sweep_config
+from utility.tuning import get_mlp_sweep_config
 import argparse
 
 os.environ["WANDB_SILENT"] = "true"
@@ -30,7 +30,7 @@ N_RUNS = 100
 N_EPOCHS = 25
 N_SPLITS = 5
 BATCH_SIZE = 32
-PROJECT_NAME = "baysurv_bo_baseline"
+PROJECT_NAME = "baysurv_bo_mlp"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -42,7 +42,7 @@ def main():
     if args.dataset:
         dataset = args.dataset
 
-    sweep_config = get_baseline_sweep_config()
+    sweep_config = get_mlp_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
@@ -136,7 +136,7 @@ def train_model():
         # Train model
         loss_fn = CoxPHLoss()
         trainer = model_trainer.Trainer(model=model,
-                                        model_type="BASELINE",
+                                        model_type="MLP",
                                         train_dataset=train_ds,
                                         valid_dataset=valid_ds,
                                         test_dataset=None,

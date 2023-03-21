@@ -1,6 +1,6 @@
 import numpy as np
 
-def get_baseline_sweep_config():
+def get_mlp_sweep_config():
     return {
         "method": "bayes",
         "metric": {

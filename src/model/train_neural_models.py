@@ -32,7 +32,7 @@ if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
         # Load training parameters
-        config = load_config(pt.CONFIGS_DIR, f"{dataset_name.lower()}_arch.yaml")
+        config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
         custom_objects = {"CoxPHLoss": CoxPHLoss()}
         with tf.keras.utils.custom_object_scope(custom_objects):

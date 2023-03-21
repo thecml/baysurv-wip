@@ -22,14 +22,38 @@ def normal_loc_scale(params):
 def normal_fs(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
 
-def make_cox_model():
-    return CoxPHSurvivalAnalysis(alpha=0.0001)
+def make_cox_model(config):
+    n_iter = config['n_iter']
+    tol = config['tol']
+    return CoxPHSurvivalAnalysis(alpha=0.0001, n_iter=n_iter, tol=tol)
 
-def make_rsf_model():
-    return RandomSurvivalForest(random_state=0)
+def make_rsf_model(config):
+    n_estimators = config['n_estimators']
+    max_depth = config['max_depth']
+    min_samples_split = config['min_samples_split']
+    min_samples_leaf =  config['min_samples_leaf']
+    max_features = config['max_features']
+    return RandomSurvivalForest(random_state=0,
+                                n_estimators=n_estimators,
+                                max_depth=max_depth,
+                                min_samples_split=min_samples_split,
+                                min_samples_leaf=min_samples_leaf,
+                                max_features=max_features)
 
-def make_coxnet_model():
-    return CoxnetSurvivalAnalysis(fit_baseline_model=True)
+def make_coxnet_model(config):
+    l1_ratio = config['l1_ratio']
+    alpha_min_ratio = config['alpha_min_ratio']
+    n_alphas = config['n_alphas']
+    normalize = config['normalize']
+    tol = config['tol']
+    max_iter = config['max_iter']
+    return CoxnetSurvivalAnalysis(fit_baseline_model=True,
+                                  l1_ratio=l1_ratio,
+                                  alpha_min_ratio=alpha_min_ratio,
+                                  n_alphas=n_alphas,
+                                  normalize=normalize,
+                                  tol=tol,
+                                  max_iter=max_iter)
 
 def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)
