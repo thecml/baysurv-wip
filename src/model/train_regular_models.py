@@ -98,9 +98,8 @@ if __name__ == "__main__":
             results = pd.concat([results, res_df], axis=0)
 
             # Save model
-            curr_dir = os.getcwd()
-            root_dir = Path(curr_dir).absolute()
-            joblib.dump(model, f'{root_dir}/models/{model_name.lower()}.joblib')
+            path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}.joblib")
+            joblib.dump(model, path)
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"regular_training_results.csv"), index=False)

@@ -137,9 +137,8 @@ if __name__ == "__main__":
 
             # Save model weights
             model = trainer.model
-            curr_dir = os.getcwd()
-            root_dir = Path(curr_dir).absolute()
-            model.save_weights(f'{root_dir}/models/{model_name.lower()}/')
+            path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
+            model.save_weights(path)
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"neural_training_results.csv"), index=False)
