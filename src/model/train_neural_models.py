@@ -11,7 +11,7 @@ from tools.model_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.plotter import plot_training_curves
-from tools.model_builder import make_mlp_model, make_vi_model, make_mc_model, make_mlp_model
+from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model, make_mlp_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from pathlib import Path
@@ -23,7 +23,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 DATASETS = ["WHAS", "SEER", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MC"] # TODO: Rename to MCD
+MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MCD"]
 N_EPOCHS = 25
 BATCH_SIZE = 32
 results = pd.DataFrame()
@@ -74,7 +74,7 @@ if __name__ == "__main__":
         vi_epi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
                                      output_dim=1, layers=layers, activation_fn=activation_fn,
                                      dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        mc_model = make_mc_model(input_shape=X_train.shape[1:], output_dim=2,
+        mc_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                  layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
 
@@ -95,7 +95,7 @@ if __name__ == "__main__":
                                  train_dataset=train_ds, valid_dataset=None,
                                  test_dataset=test_ds, optimizer=optimizer,
                                  loss_function=loss_fn, num_epochs=N_EPOCHS)
-        mc_trainer = Trainer(model=mc_model, model_type="MC",
+        mc_trainer = Trainer(model=mc_model, model_type="MCD",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS)
