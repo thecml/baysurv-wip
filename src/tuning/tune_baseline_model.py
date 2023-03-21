@@ -96,7 +96,7 @@ def train_model():
         cvi_y = T1[1][test]
 
         # Scale data split
-        preprocessor = Preprocessor(cat_feat_strat='ignore', num_feat_strat='mean')
+        preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
         transformer = preprocessor.fit(ti_X, cat_feats=cat_features, num_feats=num_features,
                                        one_hot=True, fill_value=-1)
         ti_X = np.array(transformer.transform(ti_X))
