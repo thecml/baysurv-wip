@@ -24,7 +24,7 @@ random.seed(0)
 
 DATASETS = ["WHAS", "SEER", "GBSG", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MC"] # TODO: Rename to MCD
-N_EPOCHS = 5
+N_EPOCHS = 25
 BATCH_SIZE = 32
 results = pd.DataFrame()
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
         vi_trainer.train_and_evaluate()
         vi_epi_trainer.train_and_evaluate()
         mc_trainer.train_and_evaluate()
-        
+
         # Save results per dataset
         trainers = [mlp_trainer, mlp_alea_trainer, vi_trainer, vi_epi_trainer, mc_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
@@ -134,7 +134,7 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
-            
+
             # Save model weights
             model = trainer.model
             curr_dir = os.getcwd()
@@ -142,7 +142,7 @@ if __name__ == "__main__":
             model.save_weights(f'{root_dir}/models/{model_name.lower()}/')
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"nn_training_results.csv"), index=False)
-    
-    # Plot training curves for MLP, VI and MC
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"neural_training_results.csv"), index=False)
+
+    # Plot training curves
     plot_training_curves(results)

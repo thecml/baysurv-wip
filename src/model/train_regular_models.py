@@ -53,18 +53,18 @@ if __name__ == "__main__":
         cox_train_start_time = time()
         cox_model.fit(X_train, y_train)
         cox_train_time = time() - cox_train_start_time
-        
+
         coxnet_train_start_time = time()
         coxnet_model.fit(X_train, y_train)
         coxnet_train_time = time() - coxnet_train_start_time
-        
+
         rsf_train_start_time = time()
         rsf_model.fit(X_train, y_train)
         rsf_train_time = time() - rsf_train_start_time
-        
+
         trained_models = [cox_model, coxnet_model, rsf_model]
         train_times = [cox_train_time, coxnet_train_time, rsf_train_time]
-        
+
         # Compute scores
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
         times = np.arange(lower, upper+1)
@@ -73,11 +73,11 @@ if __name__ == "__main__":
         event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
         risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
-            
+
             test_start_time = time()
             preds = model.predict(X_test)
             test_time = time() - test_start_time
-            
+
             if model_name != "RSF":
                 preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
                 loss = loss_fn(y_true=[event_set, risk_set], y_pred=preds_tn).numpy()
@@ -96,7 +96,7 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
-            
+
             # Save model
             curr_dir = os.getcwd()
             root_dir = Path(curr_dir).absolute()
