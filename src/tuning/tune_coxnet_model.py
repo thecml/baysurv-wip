@@ -12,7 +12,7 @@ from sksurv.metrics import concordance_index_censored
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 10
+N_RUNS = 100
 N_SPLITS = 5
 PROJECT_NAME = "baysurv_bo_coxnet"
 
