@@ -2,7 +2,7 @@
 tune_mlp_model.py
 ====================================
 Tuning script for mlp model
---dataset: Dataset name, one of "SUPPORT", "NHANES", "GBSG", "WHAS", "FLCHAIN", "METABRIC"
+--dataset: Dataset name, one of "SUPPORT", "NHANES", "GBSG2", "WHAS", "FLCHAIN", "METABRIC"
 """
 
 import numpy as np
@@ -36,7 +36,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
-                        default=None) # SUPPORT, AIDS, GBSG, WHAS, FLCHAIN or METABRIC
+                        default=None)
     args = parser.parse_args()
     global dataset
     if args.dataset:
@@ -65,7 +65,7 @@ def train_model():
     # Load data
     if dataset == "SUPPORT":
         dl = data_loader.SupportDataLoader().load_data()
-    elif dataset == "GBSG":
+    elif dataset == "GBSG2":
         dl = data_loader.GbsgDataLoader().load_data()
     elif dataset == "WHAS":
         dl = data_loader.WhasDataLoader().load_data()

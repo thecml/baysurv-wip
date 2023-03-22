@@ -9,7 +9,7 @@ def get_data_loader(dataset_name:str) -> BaseDataLoader:
         return FlchainDataLoader()
     elif dataset_name == "SEER":
         return SeerDataLoader()
-    elif dataset_name == "GBSG":
+    elif dataset_name == "GBSG2":
         return GbsgDataLoader()
     elif dataset_name == "METABRIC":
         return MetabricDataLoader()

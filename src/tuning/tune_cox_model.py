@@ -47,7 +47,7 @@ def train_model():
     # Load data
     if dataset == "SUPPORT":
         dl = data_loader.SupportDataLoader().load_data()
-    elif dataset == "GBSG":
+    elif dataset == "GBSG2":
         dl = data_loader.GbsgDataLoader().load_data()
     elif dataset == "WHAS":
         dl = data_loader.WhasDataLoader().load_data()
