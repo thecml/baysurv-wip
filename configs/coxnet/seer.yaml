@@ -2,5 +2,5 @@ l1_ratio: 1
 alpha_min_ratio: 0.01
 n_alphas: 100
 normalize: False
-tol: 1e-7
+tol: 0.0000001
 max_iter: 100000
