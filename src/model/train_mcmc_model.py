@@ -150,7 +150,7 @@ if __name__ == "__main__":
     bias_prior = tfd.Normal(0.0, 1) # near-uniform
 
     # Load data
-    dl = get_data_loader("WHAS").load_data()
+    dl = get_data_loader("WHAS500").load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
 

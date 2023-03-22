@@ -15,7 +15,7 @@ def get_data_loader(dataset_name:str) -> BaseDataLoader:
         return MetabricDataLoader()
     elif dataset_name == "SUPPORT":
         return SupportDataLoader()
-    elif dataset_name == "WHAS":
+    elif dataset_name == "WHAS500":
         return WhasDataLoader()
     elif dataset_name == "AIDS":
         return AidsDataLoader()
