@@ -10,3 +10,5 @@ notebook
 seaborn
 wandb
 pyarrow
+auton-survival
+lifelines
