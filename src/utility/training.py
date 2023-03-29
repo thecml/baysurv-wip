@@ -31,6 +31,6 @@ def scale_data(X_train, X_test, cat_features, num_features) -> Tuple[np.ndarray,
     return (X_train, X_test)
 
 def make_time_event_split(y):
-    y_t = np.array(y['Time'])
-    y_e = np.array(y['Event'])
+    y_t = np.array(y['time'])
+    y_e = np.array(y['event'])
     return (y_t, y_e)

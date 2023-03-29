@@ -11,7 +11,7 @@ from tools.model_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.plotter import plot_training_curves
-from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model, make_mlp_model
+from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from pathlib import Path

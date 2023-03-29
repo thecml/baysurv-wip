@@ -6,7 +6,7 @@ from time import time
 
 class Trainer:
     def __init__(self, model, model_type, train_dataset, valid_dataset,
-                 test_dataset, optimizer, loss_function, num_epochs):
+                 test_dataset, optimizer, loss_function, num_epochs, event_times):
         self.num_epochs = num_epochs
         self.model = model
         self.model_type = model_type
@@ -24,7 +24,7 @@ class Trainer:
         self.train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
         self.train_cindex_metric = CindexMetric()
         self.train_ctd_metric = CindexTdMetric()
-        self.train_ibs_metric = IbsMetric()
+        self.train_ibs_metric = IbsMetric(event_times)
 
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_cindex_metric = CindexMetric()
@@ -32,7 +32,7 @@ class Trainer:
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
         self.test_cindex_metric = CindexMetric()
         self.test_ctd_metric = CindexTdMetric()
-        self.test_ibs_metric = IbsMetric()
+        self.test_ibs_metric = IbsMetric(event_times)
 
         self.train_loss_scores, self.train_ci_scores = list(), list()
         self.train_ctd_scores, self.train_ibs_scores = list(), list()
@@ -68,7 +68,6 @@ class Trainer:
 
                 y_train = convert_to_structured(y["label_time"], y["label_event"])
                 self.test_ctd_metric.update_train_state(y_train) # test CTD
-                self.test_ibs_metric.update_train_state(y_train)
 
                 # CTD
                 y_train = convert_to_structured(y["label_time"], y["label_event"])
@@ -76,10 +75,11 @@ class Trainer:
                 self.train_ctd_metric.update_test_state(y_train)
                 self.train_ctd_metric.update_pred_state(logits)
 
-                # BS
+                # IBS
                 self.train_ibs_metric.update_train_state(y_train) # train IBS
-                self.train_ibs_metric.update_test_state(y_train)
-                self.train_ibs_metric.update_pred_state(logits)
+                self.train_ibs_metric.update_train_pred(logits)
+                self.test_ibs_metric.update_train_state(y_train)
+                self.test_ibs_metric.update_train_pred(logits)
 
             with tf.name_scope("gradients"):
                 grads = tape.gradient(loss, self.model.trainable_weights)
@@ -146,9 +146,9 @@ class Trainer:
             self.test_ctd_metric.update_test_state(y_test)
             self.test_ctd_metric.update_pred_state(logits)
 
-            # BS
+            # IBS
             self.test_ibs_metric.update_test_state(y_test)
-            self.test_ibs_metric.update_pred_state(logits)
+            self.test_ibs_metric.update_test_pred(logits)
 
         total_test_time = time() - test_start_time
 

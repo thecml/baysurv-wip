@@ -18,14 +18,16 @@ from pathlib import Path
 import paths as pt
 import os
 from tools.preprocessor import Preprocessor
-from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
+from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, integrated_brier_score
+from utility.survival import compute_survival_times
+from sksurv.linear_model.coxph import BreslowEstimator
 
 from auton_survival.estimators import SurvivalModel
 from auton_survival.metrics import survival_regression_metric
 from sklearn.model_selection import ParameterGrid
 import pandas as pd
 
-N_EPOCHS = 5
+N_ITER = 500
 BATCH_SIZE = 32
 
 if __name__ == "__main__":
@@ -46,30 +48,33 @@ if __name__ == "__main__":
     X_test = transformer.transform(X_test)
         
     # Define the times
-    times = np.quantile(y_train['time'][y_train['event']==1], np.linspace(0.1, 1, 10)).tolist()
+    lower, upper = np.percentile(y_train['time'][y_train['time'].dtype.names], [10, 90])
+    times = np.arange(lower, upper+1)
     
     # Make model
-    model = SurvivalModel('dsm', random_seed=0, iters=N_EPOCHS,
+    model = SurvivalModel('dsm', random_seed=0, iters=N_ITER,
                           layers=[32, 32], distribution='Weibull', max_features='sqrt')
     
     # Fit model
     model.fit(X_train, pd.DataFrame(y_train))
     
-    # Evaluate
-    predictions = model.predict_survival(X_test, times)
-    predictions_test = predictions
+    # Evaluate risk
+    risk_pred = model.predict_risk(X_test, times=y_test['time'].max()).flatten()
     
-    te_min, te_max = y_test['time'].min(), y_test['time'].max()
-    unique_time_mask = (times>te_min)&(times<te_max)
-    times = np.array(times)[unique_time_mask]
-    predictions_test = predictions_test[:, unique_time_mask]
+    # Evaluate surv prob
+    t_train = y_train['time']
+    e_train = y_train['event']
+    t_test = y_test['time']
+    train_predictions = model.predict_risk(X_train, times).reshape(-1)
+    breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+    test_predictions = model.predict_risk(X_test, times).reshape(-1)
+    test_surv_fn = breslow.get_survival_function(test_predictions)
+    surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
     
-    ctd = concordance_index_ipcw(y_train, y_test,
-                                 1-predictions_test, tau=times)[0]
+    ci = concordance_index_censored(y_test['event'], y_test['time'], risk_pred)[0]
+    ctd = concordance_index_ipcw(y_train, y_test, risk_pred)[0]
+    ibs = integrated_brier_score(y_train, y_test, surv_preds, list(times))
     
-
-    #model.predict_risk(X_test, times=y_test['time'].max())
-
-    #ci = concordance_index_censored(y_test["event"], y_test["time"], predictions)[0]
-    #print(ci)
-    
+    print(ci)
+    print(ctd)
+    print(ibs)

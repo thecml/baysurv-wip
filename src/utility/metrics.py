@@ -6,14 +6,17 @@ from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
 from sksurv.metrics import integrated_brier_score
 from utility.survival import convert_to_structured
 from utility.survival import compute_survival_times
+from sksurv.linear_model.coxph import BreslowEstimator
 
 class IbsMetric:
     """Computes concordance index across one epoch."""
-    def __init__(self) -> None:
+    def __init__(self, event_times) -> None:
+        self._event_times = event_times
         self._data = {
             "y_train": [],
             "y_test": [],
-            "prediction": []
+            "pred_train": [],
+            "pred_test": [],
         }
 
     def reset_states(self) -> None:
@@ -21,7 +24,8 @@ class IbsMetric:
         self._data = {
             "y_train": [],
             "y_test": [],
-            "prediction": []
+            "pred_train": [],
+            "pred_test": [],
         }
         
     def update_train_state(self, y_train) -> None:
@@ -29,9 +33,12 @@ class IbsMetric:
         
     def update_test_state(self, y_test) -> None:
         self._data["y_test"].append(y_test)
-        
-    def update_pred_state(self, y_pred: tf.Tensor) -> None:
-        self._data["prediction"].append(tf.squeeze(y_pred).numpy())
+    
+    def update_train_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_train"].append(tf.squeeze(y_pred).numpy())
+    
+    def update_test_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_test"].append(tf.squeeze(y_pred).numpy())
 
     def result(self) -> Dict[str, float]:
         """Computes the concordance index across collected values.
@@ -43,21 +50,25 @@ class IbsMetric:
         """
         data = {}
         for k, v in self._data.items():
-            data[k] = np.concatenate(v)
+            if len(v) > 0:
+                data[k] = np.concatenate(v)
         
-        t_train = data["y_train"]['Time']
-        e_train = data["y_train"]['Event']
-        t_test = data["y_test"]['Time']
-        lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
-        times = np.arange(lower, upper+1)
-        estimate = np.zeros((len(data["y_test"]), len(times)))
-        surv_times = compute_survival_times(data["prediction"], t_train, e_train)
-        for i, surv_time in enumerate(surv_times):
-            surv_prob = np.exp(-times/surv_time)
-            estimate[i] = surv_prob
-            
-        ibs = integrated_brier_score(data["y_train"], data["y_test"], estimate, times)
-        
+        t_train = data["y_train"]['time']
+        e_train = data["y_train"]['event']
+        if "pred_test" not in data: # no test preds
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_train'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = np.row_stack([fn(self._event_times) for fn in test_surv_fn])
+            ibs = integrated_brier_score(data["y_train"], data["y_train"], surv_preds, self._event_times)
+        else:
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_test'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = np.row_stack([fn(self._event_times) for fn in test_surv_fn])
+            ibs = integrated_brier_score(data["y_train"], data["y_test"], surv_preds, self._event_times)
         return ibs
 
 class CindexTdMetric:
