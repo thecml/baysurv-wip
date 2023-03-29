@@ -26,8 +26,10 @@ def scale_data(X_train, X_test, cat_features, num_features) -> Tuple[np.ndarray,
     preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
     transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                    one_hot=True, fill_value=-1)
-    X_train = np.array(transformer.transform(X_train), dtype=np.float32)
-    X_test = np.array(transformer.transform(X_test), dtype=np.float32)
+    X_train = transformer.transform(X_train)
+    X_test = transformer.transform(X_test)
+    
+    
     return (X_train, X_test)
 
 def make_time_event_split(y):

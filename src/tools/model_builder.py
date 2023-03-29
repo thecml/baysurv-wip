@@ -5,6 +5,8 @@ from utility.loss import CoxPHLoss
 from utility.metrics import CindexMetric
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
+from auton_survival.estimators import SurvivalModel
+from auton_survival import DeepCoxPH
 
 class MonteCarloDropout(tf.keras.layers.Dropout):
   def call(self, inputs):
@@ -54,7 +56,16 @@ def make_coxnet_model(config):
                                   normalize=normalize,
                                   tol=tol,
                                   max_iter=max_iter)
+def make_dsm_model(config):
+    layers = config['network_layers']
+    n_iter = config['n_iter']
+    return SurvivalModel('dsm', random_seed=0, iters=n_iter,
+                         layers=layers, distribution='Weibull', max_features='sqrt')
 
+def make_dcph_model(config):
+    layers = config['network_layers']
+    return DeepCoxPH(layers=layers)
+    
 def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)
     for i, units in enumerate(layers):
@@ -76,12 +87,17 @@ def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate,
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
+                
+    output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+                
     params = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
     if output_dim == 2: # If 2, then model aleatoric uncertain.
         dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+        model = tf.keras.Model(inputs=inputs, outputs=dist)
     else: # Do not model aleatoric uncertain
-        dist = tfp.layers.DistributionLambda(normal_loc)(params)
-    model = tf.keras.Model(inputs=inputs, outputs=dist)
+        output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+        model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
 def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):

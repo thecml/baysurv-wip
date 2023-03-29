@@ -52,10 +52,16 @@ if __name__ == "__main__":
 
         # Scale data
         X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
+        X_train = np.array(X_train)
+        X_test = np.array(X_test)
 
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
+        
+        # Make event times
+        lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
+        event_times = np.arange(lower, upper+1)
 
         # Make data loaders
         train_ds = InputFunction(X_train, t_train, e_train, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)()
@@ -82,23 +88,28 @@ if __name__ == "__main__":
         mlp_trainer = Trainer(model=mlp_model, model_type="MLP",
                               train_dataset=train_ds, valid_dataset=None,
                               test_dataset=test_ds, optimizer=optimizer,
-                              loss_function=loss_fn, num_epochs=N_EPOCHS)
+                              loss_function=loss_fn, num_epochs=N_EPOCHS,
+                              event_times=event_times)
         mlp_alea_trainer = Trainer(model=mlp_model, model_type="MLP",
                                    train_dataset=train_ds, valid_dataset=None,
                                    test_dataset=test_ds, optimizer=optimizer,
-                                   loss_function=loss_fn, num_epochs=N_EPOCHS)
+                                   loss_function=loss_fn, num_epochs=N_EPOCHS,
+                                   event_times=event_times)
         vi_trainer = Trainer(model=vi_model, model_type="VI",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
-                             loss_function=loss_fn, num_epochs=N_EPOCHS)
+                             loss_function=loss_fn, num_epochs=N_EPOCHS,
+                             event_times=event_times)
         vi_epi_trainer = Trainer(model=vi_model, model_type="VI",
                                  train_dataset=train_ds, valid_dataset=None,
                                  test_dataset=test_ds, optimizer=optimizer,
-                                 loss_function=loss_fn, num_epochs=N_EPOCHS)
+                                 loss_function=loss_fn, num_epochs=N_EPOCHS,
+                                 event_times=event_times)
         mc_trainer = Trainer(model=mc_model, model_type="MCD",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
-                             loss_function=loss_fn, num_epochs=N_EPOCHS)
+                             loss_function=loss_fn, num_epochs=N_EPOCHS,
+                             event_times=event_times)
 
         # Train models
         mlp_trainer.train_and_evaluate()

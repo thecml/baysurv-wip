@@ -27,7 +27,7 @@ from auton_survival.metrics import survival_regression_metric
 from sklearn.model_selection import ParameterGrid
 import pandas as pd
 
-N_ITER = 500
+N_ITER = 250
 BATCH_SIZE = 32
 
 if __name__ == "__main__":
