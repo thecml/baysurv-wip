@@ -69,5 +69,5 @@ if __name__ == "__main__":
     df['ProgesteroneStatus'] = df['ProgesteroneStatus'].replace('Recode not available', None)
     
     # Save file
-    path = Path.joinpath(pt.DATA_DIR, "seer_breast_2004_2015_prepared.csv")
-    df.to_csv(path)
+    path = Path.joinpath(pt.DATA_DIR, "seer.pkl")
+    df.to_pickle(path)
