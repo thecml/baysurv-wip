@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+# SEER data
+data/seer_breast_2004_2015.csv
+
 # Distribution / packaging
 .Python
 build/

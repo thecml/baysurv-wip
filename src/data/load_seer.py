@@ -7,45 +7,67 @@ from tools.preprocessor import Preprocessor
 from sklearn.model_selection import train_test_split
 from tools.model_builder import make_coxnet_model
 from utility.metrics import concordance_index_censored
+from sklearn.preprocessing import LabelEncoder
 
 if __name__ == "__main__":
-    path = Path.joinpath(pt.DATA_DIR, "seer.csv")
+    # Load data
+    path = Path.joinpath(pt.DATA_DIR, "seer_breast_2004_2015.csv")
     df = pd.read_csv(path, na_values="Blank(s)")
-    df = df.loc[:, df.isin([' ','NULL',0]).mean() < .2] # drop columns with more than 20% nan
     
+    # Transform the y columns
     df['SEER cause-specific death classification'] = df['SEER cause-specific death classification'] \
                                                     .apply(lambda x: 1 if x=="Dead (attributable to this cancer dx)" else 0)
     df = df.loc[df['Survival months'] != "Unknown"].copy(deep=True)
     df['Survival months'] = df['Survival months'].astype(int)
     
-    X = df.drop(['Survival months', 'SEER cause-specific death classification'], axis=1)
-    y = convert_to_structured(df['Survival months'], df['SEER cause-specific death classification'])
-
-    X = X.dropna(axis=1) # remove nan only cols
-
-    obj_cols = df.select_dtypes(['bool']).columns.tolist() \
-                + df.select_dtypes(['object']).columns.tolist()
-    for col in obj_cols:
-        X[col] = X[col].astype('category')
+    # Select the features
+    features = ['Age recode with <1 year olds', 'Race recode (White, Black, Other)',
+                'Primary Site', 'Histologic Type ICD-O-3', 'Grade (thru 2017)', 'SEER historic stage A (1973-2015)',
+                'Derived AJCC T, 6th ed (2004-2015)', 'Derived AJCC N, 6th ed (2004-2015)',
+                'Derived AJCC Stage Group, 6th ed (2004-2015)', 'Regional nodes examined (1988+)',
+                'Regional nodes positive (1988+)', 'ER Status Recode Breast Cancer (1990+)',
+                'PR Status Recode Breast Cancer (1990+)', 'CS tumor size (2004-2015)',
+                'CS extension (2004-2015)', 'CS site-specific factor 1 (2004-2017 varying by schema)']
+    labels = ['SEER cause-specific death classification', 'Survival months']
     
-    num_features = X.select_dtypes(include=np.number).columns.tolist()
-    cat_features = X.select_dtypes(['category']).columns.tolist()
+    # Split Grade column
+    df[['Differentiate', 'Grade']] = df['Grade (thru 2017)'].str.split(';',expand=True).iloc[:,:2]
     
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
+    # Rename features
+    names = {'Age recode with <1 year olds': 'Age',
+             'Race recode (White, Black, Other)': 'Race',
+             'SEER historic stage A (1973-2015)': 'AStage',
+             'Derived AJCC T, 6th ed (2004-2015)': 'TStage',
+             'Derived AJCC N, 6th ed (2004-2015)': 'NStage',
+             'Derived AJCC Stage Group, 6th ed (2004-2015)': '6thStage',
+             'Regional nodes examined (1988+)': 'RegionalNodeExamined',
+             'Regional nodes positive (1988+)': 'RegionalNodePositive',
+             'ER Status Recode Breast Cancer (1990+)': 'EstrogenStatus',
+             'PR Status Recode Breast Cancer (1990+)': 'ProgesteroneStatus',
+             'CS tumor size (2004-2015)': 'TumorSize'}
+    df = df.rename(columns=names)
     
-    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
-    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
-                                   one_hot=True, fill_value=-1)
-    X_train = transformer.transform(X_train) # 83378 x 549
-    X_test = transformer.transform(X_test)
-    
-    model = make_coxnet_model()
-    model.fit(X_train, y_train)
-
-    predictions = model.predict(X_test)
-    c_index = concordance_index_censored(y_test["Event"], y_test["Time"], predictions)[0]   
-    print(c_index)
-
-
+    # Select relevant features and labels
+    df = df[['Age', 'Race', 'AStage', 'TStage', 'NStage', '6thStage', 'RegionalNodeExamined', 'RegionalNodePositive',
+             'EstrogenStatus', 'ProgesteroneStatus', 'TumorSize', 'Survival months', 'SEER cause-specific death classification']]
         
+    # Drop invalid data based on AStage and TumorSize
+    df = df.loc[(df['AStage'] != 'Unstaged') & (df['TumorSize'] != 999)]
     
+    # Rename column Race value for Other
+    df['Race'] = df['Race'].replace('Other (American Indian/AK Native, Asian/Pacific Islander)', 'Other')
+    df['Race'] = df['Race'].replace('Unknown', None)
+    
+    # Label encode the Age feature
+    le = LabelEncoder()
+    df['Age'] = le.fit_transform(df['Age'])
+    
+    # Rename EstrogenStatus/ProgesteroneStatus unknowns and fix nans
+    df['EstrogenStatus'] = df['EstrogenStatus'].replace('Borderline/Unknown', 'Borderline')
+    df['EstrogenStatus'] = df['EstrogenStatus'].replace('Recode not available', None)
+    df['ProgesteroneStatus'] = df['ProgesteroneStatus'].replace('Borderline/Unknown', 'Borderline')
+    df['ProgesteroneStatus'] = df['ProgesteroneStatus'].replace('Recode not available', None)
+    
+    # Save file
+    path = Path.joinpath(pt.DATA_DIR, "seer_breast_2004_2015_prepared.csv")
+    df.to_csv(path)
