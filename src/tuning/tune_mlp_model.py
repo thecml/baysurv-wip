@@ -107,6 +107,10 @@ def train_model():
         t_valid = np.array(cvi_y['time'])
         e_train = np.array(ti_y['event'])
         e_valid = np.array(cvi_y['event'])
+        
+        # Make event times
+        lower, upper = np.percentile(t_train[t_train.dtype.names], [10, 90])
+        event_times = np.arange(lower, upper+1)
 
         train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
                                  drop_last=True, shuffle=True)()
@@ -142,7 +146,8 @@ def train_model():
                                         test_dataset=None,
                                         optimizer=optimizer,
                                         loss_function=loss_fn,
-                                        num_epochs=N_EPOCHS)
+                                        num_epochs=N_EPOCHS,
+                                        event_times=event_times)
         trainer.train_and_evaluate()
 
         split_train_loss_scores.append(trainer.train_loss_scores)

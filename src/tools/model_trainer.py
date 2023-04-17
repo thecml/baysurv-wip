@@ -6,7 +6,8 @@ from time import time
 
 class Trainer:
     def __init__(self, model, model_type, train_dataset, valid_dataset,
-                 test_dataset, optimizer, loss_function, num_epochs, event_times):
+                 test_dataset, optimizer, loss_function, num_epochs,
+                 event_times):
         self.num_epochs = num_epochs
         self.model = model
         self.model_type = model_type

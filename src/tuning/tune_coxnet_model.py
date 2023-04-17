@@ -96,7 +96,7 @@ def train_model():
 
         # Get predictions
         preds = model.predict(cvi_X)
-        ci = concordance_index_censored(cvi_y["Event"], cvi_y["Time"], preds)[0]
+        ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 
     mean_ci = np.mean(c_indicies)
