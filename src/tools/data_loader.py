@@ -88,17 +88,15 @@ class SeerDataLoader(BaseDataLoader):
     Data loader for SEER dataset
     """
     def load_data(self):
-        path = Path.joinpath(pt.DATA_DIR, 'seer.csv')
-        data = pd.read_csv(path)
+        path = Path.joinpath(pt.DATA_DIR, 'seer.pkl')
+        data = pd.read_pickle(path)
 
         outcomes = data.copy()
         outcomes['event'] =  data['Status']
-        outcomes['time'] = data['Survival Months']
+        outcomes['time'] = data['Survival months']
         outcomes = outcomes[['event', 'time']]
-        outcomes.loc[outcomes['event'] == 'Alive', ['event']] = 0
-        outcomes.loc[outcomes['event'] == 'Dead', ['event']] = 1
         
-        data = data.drop(['Status', "Survival Months"], axis=1)
+        data = data.drop(['Status', "Survival months"], axis=1)
 
         obj_cols = data.select_dtypes(['bool']).columns.tolist() \
                    + data.select_dtypes(['object']).columns.tolist()

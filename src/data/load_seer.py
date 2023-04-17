@@ -58,6 +58,9 @@ if __name__ == "__main__":
     df['Race'] = df['Race'].replace('Other (American Indian/AK Native, Asian/Pacific Islander)', 'Other')
     df['Race'] = df['Race'].replace('Unknown', None)
     
+    # Rename label column
+    df = df.rename(columns={"SEER cause-specific death classification": "Status"})
+    
     # Label encode the Age feature
     le = LabelEncoder()
     df['Age'] = le.fit_transform(df['Age'])

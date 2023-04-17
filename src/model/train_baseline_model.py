@@ -14,10 +14,10 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_EPOCHS = 10
+N_EPOCHS = 1
 BATCH_SIZE = 32
-MODEL_TYPE = "MCD"
-DATASET = "WHAS500"
+MODEL_TYPE = "BASELINE"
+DATASET = "SEER"
 
 if __name__ == "__main__":
     # Load config
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     mlp_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    trainer = Trainer(model=mlp_model, model_type="MCD",
+    trainer = Trainer(model=mlp_model, model_type=MODEL_TYPE,
                       train_dataset=train_ds, valid_dataset=None,
                       test_dataset=test_ds, optimizer=optimizer,
                       loss_function=loss_fn, num_epochs=N_EPOCHS,
