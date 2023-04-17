@@ -103,10 +103,10 @@ def train_model():
         cvi_X = np.array(transformer.transform(cvi_X))
 
         # Make time event split
-        t_train = np.array(ti_y['Time'])
-        t_valid = np.array(cvi_y['Time'])
-        e_train = np.array(ti_y['Event'])
-        e_valid = np.array(cvi_y['Event'])
+        t_train = np.array(ti_y['time'])
+        t_valid = np.array(cvi_y['time'])
+        e_train = np.array(ti_y['event'])
+        e_valid = np.array(cvi_y['event'])
 
         train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
                                  drop_last=True, shuffle=True)()
