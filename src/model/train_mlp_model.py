@@ -16,7 +16,7 @@ random.seed(0)
 
 N_EPOCHS = 1
 BATCH_SIZE = 32
-MODEL_TYPE = "BASELINE"
+MODEL_TYPE = "MLP"
 DATASET = "SEER"
 
 if __name__ == "__main__":
