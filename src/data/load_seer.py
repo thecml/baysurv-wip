@@ -34,12 +34,13 @@ if __name__ == "__main__":
              'Regional nodes positive (1988+)': 'RegionalNodePositive',
              'ER Status Recode Breast Cancer (1990+)': 'EstrogenStatus',
              'PR Status Recode Breast Cancer (1990+)': 'ProgesteroneStatus',
-             'CS tumor size (2004-2015)': 'TumorSize'}
+             'CS tumor size (2004-2015)': 'TumorSize',
+             'Reason no cancer-directed surgery': 'Surgery'}
     df = df.rename(columns=names)
     
     # Select relevant features and labels
     df = df[['Age', 'Race', 'Sex', 'AStage', 'TStage', 'NStage', '6thStage', 'RegionalNodeExamined', 'RegionalNodePositive',
-             'EstrogenStatus', 'ProgesteroneStatus', 'TumorSize', 'Survival months', 'SEER cause-specific death classification']]
+             'EstrogenStatus', 'ProgesteroneStatus', 'TumorSize', 'Surgery', 'Survival months', 'SEER cause-specific death classification']]
         
     # Drop invalid data based on AStage and TumorSize
     df = df.loc[(df['AStage'] != 'Unstaged') & (df['TumorSize'] != 999)]
@@ -47,6 +48,16 @@ if __name__ == "__main__":
     # Rename column Race value for Other
     df['Race'] = df['Race'].replace('Other (American Indian/AK Native, Asian/Pacific Islander)', 'Other')
     df['Race'] = df['Race'].replace('Unknown', None)
+    
+    # Rename column Surgery value
+    df['Surgery'] = df['Surgery'].replace('Surgery performed', 'Yes')
+    df['Surgery'] = df['Surgery'].replace('Not recommended', 'No')
+    df['Surgery'] = df['Surgery'].replace('Recommended but not performed, patient refused', 'No')
+    df['Surgery'] = df['Surgery'].replace('Recommended but not performed, unknown reason', 'No')
+    df['Surgery'] = df['Surgery'].replace('Not recommended, contraindicated due to other cond; autopsy only (1973-2002)', 'No')
+    df['Surgery'] = df['Surgery'].replace('Not performed, patient died prior to recommended surgery', 'No')
+    df['Surgery'] = df['Surgery'].replace('Recommended, unknown if performed', 'Unknown')
+    df['Surgery'] = df['Surgery'].replace('Unknown; death certificate; or autopsy only (2003+)', 'Unknown')
     
     # Rename label column
     df = df.rename(columns={"SEER cause-specific death classification": "Status"})
