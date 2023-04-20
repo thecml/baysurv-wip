@@ -20,16 +20,6 @@ if __name__ == "__main__":
     df = df.loc[df['Survival months'] != "Unknown"].copy(deep=True)
     df['Survival months'] = df['Survival months'].astype(int)
     
-    # Select the features
-    features = ['Age recode with <1 year olds', 'Race recode (White, Black, Other)',
-                'Primary Site', 'Histologic Type ICD-O-3', 'Grade (thru 2017)', 'SEER historic stage A (1973-2015)',
-                'Derived AJCC T, 6th ed (2004-2015)', 'Derived AJCC N, 6th ed (2004-2015)',
-                'Derived AJCC Stage Group, 6th ed (2004-2015)', 'Regional nodes examined (1988+)',
-                'Regional nodes positive (1988+)', 'ER Status Recode Breast Cancer (1990+)',
-                'PR Status Recode Breast Cancer (1990+)', 'CS tumor size (2004-2015)',
-                'CS extension (2004-2015)', 'CS site-specific factor 1 (2004-2017 varying by schema)']
-    labels = ['SEER cause-specific death classification', 'Survival months']
-    
     # Split Grade column
     df[['Differentiate', 'Grade']] = df['Grade (thru 2017)'].str.split(';',expand=True).iloc[:,:2]
     
@@ -48,7 +38,7 @@ if __name__ == "__main__":
     df = df.rename(columns=names)
     
     # Select relevant features and labels
-    df = df[['Age', 'Race', 'AStage', 'TStage', 'NStage', '6thStage', 'RegionalNodeExamined', 'RegionalNodePositive',
+    df = df[['Age', 'Race', 'Sex', 'AStage', 'TStage', 'NStage', '6thStage', 'RegionalNodeExamined', 'RegionalNodePositive',
              'EstrogenStatus', 'ProgesteroneStatus', 'TumorSize', 'Survival months', 'SEER cause-specific death classification']]
         
     # Drop invalid data based on AStage and TumorSize
