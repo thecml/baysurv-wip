@@ -4,8 +4,9 @@ import os
 import numpy as np
 from pathlib import Path
 import paths as pt
-matplotlib_style = 'fivethirtyeight'
-import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
+#matplotlib_style = 'fivethirtyeight'
+import matplotlib.pyplot as plt;
+#plt.style.use(matplotlib_style)
 
 class _TFColor(object):
     """Enum of colors used in TF docs."""
@@ -38,7 +39,7 @@ def plot_training_curves(results):
     for dataset_name in datasets:
         mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
         vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
-        mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MC")]
+        mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MCD")]
         mlp_train_loss = mlp_results[['TrainLoss']]
         mlp_train_ci = mlp_results[['TrainCI']]
         mlp_train_ctd = mlp_results[['TrainCTD']]
@@ -74,7 +75,6 @@ def plot_training_curves(results):
         axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
         axs[0].plot(epochs, mc_train_loss, label='Training set (MC)', marker="o", color=TFColor[3], linewidth=1)
         axs[0].plot(epochs, mc_test_loss, label='Test set (MC)', marker="s", color=TFColor[3], linewidth=1)
-        axs[0].legend(loc="best")
         axs[0].set_xlabel('Epoch', fontsize="medium")
         axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
 

@@ -23,7 +23,7 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS500"] #"WHAS500" "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
+DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["Cox", "CoxNet", "RSF", "DSM", "DCPH"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()

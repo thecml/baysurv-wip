@@ -1,30 +1,16 @@
-import tensorflow as tf
 import numpy as np
 import pandas as pd
-import random
 
 from sklearn.model_selection import train_test_split
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
-from tools.model_trainer import Trainer
-from utility.config import load_config
-from utility.training import get_data_loader, scale_data, make_time_event_split
-from utility.plotter import plot_training_curves
-from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model, make_mlp_model
-from utility.risk import InputFunction
-from utility.loss import CoxPHLoss
-from pathlib import Path
-import paths as pt
-import os
+from utility.training import get_data_loader
 from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, integrated_brier_score
-from utility.survival import compute_survival_times
 from sksurv.linear_model.coxph import BreslowEstimator
 
 from auton_survival.estimators import SurvivalModel
-from auton_survival.metrics import survival_regression_metric
-from sklearn.model_selection import ParameterGrid
 import pandas as pd
 
 N_ITER = 250

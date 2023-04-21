@@ -23,7 +23,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MCD"]
+MODEL_NAMES = ["MLP", "VI", "MCD"]
 N_EPOCHS = 25
 BATCH_SIZE = 32
 results = pd.DataFrame()
@@ -153,6 +153,3 @@ if __name__ == "__main__":
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"neural_training_results.csv"), index=False)
-
-    # Plot training curves
-    plot_training_curves(results)
