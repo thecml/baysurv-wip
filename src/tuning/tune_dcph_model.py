@@ -14,7 +14,7 @@ import pandas as pd
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 100
+N_RUNS = 10
 N_SPLITS = 5
 PROJECT_NAME = "baysurv_bo_dcph"
 
@@ -102,7 +102,7 @@ def train_model():
         # Get predictions
         preds = model.predict_risk(np.array(cvi_X), t=cvi_y["time"].max()).flatten()
         if np.isnan(preds).any():
-            continue # skip run if we see nans
+            continue
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 
