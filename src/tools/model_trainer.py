@@ -61,10 +61,11 @@ class Trainer:
                 if self.model_type == "VI":
                     cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
+                    self.train_loss_metric.update_state(cox_loss)
                 else:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-
-                self.train_loss_metric.update_state(loss)
+                    self.train_loss_metric.update_state(loss)
+                    
                 self.train_cindex_metric.update_state(y, logits)
 
                 y_train = convert_to_structured(y["label_time"], y["label_event"])

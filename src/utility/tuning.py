@@ -113,3 +113,47 @@ def get_coxnet_sweep_config():
 
         }
     }
+
+def get_dsm_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+            "network_layers": {
+                "values": [[16], [16, 16], [16, 16, 16],
+                           [32], [32, 32], [32, 32, 32],
+                           [64], [64, 64], [64, 64, 64]]
+            },
+            "n_iter": {
+                "values": [50, 100, 200, 500, 1000, 5000, 10000]
+            }
+        }
+    }
+
+def get_dcph_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+            "network_layers": {
+                "values": [[16], [16, 16], [16, 16, 16],
+                           [32], [32, 32], [32, 32, 32],
+                           [64], [64, 64], [64, 64, 64]]
+            },
+            "iters": {
+                "values": [50, 100, 200, 500, 1000, 5000, 10000]
+            },
+            "optimizer": {
+                "values": ["Adam", "SGD", "RMSProp"]
+            },
+            "learning_rate": {
+                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
+            },
+        }
+    }
