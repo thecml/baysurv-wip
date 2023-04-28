@@ -101,8 +101,6 @@ def train_model():
 
         # Get predictions
         preds = model.predict_risk(np.array(cvi_X), t=cvi_y["time"].max()).flatten()
-        if np.isnan(preds).any():
-            continue
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 

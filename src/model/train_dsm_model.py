@@ -13,12 +13,12 @@ from sksurv.linear_model.coxph import BreslowEstimator
 from auton_survival.estimators import SurvivalModel
 import pandas as pd
 
-N_ITER = 250
+N_ITER = 100
 BATCH_SIZE = 32
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "WHAS500"
+    dataset_name = "SEER"
     dl = get_data_loader(dataset_name).load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
     transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
                                    one_hot=True, fill_value=-1)
-    X_train = transformer.transform(X_train)
+    X_train = transformer.transform(X_train) 
     X_test = transformer.transform(X_test)
         
     # Define the times
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     
     # Make model
     model = SurvivalModel('dsm', random_seed=0, iters=N_ITER,
-                          layers=[32, 32], distribution='Weibull', max_features='sqrt')
+                          layers=[32, 32], distribution='Weibull')
     
     # Fit model
     model.fit(X_train, pd.DataFrame(y_train))

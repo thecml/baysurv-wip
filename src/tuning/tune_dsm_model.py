@@ -21,13 +21,12 @@ PROJECT_NAME = "baysurv_bo_dsm"
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
-                        required=False,
+                        required=True,
                         default=None)
     args = parser.parse_args()
     global dataset
-    #if args.dataset:
-    #    dataset = args.dataset
-    dataset = "FLCHAIN"
+    if args.dataset:
+        dataset = args.dataset
     
     sweep_config = get_dsm_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
@@ -93,8 +92,6 @@ def train_model():
 
         # Get predictions
         preds = model.predict_risk(cvi_X.astype(np.float64), times=cvi_y["time"].max()).flatten()
-        if np.isnan(preds).any():
-            continue # skip run if we see nans
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 

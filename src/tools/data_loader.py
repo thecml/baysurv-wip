@@ -90,6 +90,8 @@ class SeerDataLoader(BaseDataLoader):
     def load_data(self):
         path = Path.joinpath(pt.DATA_DIR, 'seer.pkl')
         data = pd.read_pickle(path)
+        
+        data = data.loc[data['Survival months'] > 0]
 
         outcomes = data.copy()
         outcomes['event'] =  data['Status']
@@ -118,6 +120,8 @@ class SupportDataLoader(BaseDataLoader):
     def load_data(self):
         path = Path.joinpath(pt.DATA_DIR, 'support.feather')
         data = pd.read_feather(path)
+        
+        data = data.loc[data['duration'] > 0]
 
         outcomes = data.copy()
         outcomes['event'] =  data['event']
@@ -219,6 +223,8 @@ class MetabricDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         path = Path.joinpath(pt.DATA_DIR, 'metabric.feather')
         data = pd.read_feather(path)
+        
+        data = data.loc[data['duration'] > 0]
 
         outcomes = data.copy()
         outcomes['event'] =  data['event']
