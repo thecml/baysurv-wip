@@ -1,6 +1,6 @@
 # Network
-network_layers: [64, 64]
+network_layers: [64, 64, 64]
 batch_size: 32
-iters: 100
-learning_rate: 0.005
-optimizer: "SGD"
+iters: 50
+learning_rate: 0.001
+optimizer: "RMSProp"
