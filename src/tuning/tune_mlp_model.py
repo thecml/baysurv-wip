@@ -22,12 +22,8 @@ import argparse
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-np.random.seed(0)
-tf.random.set_seed(0)
-random.seed(0)
-
 N_RUNS = 10
-N_EPOCHS = 25
+N_EPOCHS = 50
 N_SPLITS = 5
 BATCH_SIZE = 32
 PROJECT_NAME = "baysurv_bo_mlp"
@@ -107,7 +103,7 @@ def train_model():
         t_valid = np.array(cvi_y['time'])
         e_train = np.array(ti_y['event'])
         e_valid = np.array(cvi_y['event'])
-        
+
         # Make event times
         lower, upper = np.percentile(t_train[t_train.dtype.names], [10, 90])
         event_times = np.arange(lower, upper+1)
