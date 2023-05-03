@@ -9,9 +9,10 @@ from utility.training import get_data_loader
 from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw, integrated_brier_score
 from sksurv.linear_model.coxph import BreslowEstimator
-
 from auton_survival.estimators import SurvivalModel
 import pandas as pd
+from utility.training import make_time_event_split
+from auton_survival import DeepCoxPH
 
 N_ITER = 100
 BATCH_SIZE = 32
@@ -38,14 +39,19 @@ if __name__ == "__main__":
     times = np.arange(lower, upper+1)
     
     # Make model
-    model = SurvivalModel('dsm', random_seed=0, iters=N_ITER,
-                          layers=[32, 32], distribution='Weibull')
+    model = DeepCoxPH(layers=[32, 32])
+    
+    # Make time/event split
+    t_train, e_train = make_time_event_split(y_train)
+    t_test, e_test = make_time_event_split(y_test)
     
     # Fit model
-    model.fit(X_train, pd.DataFrame(y_train))
-    
+    model.fit(np.array(X_train), t_train, e_train, batch_size=32,
+                    iters=N_ITER, vsize=0.15, learning_rate=0.001,
+                    optimizer="Adam", random_state=0)
+
     # Evaluate risk
-    risk_pred = model.predict_risk(X_test, times=y_test['time'].max()).flatten()
+    risk_pred = model.predict_risk(np.array(X_test), t=y_test['time'].max()).flatten()
     
     # Evaluate surv prob
     t_train = y_train['time']
