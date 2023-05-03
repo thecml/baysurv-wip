@@ -108,9 +108,14 @@ def train_model():
         lower, upper = np.percentile(t_train[t_train.dtype.names], [10, 90])
         event_times = np.arange(lower, upper+1)
 
-        train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
-                                 drop_last=True, shuffle=True)()
-        valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=BATCH_SIZE)()
+        if dataset == "SEER":
+            train_ds = InputFunction(ti_X, t_train, e_train, batch_size=128,
+                                    drop_last=True, shuffle=True)()
+            valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=128)()
+        else:
+            train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
+                                    drop_last=True, shuffle=True)()
+            valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=BATCH_SIZE)()
 
         # Make model
         model = make_mlp_model(input_shape=ti_X.shape[1:],
