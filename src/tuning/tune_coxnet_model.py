@@ -99,7 +99,7 @@ def train_model():
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 
-    mean_ci = np.mean(c_indicies)
+    mean_ci = np.nanmean(c_indicies)
 
     # Log to wandb
     wandb.log({"val_ci": mean_ci})

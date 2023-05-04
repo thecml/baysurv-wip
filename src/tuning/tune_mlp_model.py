@@ -156,10 +156,10 @@ def train_model():
         split_valid_loss_scores.append(trainer.valid_loss_scores)
         split_valid_ci_scores.append(trainer.valid_ci_scores)
 
-    train_loss_per_epoch = np.mean(split_train_loss_scores, axis=0)
-    train_ci_per_epoch = np.mean(split_train_ci_scores, axis=0)
-    valid_loss_per_epoch = np.mean(split_valid_loss_scores, axis=0)
-    valid_ci_per_epoch = np.mean(split_valid_ci_scores, axis=0)
+    train_loss_per_epoch = np.nanmean(split_train_loss_scores, axis=0)
+    train_ci_per_epoch = np.nanmean(split_train_ci_scores, axis=0)
+    valid_loss_per_epoch = np.nanmean(split_valid_loss_scores, axis=0)
+    valid_ci_per_epoch = np.nanmean(split_valid_ci_scores, axis=0)
 
     for i in range(N_EPOCHS): # log mean for every epoch
         wandb.log({'loss': train_loss_per_epoch[i],
