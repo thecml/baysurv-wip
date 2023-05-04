@@ -88,8 +88,8 @@ class SeerDataLoader(BaseDataLoader):
     Data loader for SEER dataset
     """
     def load_data(self):
-        path = Path.joinpath(pt.DATA_DIR, 'seer.pkl')
-        data = pd.read_pickle(path)
+        #path = Path.joinpath(pt.DATA_DIR, 'seer.pkl')
+        data = pd.read_pickle('/mnt/Data/seer.pkl')
         
         data = data.loc[data['Survival months'] > 0]
 
