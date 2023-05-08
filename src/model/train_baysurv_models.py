@@ -10,13 +10,12 @@ import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from tools.model_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
-from utility.plotter import plot_training_curves
+from utility.plot import plot_training_curves
 from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from pathlib import Path
 import paths as pt
-import os
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -24,7 +23,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
-N_EPOCHS = 25
+N_EPOCHS = 10
 results = pd.DataFrame()
 
 if __name__ == "__main__":
@@ -145,6 +144,9 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
+            
+            # Plot
+            plot_training_curves(results, N_EPOCHS)
 
             # Save model weights
             model = trainer.model
