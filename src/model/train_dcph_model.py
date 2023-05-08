@@ -15,7 +15,6 @@ from utility.training import make_time_event_split
 from auton_survival import DeepCoxPH
 
 N_ITER = 100
-BATCH_SIZE = 32
 
 if __name__ == "__main__":
     # Load data

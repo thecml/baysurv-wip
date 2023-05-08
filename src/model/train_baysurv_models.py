@@ -25,7 +25,6 @@ random.seed(0)
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
 N_EPOCHS = 25
-BATCH_SIZE = 32
 results = pd.DataFrame()
 
 if __name__ == "__main__":

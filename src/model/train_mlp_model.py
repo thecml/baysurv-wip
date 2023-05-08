@@ -14,8 +14,7 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_EPOCHS = 1
-BATCH_SIZE = 32
+N_EPOCHS = 25
 MODEL_TYPE = "MLP"
 DATASET = "SEER"
 

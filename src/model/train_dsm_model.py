@@ -14,7 +14,6 @@ from auton_survival.estimators import SurvivalModel
 import pandas as pd
 
 N_ITER = 100
-BATCH_SIZE = 32
 
 if __name__ == "__main__":
     # Load data

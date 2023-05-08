@@ -3,6 +3,7 @@ network_layers: [64, 64]
 activiation_fn: "selu"
 dropout_rate: 0.25
 l2_reg: 0.1
+batch_size: 32
 
 optimizer:
   class_name: SGD
