@@ -34,6 +34,7 @@ class _TFColor(object):
 TFColor = _TFColor()
 
 def plot_training_curves(results, n_epochs):
+    datasets = list(results['DatasetName'].unique())
     for dataset_name in datasets:
         mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
         vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
