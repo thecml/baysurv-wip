@@ -98,7 +98,7 @@ if __name__ == "__main__":
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
         
-        trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_mode]
+        trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_model]
         train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
 
         # Compute scores
