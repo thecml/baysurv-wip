@@ -16,7 +16,7 @@ random.seed(0)
 
 N_EPOCHS = 25
 MODEL_TYPE = "MLP"
-DATASET = "SEER"
+DATASET = "FLCHAIN"
 
 if __name__ == "__main__":
     # Load config

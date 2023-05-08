@@ -133,7 +133,7 @@ class SupportDataLoader(BaseDataLoader):
 
         self.num_features = num_feats
         self.cat_features = []
-        self.X = pd.DataFrame(data[num_feats])
+        self.X = pd.DataFrame(data[num_feats], dtype=np.float64)
         self.y = convert_to_structured(outcomes['time'], outcomes['event'])
 
         return self
@@ -207,14 +207,19 @@ class WhasDataLoader(BaseDataLoader):
 class FlchainDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         X, y = load_flchain()
-
+        X['event'] = y['death']
+        X['time'] = y['futime']
+        
+        X = X.loc[X['time'] > 0]
+        self.y = convert_to_structured(X['time'], X['event'])
+        X = X.drop(['event', 'time'], axis=1).reset_index(drop=True)
+        
         obj_cols = X.select_dtypes(['bool']).columns.tolist() \
                    + X.select_dtypes(['object']).columns.tolist()
         for col in obj_cols:
             X[col] = X[col].astype('category')
 
         self.X = pd.DataFrame(X)
-        self.y = convert_to_structured(y['futime'], y['death'])
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
@@ -236,7 +241,7 @@ class MetabricDataLoader(BaseDataLoader):
 
         self.num_features = num_feats
         self.cat_features = []
-        self.X = pd.DataFrame(data[num_feats])
+        self.X = pd.DataFrame(data[num_feats], dtype=np.float64)
         self.y = convert_to_structured(outcomes['time'], outcomes['event'])
 
         return self

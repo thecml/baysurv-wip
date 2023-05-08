@@ -18,7 +18,7 @@ N_ITER = 100
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "WHAS500"
+    dataset_name = "FLCHAIN"
     dl = get_data_loader(dataset_name).load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
@@ -38,16 +38,16 @@ if __name__ == "__main__":
     times = np.arange(lower, upper+1)
     
     # Make model
-    model = DeepCoxPH(layers=[32, 32])
+    model = DeepCoxPH(layers=[100])
     
     # Make time/event split
     t_train, e_train = make_time_event_split(y_train)
     t_test, e_test = make_time_event_split(y_test)
     
     # Fit model
-    model.fit(np.array(X_train), t_train, e_train, batch_size=32,
-                    iters=N_ITER, vsize=0.15, learning_rate=0.001,
-                    optimizer="Adam", random_state=0)
+    model.fit(np.array(X_train), t_train, e_train,
+              iters=N_ITER, vsize=0.15, learning_rate=0.001,
+              optimizer="Adam", random_state=0)
 
     # Evaluate risk
     risk_pred = model.predict_risk(np.array(X_test), t=y_test['time'].max()).flatten()
@@ -56,9 +56,9 @@ if __name__ == "__main__":
     t_train = y_train['time']
     e_train = y_train['event']
     t_test = y_test['time']
-    train_predictions = model.predict_risk(X_train, times).reshape(-1)
+    train_predictions = model.predict_risk(np.array(X_train), y_test['time'].max()).flatten()
     breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-    test_predictions = model.predict_risk(X_test, times).reshape(-1)
+    test_predictions = model.predict_risk(np.array(X_test), y_test['time'].max()).flatten()
     test_surv_fn = breslow.get_survival_function(test_predictions)
     surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
     
