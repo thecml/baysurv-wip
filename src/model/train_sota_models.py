@@ -11,7 +11,6 @@ from utility.survival import convert_to_structured
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from tools.model_builder import make_cox_model, make_coxnet_model, make_rsf_model, make_dsm_model, make_dcph_model
 from utility.risk import _make_riskset
-from utility.loss import CoxPHLoss
 from pathlib import Path
 import paths as pt
 import joblib
@@ -25,9 +24,8 @@ tf.random.set_seed(0)
 random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["DSM", "DCPH"]
+MODEL_NAMES = ["Cox", "CoxNet", "RSF", "DSM", "DCPH"]
 results = pd.DataFrame()
-loss_fn = CoxPHLoss()
 
 if __name__ == "__main__":
     # For each dataset, train three models (Cox, CoxNet, RSF)
@@ -54,12 +52,37 @@ if __name__ == "__main__":
         event_times = np.arange(lower, upper+1)
 
         # Load training parameters
+        rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        cox_config = load_config(pt.COX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        coxnet_config = load_config(pt.COXNET_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dsm_config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dcph_config = load_config(pt.DCPH_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
 
         # Make models
+        rsf_model = make_rsf_model(rsf_config)
+        cox_model = make_cox_model(cox_config)
+        coxnet_model = make_coxnet_model(coxnet_config)
         dsm_model = make_dsm_model(dsm_config)
         dcph_model = make_dcph_model(dcph_config)
+    
+        # Train models
+        print("Now training Cox")
+        cox_train_start_time = time()
+        cox_model.fit(X_train, y_train)
+        cox_train_time = time() - cox_train_start_time
+        print(f"Finished training Cox in {cox_train_time}")
+
+        print("Now training CoxNet")
+        coxnet_train_start_time = time()
+        coxnet_model.fit(X_train, y_train)
+        coxnet_train_time = time() - coxnet_train_start_time
+        print(f"Finished training CoxNet in {coxnet_train_time}")
+
+        print("Now training RSF")
+        rsf_train_start_time = time()
+        rsf_model.fit(X_train, y_train)
+        rsf_train_time = time() - rsf_train_start_time
+        print(f"Finished training RSF in {rsf_train_time}")
         
         print("Now training DSM")
         dsm_train_start_time = time()
@@ -75,16 +98,15 @@ if __name__ == "__main__":
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
         
-        trained_models = [dsm_model, dcph_model]
-        train_times = [dsm_train_time, dcph_train_time]
+        trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_mode]
+        train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
 
         # Compute scores
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
         times = np.arange(lower, upper+1)
         y_train_struc = convert_to_structured(t_train, e_train)
         y_test_struc = convert_to_structured(t_test, e_test)
-        event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
-        risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
+        
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
             # Make predictions
             test_start_time = time()
@@ -95,8 +117,6 @@ if __name__ == "__main__":
             else:
                 preds = model.predict(X_test)
             test_time = time() - test_start_time
-
-            loss = np.nan
 
             # Compute CI/CTD
             ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
@@ -124,8 +144,8 @@ if __name__ == "__main__":
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
 
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs, train_time, test_time]),
-                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS",
+            res_df = pd.DataFrame(np.column_stack([ci, ctd, ibs, train_time, test_time]),
+                                  columns=["TestCI", "TestCTD", "TestIBS",
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
@@ -136,6 +156,6 @@ if __name__ == "__main__":
             joblib.dump(model, path)
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_nn_results.csv"), index=False)
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
 
 

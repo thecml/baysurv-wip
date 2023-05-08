@@ -152,4 +152,4 @@ if __name__ == "__main__":
             model.save_weights(path)
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"neural_training_results.csv"), index=False)
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)
