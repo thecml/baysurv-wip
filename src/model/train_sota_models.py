@@ -1,5 +1,8 @@
 import numpy as np
 import tensorflow as tf
+gpu = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(gpu[0], True) #limits gpu memory
+
 import random
 import pandas as pd
 
@@ -67,27 +70,37 @@ if __name__ == "__main__":
         dcph_model = make_dcph_model(dcph_config)
     
         # Train models
+        print("Now training Cox")
         cox_train_start_time = time()
         cox_model.fit(X_train, y_train)
         cox_train_time = time() - cox_train_start_time
+        print(f"Finished training Cox in {cox_train_time}")
 
+        print("Now training Coxnet")
         coxnet_train_start_time = time()
         coxnet_model.fit(X_train, y_train)
         coxnet_train_time = time() - coxnet_train_start_time
+        print(f"Finished training Coxnet in {coxnet_train_time}")
 
+        print("Now training RSF")
         rsf_train_start_time = time()
         rsf_model.fit(X_train, y_train)
         rsf_train_time = time() - rsf_train_start_time
+        print(f"Finished training RSF in {rsf_train_time}")
         
+        print("Now training DSM")
         dsm_train_start_time = time()
         dsm_model.fit(X_train, pd.DataFrame(y_train))
         dsm_train_time = time() - dsm_train_start_time
+        print(f"Finished training DSM in {dsm_train_time}")
         
+        print("Now training DCPH")
         dcph_train_start_time = time()
         dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
                        iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
                        optimizer=dcph_config['optimizer'], random_state=0)
         dcph_train_time = time() - dcph_train_start_time
+        print(f"Finished training DCPH in {dcph_train_time}")
         
         trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_model]
         train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
