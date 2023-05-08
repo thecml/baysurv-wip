@@ -29,6 +29,7 @@ if __name__ == "__main__":
     layers = config['network_layers']
     dropout_rate = config['dropout_rate']
     l2_reg = config['l2_reg']
+    batch_size = config['batch_size']
     
     # Load data
     dl = get_data_loader(DATASET).load_data()
@@ -52,8 +53,8 @@ if __name__ == "__main__":
     event_times = np.arange(lower, upper+1)
     
     # Make data loaders
-    train_ds = InputFunction(X_train, t_train, e_train, batch_size=BATCH_SIZE, drop_last=True, shuffle=True)()
-    test_ds = InputFunction(X_test, t_test, e_test, batch_size=BATCH_SIZE)()
+    train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
+    test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
     
     mlp_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                layers=layers, activation_fn=activation_fn,
