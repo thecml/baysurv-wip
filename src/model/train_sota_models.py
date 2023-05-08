@@ -31,6 +31,8 @@ loss_fn = CoxPHLoss()
 if __name__ == "__main__":
     # For each dataset, train three models (Cox, CoxNet, RSF)
     for dataset_name in DATASETS:
+        print(f"Now training dataset {dataset_name}")
+        
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
@@ -137,7 +139,6 @@ if __name__ == "__main__":
                 test_predictions = model.predict(X_test).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
-                
             surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
 
