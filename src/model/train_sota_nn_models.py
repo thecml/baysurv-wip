@@ -1,7 +1,5 @@
 import numpy as np
 import tensorflow as tf
-gpu = tf.config.list_physical_devices('GPU')
-tf.config.experimental.set_memory_growth(gpu[0], True) #limits gpu memory
 
 import random
 import pandas as pd
@@ -27,7 +25,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["Cox", "CoxNet", "RSF", "DSM", "DCPH"]
+MODEL_NAMES = ["DSM", "DCPH"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -56,37 +54,12 @@ if __name__ == "__main__":
         event_times = np.arange(lower, upper+1)
 
         # Load training parameters
-        rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
-        cox_config = load_config(pt.COX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
-        coxnet_config = load_config(pt.COXNET_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dsm_config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dcph_config = load_config(pt.DCPH_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
 
         # Make models
-        rsf_model = make_rsf_model(rsf_config)
-        cox_model = make_cox_model(cox_config)
-        coxnet_model = make_coxnet_model(coxnet_config)
         dsm_model = make_dsm_model(dsm_config)
         dcph_model = make_dcph_model(dcph_config)
-    
-        # Train models
-        print("Now training Cox")
-        cox_train_start_time = time()
-        cox_model.fit(X_train, y_train)
-        cox_train_time = time() - cox_train_start_time
-        print(f"Finished training Cox in {cox_train_time}")
-
-        print("Now training Coxnet")
-        coxnet_train_start_time = time()
-        coxnet_model.fit(X_train, y_train)
-        coxnet_train_time = time() - coxnet_train_start_time
-        print(f"Finished training Coxnet in {coxnet_train_time}")
-
-        print("Now training RSF")
-        rsf_train_start_time = time()
-        rsf_model.fit(X_train, y_train)
-        rsf_train_time = time() - rsf_train_start_time
-        print(f"Finished training RSF in {rsf_train_time}")
         
         print("Now training DSM")
         dsm_train_start_time = time()
@@ -102,8 +75,8 @@ if __name__ == "__main__":
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
         
-        trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_model]
-        train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
+        trained_models = [dsm_model, dcph_model]
+        train_times = [dsm_train_time, dcph_train_time]
 
         # Compute scores
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
@@ -123,12 +96,7 @@ if __name__ == "__main__":
                 preds = model.predict(X_test)
             test_time = time() - test_start_time
 
-            # Compute loss
-            if model_name in ["Cox", "CoxNet"]:
-                preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
-                loss = loss_fn(y_true=[event_set, risk_set], y_pred=preds_tn).numpy()
-            else:
-                loss = np.nan
+            loss = np.nan
 
             # Compute CI/CTD
             ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
@@ -168,6 +136,6 @@ if __name__ == "__main__":
             joblib.dump(model, path)
 
     # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_training_results.csv"), index=False)
+    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_nn_results.csv"), index=False)
 
 
