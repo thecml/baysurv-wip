@@ -96,9 +96,9 @@ if __name__ == "__main__":
             # Make predictions
             test_start_time = time()
             if model_name == "DSM":
-                preds = model.predict_risk(X_test.astype(np.float64), times=y_test['time'].max()).flatten()
+                preds = model.predict_risk(X_test.astype(np.float64), times=y_train['time'].max()).flatten()
             elif model_name == "DCPH":
-                preds = model.predict_risk(np.array(X_test), t=y_test['time'].max()).flatten()
+                preds = model.predict_risk(np.array(X_test), t=y_train['time'].max()).flatten()
             else:
                 preds = model.predict(X_test)
             test_time = time() - test_start_time
@@ -117,13 +117,13 @@ if __name__ == "__main__":
             
             # Compute IBS
             if model_name == "DSM":
-                train_predictions = model.predict_risk(X_train.astype(np.float64), y_test['time'].max()).reshape(-1) # TODO
-                test_predictions = model.predict_risk(X_test.astype(np.float64), y_test['time'].max()).reshape(-1)
+                train_predictions = model.predict_risk(X_train.astype(np.float64), y_train['time'].max()).reshape(-1) # TODO
+                test_predictions = model.predict_risk(X_test.astype(np.float64), y_train['time'].max()).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
             elif model_name == "DCPH":
-                train_predictions = model.predict_risk(np.array(X_train), y_test['time'].max())
-                test_predictions = model.predict_risk(np.array(X_test), y_test['time'].max())
+                train_predictions = model.predict_risk(np.array(X_train), y_train['time'].max())
+                test_predictions = model.predict_risk(np.array(X_test), y_train['time'].max())
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
             elif model_name == "RSF": # use KM estimator instead

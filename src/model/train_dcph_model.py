@@ -14,7 +14,7 @@ import pandas as pd
 from utility.training import make_time_event_split
 from auton_survival import DeepCoxPH
 
-N_ITER = 100
+N_ITER = 10
 
 if __name__ == "__main__":
     # Load data
@@ -50,15 +50,15 @@ if __name__ == "__main__":
               optimizer="Adam", random_state=0)
 
     # Evaluate risk
-    risk_pred = model.predict_risk(np.array(X_test), t=y_test['time'].max()).flatten()
+    risk_pred = model.predict_risk(np.array(X_test), t=y_train['time'].max()).flatten()
     
     # Evaluate surv prob
     t_train = y_train['time']
     e_train = y_train['event']
     t_test = y_test['time']
-    train_predictions = model.predict_risk(np.array(X_train), y_test['time'].max()).flatten()
+    train_predictions = model.predict_risk(np.array(X_train), y_train['time'].max()).flatten()
     breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-    test_predictions = model.predict_risk(np.array(X_test), y_test['time'].max()).flatten()
+    test_predictions = model.predict_risk(np.array(X_test), y_train['time'].max()).flatten()
     test_surv_fn = breslow.get_survival_function(test_predictions)
     surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
     

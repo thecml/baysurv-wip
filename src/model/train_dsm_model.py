@@ -17,7 +17,7 @@ N_ITER = 10
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "METABRIC"
+    dataset_name = "FLCHAIN"
     dl = get_data_loader(dataset_name).load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     model.fit(X_train, pd.DataFrame(y_train))
     
     # Evaluate risk
-    risk_pred = model.predict_risk(X_test, times=y_test['time'].max()).flatten()
+    risk_pred = model.predict_risk(X_test, times=y_train['time'].max()).flatten()
     
     # Evaluate surv prob
     t_train = y_train['time']
