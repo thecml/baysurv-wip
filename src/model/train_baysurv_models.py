@@ -70,15 +70,9 @@ if __name__ == "__main__":
         mlp_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
                                    layers=layers, activation_fn=activation_fn,
                                    dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        mlp_alea_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
-                                        layers=layers, activation_fn=activation_fn,
-                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
         vi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
                                  output_dim=2, layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        vi_epi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
-                                     output_dim=1, layers=layers, activation_fn=activation_fn,
-                                     dropout_rate=dropout_rate, regularization_pen=l2_reg)
         mc_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                  layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
@@ -89,21 +83,11 @@ if __name__ == "__main__":
                               test_dataset=test_ds, optimizer=optimizer,
                               loss_function=loss_fn, num_epochs=N_EPOCHS,
                               event_times=event_times)
-        mlp_alea_trainer = Trainer(model=mlp_model, model_type="MLP",
-                                   train_dataset=train_ds, valid_dataset=None,
-                                   test_dataset=test_ds, optimizer=optimizer,
-                                   loss_function=loss_fn, num_epochs=N_EPOCHS,
-                                   event_times=event_times)
         vi_trainer = Trainer(model=vi_model, model_type="VI",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS,
                              event_times=event_times)
-        vi_epi_trainer = Trainer(model=vi_model, model_type="VI",
-                                 train_dataset=train_ds, valid_dataset=None,
-                                 test_dataset=test_ds, optimizer=optimizer,
-                                 loss_function=loss_fn, num_epochs=N_EPOCHS,
-                                 event_times=event_times)
         mc_trainer = Trainer(model=mc_model, model_type="MCD",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
@@ -112,13 +96,11 @@ if __name__ == "__main__":
 
         # Train models
         mlp_trainer.train_and_evaluate()
-        mlp_alea_trainer.train_and_evaluate()
         vi_trainer.train_and_evaluate()
-        vi_epi_trainer.train_and_evaluate()
         mc_trainer.train_and_evaluate()
 
         # Save results per dataset
-        trainers = [mlp_trainer, mlp_alea_trainer, vi_trainer, vi_epi_trainer, mc_trainer]
+        trainers = [mlp_trainer, vi_trainer, mc_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
             # Training
             train_loss = trainer.train_loss_scores
@@ -144,14 +126,14 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
-            
-            # Plot
-            plot_training_curves(results, N_EPOCHS)
 
             # Save model weights
             model = trainer.model
             path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
             model.save_weights(path)
+            
+    # Plot
+    plot_training_curves(results, N_EPOCHS)
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)
