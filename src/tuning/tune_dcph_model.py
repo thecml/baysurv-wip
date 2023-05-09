@@ -97,7 +97,7 @@ def train_model():
         optimizer = config['optimizer']
 
         # Set batch size
-        if dataset in ["FLCHAIN", "SEER"]:
+        if dataset in ["FLCHAIN", "SEER", "SUPPORT"]:
             batch_size = 128
         else:
             batch_size = 32

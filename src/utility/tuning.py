@@ -33,7 +33,7 @@ def get_mlp_sweep_config():
                 "values": ["relu", "selu"]
             },
             "dropout": {
-                "values": [None, 0.25, 0.5]
+                "values": [0.25]
             },
             "l2_reg": {
                 "values": [None, 0.001, 0.01, 0.1]
