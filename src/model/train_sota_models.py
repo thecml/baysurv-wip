@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
             # Compute IBS
             if model_name == "DSM":
-                train_predictions = model.predict_risk(X_train.astype(np.float64), y_train['time'].max()).reshape(-1) # TODO
+                train_predictions = model.predict_risk(X_train.astype(np.float64), y_train['time'].max()).reshape(-1)
                 test_predictions = model.predict_risk(X_test.astype(np.float64), y_train['time'].max()).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)

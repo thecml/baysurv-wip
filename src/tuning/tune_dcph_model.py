@@ -27,6 +27,7 @@ def main():
     global dataset
     if args.dataset:
         dataset = args.dataset
+    dataset = "SUPPORT"
 
     sweep_config = get_dcph_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
@@ -107,7 +108,8 @@ def train_model():
                   optimizer=optimizer, random_state=0)
 
         # Get predictions
-        preds = model.predict_risk(np.array(cvi_X), t=cvi_y["time"].max()).flatten()
+        pred_time = min(ti_y["time"].max(), cvi_y["time"].max())
+        preds = model.predict_risk(np.array(cvi_X), t=pred_time).flatten()
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 

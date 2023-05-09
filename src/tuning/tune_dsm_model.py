@@ -27,7 +27,7 @@ def main():
     global dataset
     if args.dataset:
         dataset = args.dataset
-    
+
     sweep_config = get_dsm_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
@@ -86,12 +86,13 @@ def train_model():
         n_iter = config['n_iter']
         model = SurvivalModel('dsm', random_seed=0, iters=n_iter,
                               layers=layers, distribution='Weibull', max_features='sqrt')
-        
+
         # Fit model
         model.fit(ti_X, pd.DataFrame(ti_y))
 
         # Get predictions
-        preds = model.predict_risk(cvi_X.astype(np.float64), times=cvi_y["time"].max()).flatten()
+        pred_time = min(ti_y["time"].max(), cvi_y["time"].max())
+        preds = model.predict_risk(cvi_X.astype(np.float64), times=pred_time).flatten()
         ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
         c_indicies.append(ci)
 

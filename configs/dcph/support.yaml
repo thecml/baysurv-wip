@@ -1,6 +1,6 @@
 # Network
-network_layers: [16, 16, 16]
+network_layers: [16, 16]
 batch_size: 128
-iters: 10000
-learning_rate: 0.01
+iters: 500
+learning_rate: 0.001
 optimizer: "SGD"
