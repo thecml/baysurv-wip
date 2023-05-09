@@ -23,7 +23,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
-N_EPOCHS = 1
+N_EPOCHS = 10
 results = pd.DataFrame()
 
 if __name__ == "__main__":
