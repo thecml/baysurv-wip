@@ -19,7 +19,6 @@ from time import time
 from utility.config import load_config
 from sksurv.linear_model.coxph import BreslowEstimator
 from utility.loss import CoxPHLoss
-loss_fn = CoxPHLoss()
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -28,6 +27,7 @@ random.seed(0)
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["Cox", "CoxNet", "RSF", "DSM", "DCPH"]
 results = pd.DataFrame()
+loss_fn = CoxPHLoss()
 
 if __name__ == "__main__":
     # For each dataset, train three models (Cox, CoxNet, RSF)
@@ -155,8 +155,8 @@ if __name__ == "__main__":
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
 
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([ci, ctd, ibs, train_time, test_time]),
-                                  columns=["TestCI", "TestCTD", "TestIBS",
+            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs, train_time, test_time]),
+                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS",
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
