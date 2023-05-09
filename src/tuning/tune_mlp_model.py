@@ -25,7 +25,6 @@ import wandb
 N_RUNS = 10
 N_EPOCHS = 10
 N_SPLITS = 5
-BATCH_SIZE = 32
 PROJECT_NAME = "baysurv_bo_mlp"
 
 def main():
@@ -108,14 +107,15 @@ def train_model():
         lower, upper = np.percentile(t_train[t_train.dtype.names], [10, 90])
         event_times = np.arange(lower, upper+1)
 
-        if dataset == "SEER":
-            train_ds = InputFunction(ti_X, t_train, e_train, batch_size=128,
-                                    drop_last=True, shuffle=True)()
-            valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=128)()
+        # Set batch size
+        if dataset in ["FLCHAIN", "SEER"]:
+            batch_size = 128
         else:
-            train_ds = InputFunction(ti_X, t_train, e_train, batch_size=BATCH_SIZE,
-                                    drop_last=True, shuffle=True)()
-            valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=BATCH_SIZE)()
+            batch_size = 32
+
+        train_ds = InputFunction(ti_X, t_train, e_train, batch_size=batch_size,
+                                 drop_last=True, shuffle=True)()
+        valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=batch_size)()
 
         # Make model
         model = make_mlp_model(input_shape=ti_X.shape[1:],

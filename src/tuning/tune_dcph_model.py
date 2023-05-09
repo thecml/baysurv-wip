@@ -27,7 +27,7 @@ def main():
     global dataset
     if args.dataset:
         dataset = args.dataset
-    
+
     sweep_config = get_dcph_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
@@ -82,7 +82,7 @@ def train_model():
                                        one_hot=True, fill_value=-1)
         ti_X = transformer.transform(ti_X)
         cvi_X = transformer.transform(cvi_X)
-        
+
         # Make time event split
         t_train = np.array(ti_y['time'])
         e_train = np.array(ti_y['event'])
@@ -90,12 +90,19 @@ def train_model():
         # Make model
         layers = config['network_layers']
         model = DeepCoxPH(layers=layers)
-        
+
         # Fit model
         iters = config['iters']
         learning_rate = config['learning_rate']
         optimizer = config['optimizer']
-        model.fit(np.array(ti_X), t_train, e_train, batch_size=32,
+
+        # Set batch size
+        if dataset in ["FLCHAIN", "SEER"]:
+            batch_size = 128
+        else:
+            batch_size = 32
+
+        model.fit(np.array(ti_X), t_train, e_train, batch_size=batch_size,
                   iters=iters, vsize=0.15, learning_rate=learning_rate,
                   optimizer=optimizer, random_state=0)
 
