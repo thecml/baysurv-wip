@@ -3,7 +3,7 @@ network_layers: [32, 32]
 activiation_fn: "selu"
 dropout_rate: 0.25
 l2_reg: 0.1
-batch_size: 32
+batch_size: 128
 
 optimizer:
   class_name: Adam
