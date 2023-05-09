@@ -82,30 +82,31 @@ class BaseDataLoader(ABC):
         X_test = np.array(X_test, dtype=np.float32)
 
         return X_train, X_valid, X_test, y_train, y_valid, y_test
-    
+
 class SeerDataLoader(BaseDataLoader):
     """
     Data loader for SEER dataset
     """
     def load_data(self):
-        path = Path.joinpath(pt.DATA_DIR, 'seer.pkl')
-        #data = pd.read_pickle('/mnt/Data/seer.pkl')
-        data = pd.read_pickle(path)
-        
-        data = data.loc[data['Survival months'] > 0]
+        path = Path.joinpath(pt.DATA_DIR, 'seer.csv')
+        data = pd.read_csv(path)
+
+        data = data.loc[data['Survival Months'] > 0]
 
         outcomes = data.copy()
         outcomes['event'] =  data['Status']
-        outcomes['time'] = data['Survival months']
+        outcomes['time'] = data['Survival Months']
         outcomes = outcomes[['event', 'time']]
-        
-        data = data.drop(['Status', "Survival months"], axis=1)
+        outcomes.loc[outcomes['event'] == 'Alive', ['event']] = 0
+        outcomes.loc[outcomes['event'] == 'Dead', ['event']] = 1
+
+        data = data.drop(['Status', "Survival Months"], axis=1)
 
         obj_cols = data.select_dtypes(['bool']).columns.tolist() \
-                   + data.select_dtypes(['object']).columns.tolist()
+                + data.select_dtypes(['object']).columns.tolist()
         for col in obj_cols:
             data[col] = data[col].astype('category')
-        
+
         self.X = pd.DataFrame(data)
 
         self.num_features = self._get_num_features(self.X)
@@ -121,7 +122,7 @@ class SupportDataLoader(BaseDataLoader):
     def load_data(self):
         path = Path.joinpath(pt.DATA_DIR, 'support.feather')
         data = pd.read_feather(path)
-        
+
         data = data.loc[data['duration'] > 0]
 
         outcomes = data.copy()
@@ -210,11 +211,11 @@ class FlchainDataLoader(BaseDataLoader):
         X, y = load_flchain()
         X['event'] = y['death']
         X['time'] = y['futime']
-        
+
         X = X.loc[X['time'] > 0]
         self.y = convert_to_structured(X['time'], X['event'])
         X = X.drop(['event', 'time'], axis=1).reset_index(drop=True)
-        
+
         obj_cols = X.select_dtypes(['bool']).columns.tolist() \
                    + X.select_dtypes(['object']).columns.tolist()
         for col in obj_cols:
@@ -229,7 +230,7 @@ class MetabricDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         path = Path.joinpath(pt.DATA_DIR, 'metabric.feather')
         data = pd.read_feather(path)
-        
+
         data = data.loc[data['duration'] > 0]
 
         outcomes = data.copy()

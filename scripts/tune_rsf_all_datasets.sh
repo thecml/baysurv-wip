@@ -7,7 +7,7 @@ if [[ -z "$base_path" ]] ; then  # error; for some reason, the path is not acces
 fi
 echo "$base_path"
 
-datasets=("SUPPORT" "SEER" "GBSG2" "WHAS500" "FLCHAIN" "METABRIC")
+datasets=("SEER")
 echo "=============================================================================================="
 echo "Starting datasets tuning"
 echo "=============================================================================================="

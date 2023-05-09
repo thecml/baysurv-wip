@@ -23,12 +23,13 @@ random.seed(0)
 
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
-N_EPOCHS = 10
+N_EPOCHS = 1
 results = pd.DataFrame()
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
+        print(f"Now training {dataset_name}")
         # Load training parameters
         config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
@@ -57,7 +58,7 @@ if __name__ == "__main__":
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
-        
+
         # Make event times
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
         event_times = np.arange(lower, upper+1)
@@ -131,7 +132,7 @@ if __name__ == "__main__":
             model = trainer.model
             path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
             model.save_weights(path)
-            
+
     # Plot
     plot_training_curves(results, N_EPOCHS)
 

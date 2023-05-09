@@ -18,6 +18,8 @@ import os
 from time import time
 from utility.config import load_config
 from sksurv.linear_model.coxph import BreslowEstimator
+from utility.loss import CoxPHLoss
+loss_fn = CoxPHLoss()
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -31,7 +33,7 @@ if __name__ == "__main__":
     # For each dataset, train three models (Cox, CoxNet, RSF)
     for dataset_name in DATASETS:
         print(f"Now training dataset {dataset_name}")
-        
+
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
@@ -46,7 +48,7 @@ if __name__ == "__main__":
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
-        
+
         # Make event times
         lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
         event_times = np.arange(lower, upper+1)
@@ -64,7 +66,7 @@ if __name__ == "__main__":
         coxnet_model = make_coxnet_model(coxnet_config)
         dsm_model = make_dsm_model(dsm_config)
         dcph_model = make_dcph_model(dcph_config)
-    
+
         # Train models
         print("Now training Cox")
         cox_train_start_time = time()
@@ -83,13 +85,13 @@ if __name__ == "__main__":
         rsf_model.fit(X_train, y_train)
         rsf_train_time = time() - rsf_train_start_time
         print(f"Finished training RSF in {rsf_train_time}")
-        
+
         print("Now training DSM")
         dsm_train_start_time = time()
         dsm_model.fit(X_train, pd.DataFrame(y_train))
         dsm_train_time = time() - dsm_train_start_time
         print(f"Finished training DSM in {dsm_train_time}")
-        
+
         print("Now training DCPH")
         dcph_train_start_time = time()
         dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
@@ -97,7 +99,7 @@ if __name__ == "__main__":
                        optimizer=dcph_config['optimizer'], random_state=0)
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
-        
+
         trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_model]
         train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
 
@@ -106,7 +108,8 @@ if __name__ == "__main__":
         times = np.arange(lower, upper+1)
         y_train_struc = convert_to_structured(t_train, e_train)
         y_test_struc = convert_to_structured(t_test, e_test)
-        
+        event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
+        risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
             # Make predictions
             test_start_time = time()
@@ -118,10 +121,18 @@ if __name__ == "__main__":
                 preds = model.predict(X_test)
             test_time = time() - test_start_time
 
+            # Compute loss
+            if model_name in ["Cox", "CoxNet"]:
+                print(f"Computing loss for {model_name}")
+                preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
+                loss = loss_fn(y_true=[event_set, risk_set], y_pred=preds_tn).numpy()
+            else:
+                loss = np.nan
+
             # Compute CI/CTD
             ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
             ctd = concordance_index_ipcw(y_train_struc, y_test_struc, preds)[0]
-            
+
             # Compute IBS
             if model_name == "DSM":
                 train_predictions = model.predict_risk(X_train.astype(np.float64), y_train['time'].max()).reshape(-1) # TODO

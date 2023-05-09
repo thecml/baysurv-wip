@@ -65,7 +65,7 @@ class Trainer:
                 else:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
-                    
+
                 self.train_cindex_metric.update_state(y, logits)
 
                 y_train = convert_to_structured(y["label_time"], y["label_event"])
