@@ -46,7 +46,7 @@ if __name__ == "__main__":
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
-
+        
         # Split data in train and test set
         X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
 
@@ -132,9 +132,6 @@ if __name__ == "__main__":
             model = trainer.model
             path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
             model.save_weights(path)
-
-    # Plot
-    plot_training_curves(results, N_EPOCHS)
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)
