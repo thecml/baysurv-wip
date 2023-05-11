@@ -97,9 +97,11 @@ if __name__ == "__main__":
                              event_times=event_times)
 
         # Train models
+        print(f"Started training models for {dataset_name}")
         mlp_trainer.train_and_evaluate()
         vi_trainer.train_and_evaluate()
         mc_trainer.train_and_evaluate()
+        print(f"Finished training all models for {dataset_name}")
 
         # Save results per dataset
         trainers = [mlp_trainer, vi_trainer, mc_trainer]
@@ -119,6 +121,7 @@ if __name__ == "__main__":
             test_times = trainer.test_times
 
             # Save to df
+            print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_type}")
             res_df = pd.DataFrame(np.column_stack([train_loss, train_ci, train_ctd, train_ibs, # train
                                                    test_loss, tests_ci, test_ctd, test_ibs, # test
                                                    train_times, test_times]), # times
@@ -128,14 +131,13 @@ if __name__ == "__main__":
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
+            print(f"Completed dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_type}")
 
             # Save model weights
             model = trainer.model
             path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
             model.save_weights(path)
 
-    print(results.round(3))
-
     # Save results
-    print(results.round(3))
+    print("Saving file")
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)

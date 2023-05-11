@@ -26,10 +26,8 @@ class Trainer:
         self.train_cindex_metric = CindexMetric()
         self.train_ctd_metric = CindexTdMetric()
         self.train_ibs_metric = IbsMetric(event_times)
-
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_cindex_metric = CindexMetric()
-
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
         self.test_cindex_metric = CindexMetric()
         self.test_ctd_metric = CindexTdMetric()
@@ -140,6 +138,7 @@ class Trainer:
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                
             self.test_loss_metric.update_state(loss)
             self.test_cindex_metric.update_state(y, logits)
 
@@ -164,3 +163,4 @@ class Trainer:
         self.test_ctd_scores.append(float(epoch_ctd))
         self.test_ibs_scores.append(float(epoch_ibs))
         self.test_times.append(float(total_test_time))
+        

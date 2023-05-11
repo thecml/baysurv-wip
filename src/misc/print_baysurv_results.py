@@ -34,4 +34,3 @@ if __name__ == "__main__":
                     text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} & "
             print(text)
         
-    
