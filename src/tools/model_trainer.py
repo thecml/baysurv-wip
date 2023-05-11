@@ -42,16 +42,17 @@ class Trainer:
         self.train_times, self.test_times = list(), list()
 
     def train_and_evaluate(self):
-        for _ in range(self.num_epochs):
-            self.train()
+        for epoch in range(self.num_epochs):
+            self.train(epoch)
             if self.valid_ds is not None:
                 self.validate()
             if self.test_ds is not None:
                 self.test()
             self.cleanup()
 
-    def train(self):
+    def train(self, epoch):
         train_start_time = time()
+        print(f"Training epoch {epoch+1}/{self.num_epochs} for {self.model_type}")
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
@@ -85,6 +86,7 @@ class Trainer:
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
+        print(f"Completed epoch {epoch}/{self.num_epochs} for {self.model_type}")
         total_train_time = time() - train_start_time
 
         epoch_loss = self.train_loss_metric.result()
@@ -138,7 +140,7 @@ class Trainer:
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                
+
             self.test_loss_metric.update_state(loss)
             self.test_cindex_metric.update_state(y, logits)
 
@@ -163,4 +165,3 @@ class Trainer:
         self.test_ctd_scores.append(float(epoch_ctd))
         self.test_ibs_scores.append(float(epoch_ibs))
         self.test_times.append(float(total_test_time))
-        

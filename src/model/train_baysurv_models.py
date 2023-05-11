@@ -24,11 +24,11 @@ random.seed(0)
 DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
 N_EPOCHS = 10
-results = pd.DataFrame()
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
+        results = pd.DataFrame()
         print(f"Now training {dataset_name}")
         # Load training parameters
         config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -98,14 +98,13 @@ if __name__ == "__main__":
 
         # Train models
         print(f"Started training models for {dataset_name}")
-        #mlp_trainer.train_and_evaluate()
+        mlp_trainer.train_and_evaluate()
         vi_trainer.train_and_evaluate()
-        #mcd_trainer.train_and_evaluate()
-
+        mcd_trainer.train_and_evaluate()
         print(f"Finished training all models for {dataset_name}")
 
         # Save results per dataset
-        trainers = [vi_trainer]
+        trainers = [mlp_trainer, vi_trainer, mcd_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
             # Training
             train_loss = trainer.train_loss_scores
@@ -139,6 +138,5 @@ if __name__ == "__main__":
             path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}/")
             model.save_weights(path)
 
-    # Save results
-    print("Saving file")
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)
+        # Save results
+        results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_{dataset_name.lower()}_results.csv"), index=False)
