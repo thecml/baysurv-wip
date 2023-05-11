@@ -86,7 +86,7 @@ class Trainer:
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        print(f"Completed epoch {epoch}/{self.num_epochs} for {self.model_type}")
+        print(f"Completed epoch {epoch+1}/{self.num_epochs} for {self.model_type}")
         total_train_time = time() - train_start_time
 
         epoch_loss = self.train_loss_metric.result()
