@@ -33,76 +33,74 @@ class _TFColor(object):
         ][i % 9]
 TFColor = _TFColor()
 
-def plot_training_curves(results, n_epochs):
-    datasets = list(results['DatasetName'].unique())
-    for dataset_name in datasets:
-        mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
-        vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
-        mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MCD")]
-        mlp_train_loss = mlp_results[['TrainLoss']]
-        mlp_train_ci = mlp_results[['TrainCI']]
-        mlp_train_ctd = mlp_results[['TrainCTD']]
-        mlp_train_ibs = mlp_results[['TrainIBS']]
-        mlp_test_loss = mlp_results[['TestLoss']]
-        mlp_test_ci = mlp_results[['TestCI']]
-        mlp_test_ctd = mlp_results[['TestCTD']]
-        mlp_test_ibs = mlp_results[['TestIBS']]
+def plot_training_curves(results, n_epochs, dataset_name):
+    mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
+    vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
+    mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MCD")]
+    mlp_train_loss = mlp_results[['TrainLoss']]
+    mlp_train_ci = mlp_results[['TrainCI']]
+    mlp_train_ctd = mlp_results[['TrainCTD']]
+    mlp_train_ibs = mlp_results[['TrainIBS']]
+    mlp_test_loss = mlp_results[['TestLoss']]
+    mlp_test_ci = mlp_results[['TestCI']]
+    mlp_test_ctd = mlp_results[['TestCTD']]
+    mlp_test_ibs = mlp_results[['TestIBS']]
 
-        vi_train_loss = vi_results[['TrainLoss']]
-        vi_train_ci = vi_results[['TrainCI']]
-        vi_train_ctd = vi_results[['TrainCTD']]
-        vi_train_ibs = vi_results[['TrainIBS']]
-        vi_test_loss = vi_results[['TestLoss']]
-        vi_test_ci = vi_results[['TestCI']]
-        vi_test_ctd = vi_results[['TestCTD']]
-        vi_test_ibs = vi_results[['TestIBS']]
+    vi_train_loss = vi_results[['TrainLoss']]
+    vi_train_ci = vi_results[['TrainCI']]
+    vi_train_ctd = vi_results[['TrainCTD']]
+    vi_train_ibs = vi_results[['TrainIBS']]
+    vi_test_loss = vi_results[['TestLoss']]
+    vi_test_ci = vi_results[['TestCI']]
+    vi_test_ctd = vi_results[['TestCTD']]
+    vi_test_ibs = vi_results[['TestIBS']]
 
-        mc_train_loss = mc_results[['TrainLoss']]
-        mc_train_ci = mc_results[['TrainCI']]
-        mc_train_ctd = mc_results[['TrainCTD']]
-        mc_train_ibs = mc_results[['TrainIBS']]
-        mc_test_loss = mc_results[['TestLoss']]
-        mc_test_ci = mc_results[['TestCI']]
-        mc_test_ctd = mc_results[['TestCTD']]
-        mc_test_ibs = mc_results[['TestIBS']]
+    mc_train_loss = mc_results[['TrainLoss']]
+    mc_train_ci = mc_results[['TrainCI']]
+    mc_train_ctd = mc_results[['TrainCTD']]
+    mc_train_ibs = mc_results[['TrainIBS']]
+    mc_test_loss = mc_results[['TestLoss']]
+    mc_test_ci = mc_results[['TestCI']]
+    mc_test_ctd = mc_results[['TestCTD']]
+    mc_test_ibs = mc_results[['TestIBS']]
 
-        epochs = range(1, n_epochs+1)
-        fig, axs = plt.subplots(1, 4, figsize=(18, 3))
-        axs[0].plot(epochs, mlp_train_loss, label='Training set (MLP)', marker="o", color=TFColor[0], linewidth=1)
-        axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
-        axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
-        axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
-        axs[0].plot(epochs, mc_train_loss, label='Training set (MC)', marker="o", color=TFColor[3], linewidth=1)
-        axs[0].plot(epochs, mc_test_loss, label='Test set (MC)', marker="s", color=TFColor[3], linewidth=1)
-        axs[0].set_xlabel('Epoch', fontsize="medium")
-        axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
+    epochs = range(1, n_epochs+1)
+    fig, axs = plt.subplots(1, 4, figsize=(18, 3))
+    axs[0].plot(epochs, mlp_train_loss, label='Training set (MLP)', marker="o", color=TFColor[0], linewidth=1)
+    axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
+    axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
+    axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
+    axs[0].plot(epochs, mc_train_loss, label='Training set (MC)', marker="o", color=TFColor[3], linewidth=1)
+    axs[0].plot(epochs, mc_test_loss, label='Test set (MC)', marker="s", color=TFColor[3], linewidth=1)
+    axs[0].set_xlabel('Epoch', fontsize="medium")
+    axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
 
-        axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)
-        axs[1].plot(epochs, mlp_test_ci, marker="s", color=TFColor[0], linewidth=1)
-        axs[1].plot(epochs, vi_train_ci, marker="o", color=TFColor[2], linewidth=1)
-        axs[1].plot(epochs, vi_test_ci, marker="s", color=TFColor[2], linewidth=1)
-        axs[1].plot(epochs, mc_train_ci, marker="o", color=TFColor[3], linewidth=1)
-        axs[1].plot(epochs, mc_test_ci, marker="s", color=TFColor[3], linewidth=1)
-        axs[1].set_xlabel('Epoch', fontsize="medium")
-        axs[1].set_ylabel('CI', fontsize="medium")
+    axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)
+    axs[1].plot(epochs, mlp_test_ci, marker="s", color=TFColor[0], linewidth=1)
+    axs[1].plot(epochs, vi_train_ci, marker="o", color=TFColor[2], linewidth=1)
+    axs[1].plot(epochs, vi_test_ci, marker="s", color=TFColor[2], linewidth=1)
+    axs[1].plot(epochs, mc_train_ci, marker="o", color=TFColor[3], linewidth=1)
+    axs[1].plot(epochs, mc_test_ci, marker="s", color=TFColor[3], linewidth=1)
+    axs[1].set_xlabel('Epoch', fontsize="medium")
+    axs[1].set_ylabel('CI', fontsize="medium")
 
-        axs[2].plot(epochs, mlp_train_ctd, marker="o", color=TFColor[0], linewidth=1)
-        axs[2].plot(epochs, mlp_test_ctd, marker="s", color=TFColor[0], linewidth=1)
-        axs[2].plot(epochs, vi_train_ctd, marker="o", color=TFColor[2], linewidth=1)
-        axs[2].plot(epochs, vi_test_ctd, marker="s", color=TFColor[2], linewidth=1)
-        axs[2].plot(epochs, mc_train_ctd, marker="o", color=TFColor[3], linewidth=1)
-        axs[2].plot(epochs, mc_test_ctd, marker="s", color=TFColor[3], linewidth=1)
-        axs[2].set_xlabel('Epoch', fontsize="medium")
-        axs[2].set_ylabel('$C_{td}$', fontsize="medium")
+    axs[2].plot(epochs, mlp_train_ctd, marker="o", color=TFColor[0], linewidth=1)
+    axs[2].plot(epochs, mlp_test_ctd, marker="s", color=TFColor[0], linewidth=1)
+    axs[2].plot(epochs, vi_train_ctd, marker="o", color=TFColor[2], linewidth=1)
+    axs[2].plot(epochs, vi_test_ctd, marker="s", color=TFColor[2], linewidth=1)
+    axs[2].plot(epochs, mc_train_ctd, marker="o", color=TFColor[3], linewidth=1)
+    axs[2].plot(epochs, mc_test_ctd, marker="s", color=TFColor[3], linewidth=1)
+    axs[2].set_xlabel('Epoch', fontsize="medium")
+    axs[2].set_ylabel('$C_{td}$', fontsize="medium")
 
-        axs[3].plot(epochs, mlp_train_ibs, marker="o", color=TFColor[0], linewidth=1)
-        axs[3].plot(epochs, mlp_test_ibs, marker="s", color=TFColor[0], linewidth=1)
-        axs[3].plot(epochs, vi_train_ibs, marker="o", color=TFColor[2], linewidth=1)
-        axs[3].plot(epochs, vi_test_ibs, marker="s", color=TFColor[2], linewidth=1)
-        axs[3].plot(epochs, mc_train_ibs, marker="o", color=TFColor[3], linewidth=1)
-        axs[3].plot(epochs, mc_test_ibs, marker="s", color=TFColor[3], linewidth=1)
-        axs[3].set_xlabel('Epoch', fontsize="medium")
-        axs[3].set_ylabel('IBS', fontsize="medium")
+    axs[3].plot(epochs, mlp_train_ibs, marker="o", color=TFColor[0], linewidth=1)
+    axs[3].plot(epochs, mlp_test_ibs, marker="s", color=TFColor[0], linewidth=1)
+    axs[3].plot(epochs, vi_train_ibs, marker="o", color=TFColor[2], linewidth=1)
+    axs[3].plot(epochs, vi_test_ibs, marker="s", color=TFColor[2], linewidth=1)
+    axs[3].plot(epochs, mc_train_ibs, marker="o", color=TFColor[3], linewidth=1)
+    axs[3].plot(epochs, mc_test_ibs, marker="s", color=TFColor[3], linewidth=1)
+    axs[3].set_xlabel('Epoch', fontsize="medium")
+    axs[3].set_ylabel('IBS', fontsize="medium")
 
-        fig.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_training_curves.pdf"),
-                    format='pdf', bbox_inches="tight")
+    fig.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_training_curves.pdf"),
+                format='pdf', bbox_inches="tight")

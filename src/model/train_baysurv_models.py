@@ -45,6 +45,7 @@ if __name__ == "__main__":
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
+        
         num_features, cat_features = dl.get_features()
         
         # Split data in train and test set
@@ -134,4 +135,5 @@ if __name__ == "__main__":
             model.save_weights(path)
 
     # Save results
+    print(results.round(3))
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_results.csv"), index=False)
