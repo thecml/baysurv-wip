@@ -28,8 +28,6 @@ def scale_data(X_train, X_test, cat_features, num_features) -> Tuple[np.ndarray,
                                    one_hot=True, fill_value=-1)
     X_train = transformer.transform(X_train)
     X_test = transformer.transform(X_test)
-    
-    
     return (X_train, X_test)
 
 def make_time_event_split(y):

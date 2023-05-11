@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
         # Scale data
         X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
-        X_train = np.array(X_train)
-        X_test = np.array(X_test)
+        X_train = np.array(X_train, dtype=np.float128)
+        X_test = np.array(X_test, dtype=np.float128)
 
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
