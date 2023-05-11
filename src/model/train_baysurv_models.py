@@ -45,7 +45,7 @@ if __name__ == "__main__":
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
-        
+
         num_features, cat_features = dl.get_features()
 
         # Split data in train and test set
@@ -53,8 +53,8 @@ if __name__ == "__main__":
 
         # Scale data
         X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
-        X_train = np.array(X_train, dtype=np.float128)
-        X_test = np.array(X_test, dtype=np.float128)
+        X_train = np.array(X_train)
+        X_test = np.array(X_test)
 
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
@@ -90,7 +90,7 @@ if __name__ == "__main__":
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS,
                              event_times=event_times)
-        mc_trainer = Trainer(model=mc_model, model_type="MCD",
+        mcd_trainer = Trainer(model=mc_model, model_type="MCD",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS,
@@ -98,13 +98,14 @@ if __name__ == "__main__":
 
         # Train models
         print(f"Started training models for {dataset_name}")
-        mlp_trainer.train_and_evaluate()
+        #mlp_trainer.train_and_evaluate()
         vi_trainer.train_and_evaluate()
-        mc_trainer.train_and_evaluate()
+        #mcd_trainer.train_and_evaluate()
+
         print(f"Finished training all models for {dataset_name}")
 
         # Save results per dataset
-        trainers = [mlp_trainer, vi_trainer, mc_trainer]
+        trainers = [vi_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
             # Training
             train_loss = trainer.train_loss_scores
@@ -135,7 +136,7 @@ if __name__ == "__main__":
 
             # Save model weights
             model = trainer.model
-            path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}/")
+            path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}/")
             model.save_weights(path)
 
     # Save results
