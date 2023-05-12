@@ -133,8 +133,8 @@ if __name__ == "__main__":
                 test_ds = InputFunction(X_test_arr, t_test, e_test, batch_size=batch_size)()
                 for x, y in test_ds:
                     y_event = tf.expand_dims(y["label_event"], axis=1)
-                    preds = model.predict(x)
-                    preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
+                    batch_preds = model.predict(x)
+                    preds_tn = tf.convert_to_tensor(batch_preds.reshape(len(batch_preds), 1).astype(np.float32))
                     loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
                     total_loss.append(loss)
                 loss_avg = np.mean(total_loss)
