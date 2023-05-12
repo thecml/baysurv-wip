@@ -12,3 +12,4 @@ wandb
 pyarrow
 auton-survival
 lifelines
+xgbse

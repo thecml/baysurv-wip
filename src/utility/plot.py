@@ -70,9 +70,10 @@ def plot_training_curves(results, n_epochs, dataset_name):
     axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
     axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
     axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
-    axs[0].plot(epochs, mc_train_loss, label='Training set (MC)', marker="o", color=TFColor[3], linewidth=1)
-    axs[0].plot(epochs, mc_test_loss, label='Test set (MC)', marker="s", color=TFColor[3], linewidth=1)
+    axs[0].plot(epochs, mc_train_loss, label='Training set (MCD)', marker="o", color=TFColor[3], linewidth=1)
+    axs[0].plot(epochs, mc_test_loss, label='Test set (MCD)', marker="s", color=TFColor[3], linewidth=1)
     axs[0].set_xlabel('Epoch', fontsize="medium")
+    axs[0].legend()
     axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
 
     axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)

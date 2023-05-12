@@ -1,4 +1,5 @@
 import numpy as np
+from sksurv.linear_model.coxph import BreslowEstimator
 
 def compute_survival_times(risk_scores, t_train, e_train):
     # https://pubmed.ncbi.nlm.nih.gov/15724232/
@@ -43,3 +44,17 @@ def convert_to_structured(T, E):
 
     # return structured array
     return np.array(concat, dtype=default_dtypes)
+
+def get_breslow_survival_times(model, X_train, X_test, e_train, t_train, runs):
+    train_predictions = model.predict(X_train, verbose=0).reshape(-1)
+    breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+    model_cpd = np.zeros((runs, len(X_test)))
+    for i in range(0, runs):
+        model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=0), len(X_test))
+    event_times = breslow.get_survival_function(model_cpd[0])[0].x
+    breslow_surv_times = np.zeros((len(X_test), runs, len(event_times)))
+    for i in range(0, runs):
+        surv_fns = breslow.get_survival_function(model_cpd[i,:])
+        for j, surv_fn in enumerate(surv_fns):
+            breslow_surv_times[j,i,:] = surv_fn.y
+    return breslow_surv_times
