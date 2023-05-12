@@ -33,12 +33,16 @@ if __name__ == "__main__":
     # For each dataset, train three models (Cox, CoxNet, RSF)
     for dataset_name in DATASETS:
         print(f"Now training dataset {dataset_name}")
-
+        
+        # Get batch size for MLP to use for loss calculation
+        mlp_config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        batch_size = mlp_config['batch_size']
+        
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
-
+        
         # Split data in train and test set
         X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
 
@@ -76,27 +80,27 @@ if __name__ == "__main__":
 
         print("Now training CoxNet")
         coxnet_train_start_time = time()
-        #coxnet_model.fit(X_train, y_train)
+        coxnet_model.fit(X_train, y_train)
         coxnet_train_time = time() - coxnet_train_start_time
         print(f"Finished training CoxNet in {coxnet_train_time}")
 
         print("Now training RSF")
         rsf_train_start_time = time()
-        #rsf_model.fit(X_train, y_train)
+        rsf_model.fit(X_train, y_train)
         rsf_train_time = time() - rsf_train_start_time
         print(f"Finished training RSF in {rsf_train_time}")
 
         print("Now training DSM")
         dsm_train_start_time = time()
-        #dsm_model.fit(X_train, pd.DataFrame(y_train))
+        dsm_model.fit(X_train, pd.DataFrame(y_train))
         dsm_train_time = time() - dsm_train_start_time
         print(f"Finished training DSM in {dsm_train_time}")
 
         print("Now training DCPH")
         dcph_train_start_time = time()
-        #dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
-        #               iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
-        #               optimizer=dcph_config['optimizer'], random_state=0)
+        dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
+                       iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
+                       optimizer=dcph_config['optimizer'], random_state=0)
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
 
@@ -126,7 +130,7 @@ if __name__ == "__main__":
                 total_loss = list()
                 from utility.risk import InputFunction
                 X_test_arr = np.array(X_test)
-                test_ds = InputFunction(X_test_arr, t_test, e_test, batch_size=32)()
+                test_ds = InputFunction(X_test_arr, t_test, e_test, batch_size=batch_size)()
                 for x, y in test_ds:
                     y_event = tf.expand_dims(y["label_event"], axis=1)
                     preds = model.predict(x)
