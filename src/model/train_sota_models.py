@@ -76,27 +76,27 @@ if __name__ == "__main__":
 
         print("Now training CoxNet")
         coxnet_train_start_time = time()
-        coxnet_model.fit(X_train, y_train)
+        #coxnet_model.fit(X_train, y_train)
         coxnet_train_time = time() - coxnet_train_start_time
         print(f"Finished training CoxNet in {coxnet_train_time}")
 
         print("Now training RSF")
         rsf_train_start_time = time()
-        rsf_model.fit(X_train, y_train)
+        #rsf_model.fit(X_train, y_train)
         rsf_train_time = time() - rsf_train_start_time
         print(f"Finished training RSF in {rsf_train_time}")
 
         print("Now training DSM")
         dsm_train_start_time = time()
-        dsm_model.fit(X_train, pd.DataFrame(y_train))
+        #dsm_model.fit(X_train, pd.DataFrame(y_train))
         dsm_train_time = time() - dsm_train_start_time
         print(f"Finished training DSM in {dsm_train_time}")
 
         print("Now training DCPH")
         dcph_train_start_time = time()
-        dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
-                       iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
-                       optimizer=dcph_config['optimizer'], random_state=0)
+        #dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
+        #               iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
+        #               optimizer=dcph_config['optimizer'], random_state=0)
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
 
@@ -123,11 +123,19 @@ if __name__ == "__main__":
 
             # Compute loss
             if model_name in ["Cox", "CoxNet"]:
-                print(f"Computing loss for {model_name}")
-                preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
-                loss = loss_fn(y_true=[event_set, risk_set], y_pred=preds_tn).numpy()
+                total_loss = list()
+                from utility.risk import InputFunction
+                X_test_arr = np.array(X_test)
+                test_ds = InputFunction(X_test_arr, t_test, e_test, batch_size=32)()
+                for x, y in test_ds:
+                    y_event = tf.expand_dims(y["label_event"], axis=1)
+                    preds = model.predict(x)
+                    preds_tn = tf.convert_to_tensor(preds.reshape(len(preds), 1).astype(np.float32))
+                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
+                    total_loss.append(loss)
+                loss_avg = np.mean(total_loss)
             else:
-                loss = np.nan
+                loss_avg = np.nan
 
             # Compute CI/CTD
             ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
@@ -155,7 +163,7 @@ if __name__ == "__main__":
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
 
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([loss, ci, ctd, ibs, train_time, test_time]),
+            res_df = pd.DataFrame(np.column_stack([loss_avg, ci, ctd, ibs, train_time, test_time]),
                                   columns=["TestLoss", "TestCI", "TestCTD", "TestIBS",
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
