@@ -64,8 +64,12 @@ def plot_training_curves(results, n_epochs, dataset_name):
     mc_test_ctd = mc_results[['TestCTD']]
     mc_test_ibs = mc_results[['TestIBS']]
 
+    matplotlib_style = 'fivethirtyeight'
+    import matplotlib.pyplot as plt
+    plt.style.use(matplotlib_style)
     epochs = range(1, n_epochs+1)
     fig, axs = plt.subplots(1, 4, figsize=(18, 3))
+    plt.figure(dpi=80)
     axs[0].plot(epochs, mlp_train_loss, label='Training set (MLP)', marker="o", color=TFColor[0], linewidth=1)
     axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
     axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
@@ -73,7 +77,6 @@ def plot_training_curves(results, n_epochs, dataset_name):
     axs[0].plot(epochs, mc_train_loss, label='Training set (MCD)', marker="o", color=TFColor[3], linewidth=1)
     axs[0].plot(epochs, mc_test_loss, label='Test set (MCD)', marker="s", color=TFColor[3], linewidth=1)
     axs[0].set_xlabel('Epoch', fontsize="medium")
-    axs[0].legend()
     axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
 
     axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)
@@ -94,7 +97,7 @@ def plot_training_curves(results, n_epochs, dataset_name):
     axs[2].set_xlabel('Epoch', fontsize="medium")
     axs[2].set_ylabel('$C_{td}$', fontsize="medium")
 
-    axs[3].plot(epochs, mlp_train_ibs, marker="o", color=TFColor[0], linewidth=1)
+    axs[3].plot(epochs, mlp_train_ibs,  marker="o", color=TFColor[0], linewidth=1)
     axs[3].plot(epochs, mlp_test_ibs, marker="s", color=TFColor[0], linewidth=1)
     axs[3].plot(epochs, vi_train_ibs, marker="o", color=TFColor[2], linewidth=1)
     axs[3].plot(epochs, vi_test_ibs, marker="s", color=TFColor[2], linewidth=1)
@@ -102,6 +105,10 @@ def plot_training_curves(results, n_epochs, dataset_name):
     axs[3].plot(epochs, mc_test_ibs, marker="s", color=TFColor[3], linewidth=1)
     axs[3].set_xlabel('Epoch', fontsize="medium")
     axs[3].set_ylabel('IBS', fontsize="medium")
-
+    
+    fig.legend(loc=7)
+    fig.subplots_adjust(right=0.85, wspace=0.25)
     fig.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_training_curves.pdf"),
-                format='pdf', bbox_inches="tight")
+                format='pdf', bbox_inches="tight")    
+    
+    plt.close()

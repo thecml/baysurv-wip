@@ -17,6 +17,4 @@ if __name__ == "__main__":
     results = pd.concat(li, axis=0, ignore_index=True)
     
     results = results.round(3)
-    for dataset_name in  ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]:
-        plot.plot_training_curves(results, 10, dataset_name)
-    
+    plot.plot_training_curves(results, 10, "SEER")
