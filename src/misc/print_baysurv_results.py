@@ -22,25 +22,23 @@ if __name__ == "__main__":
     results = pd.concat([last_obs.drop('TrainTime', axis=1), train_times], axis=1).reset_index()
     
     model_names = ['MLP', 'VI', 'MCD']
-    dataset_names_list = [["WHAS500", "SEER", "GBSG2"],  ["FLCHAIN", "SUPPORT", "METABRIC"]]
+    dataset_name = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
     
-    for dataset_names in dataset_names_list:
-        for i, model_name in enumerate(model_names):
-            if i > 0:
+    for dataset_name in dataset_name:
+        for index, model_name in enumerate(model_names):
+            if index > 0:
                 text = "+ "
             else:
                 text = ""
-            for j, ds in enumerate(dataset_names):
-                t_train = float(results.loc[(results['DatasetName'] == ds) & (results['ModelName'] == model_name)]['TrainTime'])
-                ci = float(results.loc[(results['DatasetName'] == ds) & (results['ModelName'] == model_name)]['TestCI'])
-                ctd = float(results.loc[(results['DatasetName'] == ds) & (results['ModelName'] == model_name)]['TestCTD'])
-                ibs = float(results.loc[(results['DatasetName'] == ds) & (results['ModelName'] == model_name)]['TestIBS'])
-                loss = float(results.loc[(results['DatasetName'] == ds) & (results['ModelName'] == model_name)]['TestLoss'])
-                if j == 0:
-                    text += f"{model_name} & "
-                if j == 2:
-                    text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\"
-                else:
-                    text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} & "
+            t_train = float(results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]['TrainTime'])
+            ci = float(results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]['TestCI'])
+            ctd = float(results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]['TestCTD'])
+            ibs = float(results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]['TestIBS'])
+            loss = float(results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]['TestLoss'])
+            if model_name == "MLP":
+                model_name = "Baseline (MLP)"
+            text += f"{model_name} & "
+            text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\"
             print(text)
+        print()
         
