@@ -17,7 +17,7 @@ N_ITER = 10
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "FLCHAIN"
+    dataset_name = "WHAS500"
     dl = get_data_loader(dataset_name).load_data()
     X, y = dl.get_data()
     num_features, cat_features = dl.get_features()

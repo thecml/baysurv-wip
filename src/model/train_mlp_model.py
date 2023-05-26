@@ -14,9 +14,9 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_EPOCHS = 25
+N_EPOCHS = 1
 MODEL_TYPE = "MLP"
-DATASET = "METABRIC"
+DATASET = "WHAS500"
 
 if __name__ == "__main__":
     # Load config

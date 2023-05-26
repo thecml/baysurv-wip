@@ -180,5 +180,4 @@ if __name__ == "__main__":
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
-
-
+    

@@ -1,6 +1,16 @@
 import numpy as np
 from sksurv.linear_model.coxph import BreslowEstimator
 
+def compute_survival_scale(risk_scores, t_train, e_train):
+    # https://pubmed.ncbi.nlm.nih.gov/15724232/
+    rnd = np.random.RandomState()
+
+    # generate hazard scale
+    mean_survival_time = t_train[e_train].mean()
+    baseline_hazard = 1. / mean_survival_time
+    scale = baseline_hazard * np.exp(risk_scores)
+    return scale
+
 def compute_survival_times(risk_scores, t_train, e_train):
     # https://pubmed.ncbi.nlm.nih.gov/15724232/
     rnd = np.random.RandomState(0)
