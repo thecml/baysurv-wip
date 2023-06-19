@@ -17,4 +17,4 @@ if __name__ == "__main__":
     results = pd.concat(li, axis=0, ignore_index=True)
     
     results = results.round(3)
-    plot.plot_training_curves(results, 10, "SEER")
+    plot.plot_training_curves(results, 10, "WHAS500")

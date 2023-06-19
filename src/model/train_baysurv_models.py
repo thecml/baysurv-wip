@@ -23,7 +23,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500"]
 MODEL_NAMES = ["MLP", "VI", "MCD"]
-N_EPOCHS = 10
+N_EPOCHS = 15
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -114,10 +114,10 @@ if __name__ == "__main__":
             train_times = trainer.train_times
 
             # Test
-            test_loss = trainer.test_loss_scores_mean
-            tests_ci = trainer.test_ci_scores_mean
-            test_ctd = trainer.test_ctd_scores_mean
-            test_ibs = trainer.test_ibs_scores_mean
+            test_loss = trainer.test_loss_scores
+            tests_ci = trainer.test_ci_scores
+            test_ctd = trainer.test_ctd_scores
+            test_ibs = trainer.test_ibs_scores
             test_times = trainer.test_times
 
             # Save to df

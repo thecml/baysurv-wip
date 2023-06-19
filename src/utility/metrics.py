@@ -27,10 +27,6 @@ class IbsMetric:
             "pred_train": [],
             "pred_test": [],
         }
-    
-    def reset_test_state(self) -> None:
-        self._data["y_test"] = []
-        self._data["pred_test"] = []
         
     def update_train_state(self, y_train) -> None:
         self._data["y_train"].append(y_train)
@@ -91,10 +87,6 @@ class CindexTdMetric:
             "y_test": [],
             "prediction": []
         }
-    
-    def reset_test_state(self) -> None:
-        self._data["y_test"] = []
-        self._data["prediction"] = []
         
     def update_train_state(self, y_train) -> None:
         self._data["y_train"].append(y_train)
