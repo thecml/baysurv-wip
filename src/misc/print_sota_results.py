@@ -32,8 +32,6 @@ if __name__ == "__main__":
             if model_name == "DCPH":
                 model_name = "DeepSurv"
             text += f"{model_name} {model_citation} & "
-            text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\"
+            text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\""
             print(text)
         print()
-        
-        

@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np
 from utility.metrics import CindexMetric, CindexTdMetric, IbsMetric
 from utility.survival import convert_to_structured
+from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
+from sksurv.metrics import integrated_brier_score
 from time import time
 
 class Trainer:
@@ -28,10 +30,18 @@ class Trainer:
         self.train_ibs_metric = IbsMetric(event_times)
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_cindex_metric = CindexMetric()
-        self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
+        
+        
+        
+        self.test_loss_mean = tf.keras.metrics.Mean(name="test_loss_mean")
+        self.test_loss_std = tf.keras.metrics.Mean(name="test_loss_mean")
         self.test_cindex_metric = CindexMetric()
         self.test_ctd_metric = CindexTdMetric()
         self.test_ibs_metric = IbsMetric(event_times)
+        
+        
+        
+        
 
         self.train_loss_scores, self.train_ci_scores = list(), list()
         self.train_ctd_scores, self.train_ibs_scores = list(), list()
@@ -121,7 +131,7 @@ class Trainer:
         self.train_ibs_metric.reset_states()
         self.valid_loss_metric.reset_states()
         self.valid_cindex_metric.reset_states()
-        self.test_loss_metric.reset_states()
+        self.test_loss_mean.reset_states()
         self.test_cindex_metric.reset_states()
         self.test_ctd_metric.reset_states()
         self.test_ibs_metric.reset_states()
@@ -132,16 +142,33 @@ class Trainer:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             if self.model_type == "MCD" or self.model_type == "VI":
                 runs = 100
-                logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                loss_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
-                    logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
-                logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                    # Sample logits
+                    logits = self.model(x, training=False).sample()
+                    
+                    # Compute metrics
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                    ci = concordance_index_censored()
+                    
+                    
+                    
+                    
+                    
+                loss_cpd[i,:] = np.reshape(loss, len(x))
+                loss_mean = np.mean(loss_cpd, axis=0)
+                loss_std = np.std(loss_cpd, axis=0)
+                self.test_loss_mean.update_state(loss_mean)
+                self.test_loss_std.update_state(loss_std)
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-
-            self.test_loss_metric.update_state(loss)
+                self.test_loss_mean.update_state(loss)
+                self.test_loss_std.update_state(1)
+            
+            
+            
+                
             self.test_cindex_metric.update_state(y, logits)
 
             # CTD
@@ -155,7 +182,7 @@ class Trainer:
 
         total_test_time = time() - test_start_time
 
-        epoch_loss = self.test_loss_metric.result()
+        epoch_loss = self.test_loss_mean.result()
         epoch_ci = self.test_cindex_metric.result()['cindex']
         epoch_ctd = self.test_ctd_metric.result()['cindex']
         epoch_ibs = self.test_ibs_metric.result()

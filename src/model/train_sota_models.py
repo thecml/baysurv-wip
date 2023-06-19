@@ -156,7 +156,7 @@ if __name__ == "__main__":
                 test_predictions = model.predict_risk(np.array(X_test), y_train['time'].max())
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
-            elif model_name == "RSF": # use KM estimator instead
+            elif model_name == "RSF": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test)
             else:
                 train_predictions = model.predict(X_train).reshape(-1)

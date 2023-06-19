@@ -38,7 +38,7 @@ if __name__ == "__main__":
             if model_name == "MLP":
                 model_name = "Baseline (MLP)"
             text += f"{model_name} & "
-            text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\"
+            text += f"{t_train} & {ci} & {ctd} & {ibs} & {loss} \\\\""
             print(text)
         print()
         

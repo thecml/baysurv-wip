@@ -14,14 +14,14 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_EPOCHS = 1
+N_EPOCHS = 10
 MODEL_TYPE = "MLP"
-DATASET = "WHAS500"
+DATASET = "SEER"
 
 if __name__ == "__main__":
     # Load config
     config = load_config(pt.MLP_CONFIGS_DIR, f"{DATASET.lower()}.yaml")
-    optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+    optimizer = tf.keras.optimizers.Adam()
     custom_objects = {"CoxPHLoss": CoxPHLoss()}
     with tf.keras.utils.custom_object_scope(custom_objects):
         loss_fn = tf.keras.losses.deserialize(config['loss_fn'])
