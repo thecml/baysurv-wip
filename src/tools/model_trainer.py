@@ -2,8 +2,6 @@ import tensorflow as tf
 import numpy as np
 from utility.metrics import CindexMetric, CindexTdMetric, IbsMetric
 from utility.survival import convert_to_structured
-from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
-from sksurv.metrics import integrated_brier_score
 from time import time
 
 class Trainer:
@@ -31,24 +29,20 @@ class Trainer:
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_cindex_metric = CindexMetric()
         
-        
-        
-        self.test_loss_mean = tf.keras.metrics.Mean(name="test_loss_mean")
-        self.test_loss_std = tf.keras.metrics.Mean(name="test_loss_mean")
+        self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
         self.test_cindex_metric = CindexMetric()
         self.test_ctd_metric = CindexTdMetric()
         self.test_ibs_metric = IbsMetric(event_times)
         
-        
-        
-        
-
         self.train_loss_scores, self.train_ci_scores = list(), list()
         self.train_ctd_scores, self.train_ibs_scores = list(), list()
         self.valid_loss_scores, self.valid_ci_scores = list(), list()
-        self.test_loss_scores, self.test_ci_scores = list(), list()
-        self.test_ctd_scores, self.test_ibs_scores = list(), list()
-
+        
+        self.test_loss_scores_mean, self.test_loss_scores_std = list(), list()
+        self.test_ci_scores_mean, self.test_ci_scores_std = list(), list()
+        self.test_ctd_scores_mean, self.test_ctd_scores_std = list(), list()
+        self.test_ibs_scores_mean, self.test_ibs_scores_std = list(), list()
+        
         self.train_times, self.test_times = list(), list()
 
     def train_and_evaluate(self):
@@ -131,64 +125,98 @@ class Trainer:
         self.train_ibs_metric.reset_states()
         self.valid_loss_metric.reset_states()
         self.valid_cindex_metric.reset_states()
-        self.test_loss_mean.reset_states()
+        self.test_loss_mean = list()
         self.test_cindex_metric.reset_states()
         self.test_ctd_metric.reset_states()
         self.test_ibs_metric.reset_states()
 
     def test(self):
         test_start_time = time()
+        batch_loss_mean, batch_loss_std = list(), list()
+        batch_ci_mean, batch_ci_std = list(), list()
+        batch_ctd_mean, batch_ctd_std = list(), list()
+        batch_ibs_mean, batch_ibs_std = list(), list()
         for x, y in self.test_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
+            y_test = convert_to_structured(y["label_time"], y["label_event"])
             if self.model_type == "MCD" or self.model_type == "VI":
-                runs = 100
-                loss_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                runs = 10
+                iter_loss, iter_ci, iter_ctd, iter_ibs = list(), list(), list(), list()
                 for i in range(0, runs):
+                    self.test_ctd_metric.update_test_state(y_test)
+                    self.test_ibs_metric.update_test_state(y_test)
+                    
                     # Sample logits
                     logits = self.model(x, training=False).sample()
                     
                     # Compute metrics
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                    ci = concordance_index_censored()
+                    self.test_loss_metric.update_state(loss)
+                    self.test_cindex_metric.update_state(y, logits)
+                    self.test_ctd_metric.update_pred_state(logits)
+                    self.test_ibs_metric.update_test_pred(logits)
                     
+                    loss = self.test_loss_metric.result()
+                    ci = self.test_cindex_metric.result()['cindex']
+                    ctd = self.test_ctd_metric.result()['cindex']
+                    ibs = self.test_ibs_metric.result()
+                    iter_loss.append(float(loss))
+                    iter_ci.append(float(ci))
+                    iter_ctd.append(float(ctd))
+                    iter_ibs.append(float(ibs))
+                
+                    self.test_loss_metric.reset_states()
+                    self.test_cindex_metric.reset_states()
+                    self.test_ctd_metric.reset_test_state()
+                    self.test_ibs_metric.reset_test_state()
                     
-                    
-                    
-                    
-                loss_cpd[i,:] = np.reshape(loss, len(x))
-                loss_mean = np.mean(loss_cpd, axis=0)
-                loss_std = np.std(loss_cpd, axis=0)
-                self.test_loss_mean.update_state(loss_mean)
-                self.test_loss_std.update_state(loss_std)
+                # Save metrics
+                batch_loss_mean.append(float(np.mean(iter_loss)))
+                batch_loss_std.append(float(np.std(iter_loss)))
+                batch_ci_mean.append(float(np.mean(iter_ci)))
+                batch_ci_std.append(float(np.std(iter_ci)))
+                batch_ctd_mean.append(float(np.mean(iter_ctd)))
+                batch_ctd_std.append(float(np.std(iter_ctd)))
+                batch_ibs_mean.append(float(np.mean(iter_ibs)))
+                batch_ibs_std.append(float(np.std(iter_ibs)))
+                     
             else:
+                self.test_ctd_metric.update_test_state(y_test)
+                self.test_ibs_metric.update_test_state(y_test)
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                self.test_loss_mean.update_state(loss)
-                self.test_loss_std.update_state(1)
-            
-            
-            
+                self.test_loss_metric.update_state(loss)
+                self.test_cindex_metric.update_state(y, logits)
+                self.test_ctd_metric.update_pred_state(logits)
+                self.test_ibs_metric.update_test_pred(logits)
                 
-            self.test_cindex_metric.update_state(y, logits)
-
-            # CTD
-            y_test = convert_to_structured(y["label_time"], y["label_event"])
-            self.test_ctd_metric.update_test_state(y_test)
-            self.test_ctd_metric.update_pred_state(logits)
-
-            # IBS
-            self.test_ibs_metric.update_test_state(y_test)
-            self.test_ibs_metric.update_test_pred(logits)
-
         total_test_time = time() - test_start_time
 
-        epoch_loss = self.test_loss_mean.result()
-        epoch_ci = self.test_cindex_metric.result()['cindex']
-        epoch_ctd = self.test_ctd_metric.result()['cindex']
-        epoch_ibs = self.test_ibs_metric.result()
-
-        self.test_loss_scores.append(float(epoch_loss))
-        self.test_ci_scores.append(float(epoch_ci))
-        self.test_ctd_scores.append(float(epoch_ctd))
-        self.test_ibs_scores.append(float(epoch_ibs))
+        if self.model_type == "MCD" or self.model_type == "VI":
+            epoch_loss_mean = np.mean(batch_loss_mean)
+            epoch_loss_std = np.mean(batch_loss_std)
+            epoch_ci_mean = np.mean(batch_ci_mean)
+            epoch_ci_std = np.mean(batch_ci_std)
+            epoch_ctd_mean = np.mean(batch_ctd_mean)
+            epoch_ctd_std = np.mean(batch_ctd_std)
+            epoch_ibs_mean = np.mean(batch_ibs_mean)
+            epoch_ibs_std = np.mean(batch_ibs_std)
+            self.test_loss_scores_mean.append(epoch_loss_mean)
+            self.test_loss_scores_std.append(epoch_loss_std)
+            self.test_ci_scores_mean.append(epoch_ci_mean)
+            self.test_ci_scores_std.append(epoch_ci_std)
+            self.test_ctd_scores_mean.append(epoch_ctd_mean)
+            self.test_ctd_scores_std.append(epoch_ctd_std)
+            self.test_ibs_scores_mean.append(epoch_ibs_mean)
+            self.test_ibs_scores_std.append(epoch_ibs_std)
+        else:
+            epoch_loss = self.test_loss_metric.result()
+            epoch_ci = self.test_cindex_metric.result()['cindex']
+            epoch_ctd = self.test_ctd_metric.result()['cindex']
+            epoch_ibs = self.test_ibs_metric.result()
+            self.test_loss_scores_mean.append(float(epoch_loss))
+            self.test_ci_scores_mean.append(float(epoch_ci))
+            self.test_ctd_scores_mean.append(float(epoch_ctd))
+            self.test_ibs_scores_mean.append(float(epoch_ibs))
+        
         self.test_times.append(float(total_test_time))

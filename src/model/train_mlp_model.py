@@ -14,7 +14,7 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-N_EPOCHS = 10
+N_EPOCHS = 5
 MODEL_TYPE = "MLP"
 DATASET = "SEER"
 
@@ -67,9 +67,9 @@ if __name__ == "__main__":
     trainer.train_and_evaluate()
 
     # Test
-    test_ci = trainer.test_ci_scores
-    test_ctd = trainer.test_ctd_scores
-    test_ibs = trainer.test_ibs_scores
+    test_ci = trainer.test_ci_scores_mean
+    test_ctd = trainer.test_ctd_scores_mean
+    test_ibs = trainer.test_ibs_scores_mean
 
     print(test_ci[-1])
     print(test_ctd[-1])
