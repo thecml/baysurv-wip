@@ -125,7 +125,10 @@ class Trainer:
                 runs = 100
                 logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
-                    logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+                    if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+                    else:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False), len(x))
                 logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                 mean_std = np.mean(tf.math.reduce_std(logits_cpd, axis=0, keepdims=True))
                 batch_stds.append(mean_std)

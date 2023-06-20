@@ -51,7 +51,7 @@ if __name__ == "__main__":
         # Split data in train and test set
         X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
         
-        # Half the dataset
+        # Use only half the dataset
         #X_train, _ = np.array_split(X_train, 2)
         #y_train, _ = np.array_split(y_train, 2)
             
