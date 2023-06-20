@@ -23,7 +23,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500"]
 MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MCD"]
-N_EPOCHS = 10
+N_EPOCHS = 5
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
