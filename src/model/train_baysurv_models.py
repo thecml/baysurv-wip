@@ -23,7 +23,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500"]
 MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MCD"]
-N_EPOCHS = 15
+N_EPOCHS = 10
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -50,7 +50,10 @@ if __name__ == "__main__":
 
         # Split data in train and test set
         X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
-
+        
+        # Half the dataset
+        #X_train, _ = np.array_split(X_train, 2)
+            
         # Scale data
         X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
         X_train = np.array(X_train)

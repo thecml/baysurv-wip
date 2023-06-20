@@ -17,6 +17,8 @@ def get_data_loader(dataset_name:str) -> BaseDataLoader:
         return SupportDataLoader()
     elif dataset_name == "WHAS500":
         return WhasDataLoader()
+    elif dataset_name == "WHAS500SMALL":
+        return WhasDataLoader()
     elif dataset_name == "AIDS":
         return AidsDataLoader()
     else:
