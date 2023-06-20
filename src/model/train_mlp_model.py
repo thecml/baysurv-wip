@@ -15,7 +15,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 N_EPOCHS = 5
-MODEL_TYPE = "MLP"
+MODEL_NAME = "MLP"
 DATASET = "SEER"
 
 if __name__ == "__main__":
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     mlp_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    trainer = Trainer(model=mlp_model, model_type=MODEL_TYPE,
+    trainer = Trainer(model=mlp_model, model_name=MODEL_NAME,
                       train_dataset=train_ds, valid_dataset=None,
                       test_dataset=test_ds, optimizer=optimizer,
                       loss_function=loss_fn, num_epochs=N_EPOCHS,

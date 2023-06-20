@@ -22,7 +22,7 @@ tf.random.set_seed(0)
 random.seed(0)
 
 DATASETS = ["WHAS500"]
-MODEL_NAMES = ["MLP", "VI", "MCD"]
+MODEL_NAMES = ["MLP", "MLP-ALEA", "VI", "VI-EPI", "MCD"]
 N_EPOCHS = 15
 
 if __name__ == "__main__":
@@ -72,25 +72,41 @@ if __name__ == "__main__":
         mlp_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
                                    layers=layers, activation_fn=activation_fn,
                                    dropout_rate=dropout_rate, regularization_pen=l2_reg)
+        mlp_alea_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
+                                        layers=layers, activation_fn=activation_fn,
+                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
         vi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
                                  output_dim=2, layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        mc_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
+        vi_epi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
+                                     output_dim=1, layers=layers, activation_fn=activation_fn,
+                                     dropout_rate=dropout_rate, regularization_pen=l2_reg)
+        mcd_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                  layers=layers, activation_fn=activation_fn,
                                  dropout_rate=dropout_rate, regularization_pen=l2_reg)
 
         # Make trainers
-        mlp_trainer = Trainer(model=mlp_model, model_type="MLP",
+        mlp_trainer = Trainer(model=mlp_model, model_name="MLP",
                               train_dataset=train_ds, valid_dataset=None,
                               test_dataset=test_ds, optimizer=optimizer,
                               loss_function=loss_fn, num_epochs=N_EPOCHS,
                               event_times=event_times)
-        vi_trainer = Trainer(model=vi_model, model_type="VI",
+        mlp_alea_trainer = Trainer(model=mlp_alea_model, model_name="MLP-ALEA",
+                                   train_dataset=train_ds, valid_dataset=None,
+                                   test_dataset=test_ds, optimizer=optimizer,
+                                   loss_function=loss_fn, num_epochs=N_EPOCHS,
+                                   event_times=event_times)
+        vi_trainer = Trainer(model=vi_model, model_name="VI",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS,
                              event_times=event_times)
-        mcd_trainer = Trainer(model=mc_model, model_type="MCD",
+        vi_epi_trainer = Trainer(model=vi_epi_model, model_name="VI-EPI",
+                                 train_dataset=train_ds, valid_dataset=None,
+                                 test_dataset=test_ds, optimizer=optimizer,
+                                 loss_function=loss_fn, num_epochs=N_EPOCHS,
+                                 event_times=event_times)
+        mcd_trainer = Trainer(model=mcd_model, model_name="MCD",
                              train_dataset=train_ds, valid_dataset=None,
                              test_dataset=test_ds, optimizer=optimizer,
                              loss_function=loss_fn, num_epochs=N_EPOCHS,
@@ -99,12 +115,14 @@ if __name__ == "__main__":
         # Train models
         print(f"Started training models for {dataset_name}")
         mlp_trainer.train_and_evaluate()
+        mlp_alea_trainer.train_and_evaluate()
         vi_trainer.train_and_evaluate()
+        vi_epi_trainer.train_and_evaluate()
         mcd_trainer.train_and_evaluate()
         print(f"Finished training all models for {dataset_name}")
 
         # Save results per dataset
-        trainers = [mlp_trainer, vi_trainer, mcd_trainer]
+        trainers = [mlp_trainer, mlp_alea_trainer, vi_trainer, vi_epi_trainer, mcd_trainer]
         for model_name, trainer in zip(MODEL_NAMES, trainers):
             # Training
             train_loss = trainer.train_loss_scores
@@ -119,19 +137,23 @@ if __name__ == "__main__":
             test_ctd = trainer.test_ctd_scores
             test_ibs = trainer.test_ibs_scores
             test_times = trainer.test_times
+            if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
+                test_variance = trainer.test_variance
+            else:
+                test_variance = [0]
 
             # Save to df
-            print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_type}")
+            print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
             res_df = pd.DataFrame(np.column_stack([train_loss, train_ci, train_ctd, train_ibs, # train
-                                                   test_loss, tests_ci, test_ctd, test_ibs, # test
+                                                   test_loss, tests_ci, test_ctd, test_ibs, test_variance, # test
                                                    train_times, test_times]), # times
                                   columns=["TrainLoss", "TrainCI", "TrainCTD", "TrainIBS",
-                                           "TestLoss", "TestCI", "TestCTD", "TestIBS",
+                                           "TestLoss", "TestCI", "TestCTD", "TestIBS", "TestVar",
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
-            print(f"Completed dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_type}")
+            print(f"Completed dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
 
             # Save model weights
             model = trainer.model
