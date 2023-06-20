@@ -52,8 +52,8 @@ if __name__ == "__main__":
         X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
         
         # Half the dataset
-        X_train, _ = np.array_split(X_train, 2)
-        y_train, _ = np.array_split(y_train, 2)
+        #X_train, _ = np.array_split(X_train, 2)
+        #y_train, _ = np.array_split(y_train, 2)
             
         # Scale data
         X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
@@ -144,7 +144,7 @@ if __name__ == "__main__":
             if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
                 test_variance = trainer.test_variance
             else:
-                test_variance = [0]
+                test_variance = [0] * len(train_loss)
 
             # Save to df
             print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
