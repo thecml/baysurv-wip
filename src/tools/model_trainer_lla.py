@@ -3,7 +3,6 @@ import numpy as np
 from utility.metrics import CindexMetric, CindexTdMetric, IbsMetric
 from utility.survival import convert_to_structured
 from time import time
-from utility.loss import CoxPHLoss, CoxPHLossLLA
 
 class Trainer:
     def __init__(self, model, model_name, train_dataset, valid_dataset,
@@ -59,13 +58,24 @@ class Trainer:
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
-                logits = self.model(x, training=True)
+                runs = 10
+                logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                for i in range(0, runs):
+                    if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+                    else:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False), len(x))
+                logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                std = tf.math.reduce_std(logits_cpd, axis=0, keepdims=True)
+                #logits = logits + tf.transpose(std)
                 if self.model_name == "VI" or self.model_name == "VI-EPI":
-                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]],
+                                            y_pred=logits)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
                     self.train_loss_metric.update_state(cox_loss)
                 else:
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]],
+                                        y_pred=logits)
                     self.train_loss_metric.update_state(loss)
 
                 self.train_cindex_metric.update_state(y, logits)
@@ -130,35 +140,26 @@ class Trainer:
                         logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
                     else:
                         logits_cpd[i,:] = np.reshape(self.model(x, training=False), len(x))
-                logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                 mean_std = np.mean(tf.math.reduce_std(logits_cpd, axis=0, keepdims=True))
                 batch_stds.append(mean_std)
-                
-                #logits = self.model(x, training=False)
-                if isinstance(self.loss_fn, CoxPHLoss):
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
-                else:
-                    logits = self.model(x, training=False)
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                
-                self.test_loss_metric.update_state(loss)
-                self.test_cindex_metric.update_state(y, logits_mean)
-                y_test = convert_to_structured(y["label_time"], y["label_event"])
-                self.test_ctd_metric.update_test_state(y_test)
-                self.test_ctd_metric.update_pred_state(logits_mean)
-                self.test_ibs_metric.update_test_state(y_test)
-                self.test_ibs_metric.update_test_pred(logits_mean)
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                self.test_loss_metric.update_state(loss)
-                self.test_cindex_metric.update_state(y, logits)
-                y_test = convert_to_structured(y["label_time"], y["label_event"])
-                self.test_ctd_metric.update_test_state(y_test)
-                self.test_ctd_metric.update_pred_state(logits)
-                self.test_ibs_metric.update_test_state(y_test)
-                self.test_ibs_metric.update_test_pred(logits)
-         
+
+            self.test_loss_metric.update_state(loss)
+            self.test_cindex_metric.update_state(y, logits)
+
+            # CTD
+            y_test = convert_to_structured(y["label_time"], y["label_event"])
+            self.test_ctd_metric.update_test_state(y_test)
+            self.test_ctd_metric.update_pred_state(logits)
+
+            # IBS
+            self.test_ibs_metric.update_test_state(y_test)
+            self.test_ibs_metric.update_test_pred(logits)
+            
         total_test_time = time() - test_start_time
         
         # Std

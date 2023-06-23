@@ -15,16 +15,25 @@ tf.random.set_seed(0)
 random.seed(0)
 
 N_EPOCHS = 5
-MODEL_NAME = "MLP"
+MODEL_NAME = "MCD"
 DATASET = "SEER"
+
+coxloss = CoxPHLoss()
+
+def cox_ph_loss_lla(y_pred, y_true):
+    runs = 10
+    logits_cpd = np.zeros((runs, y_pred.shape[0]), dtype=np.float32)
+    for i in range(0, runs):
+        logits_cpd[i,:] = np.reshape(y_pred.sample(), y_pred.shape[0])
+    dist_std = tf.math.reduce_std(logits_cpd, axis=0, keepdims=True)
+    return coxloss(y_true, y_pred) + dist_std
 
 if __name__ == "__main__":
     # Load config
     config = load_config(pt.MLP_CONFIGS_DIR, f"{DATASET.lower()}.yaml")
     optimizer = tf.keras.optimizers.Adam()
     custom_objects = {"CoxPHLoss": CoxPHLoss()}
-    with tf.keras.utils.custom_object_scope(custom_objects):
-        loss_fn = tf.keras.losses.deserialize(config['loss_fn'])
+    loss_fn = CoxPHLoss()
     activation_fn = config['activiation_fn']
     layers = config['network_layers']
     dropout_rate = config['dropout_rate']
@@ -56,10 +65,10 @@ if __name__ == "__main__":
     train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
     test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
-    mlp_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
+    mcd_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    trainer = Trainer(model=mlp_model, model_name=MODEL_NAME,
+    trainer = Trainer(model=mcd_model, model_name=MODEL_NAME,
                       train_dataset=train_ds, valid_dataset=None,
                       test_dataset=test_ds, optimizer=optimizer,
                       loss_function=loss_fn, num_epochs=N_EPOCHS,
@@ -67,9 +76,9 @@ if __name__ == "__main__":
     trainer.train_and_evaluate()
 
     # Test
-    test_ci = trainer.test_ci_scores_mean
-    test_ctd = trainer.test_ctd_scores_mean
-    test_ibs = trainer.test_ibs_scores_mean
+    test_ci = trainer.test_ci_scores
+    test_ctd = trainer.test_ctd_scores
+    test_ibs = trainer.test_ibs_scores
 
     print(test_ci[-1])
     print(test_ctd[-1])

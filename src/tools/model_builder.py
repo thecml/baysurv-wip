@@ -139,7 +139,7 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_f
                                          kernel_divergence_fn=kernel_divergence_fn,
                                          bias_divergence_fn=bias_divergence_fn)(hidden)
         dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
-        model = tf.keras.Model(inputs=inputs, outputs=dist)        
+        model = tf.keras.Model(inputs=inputs, outputs=dist)
     else: # model only epistemic uncertain.
         output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
         model = tf.keras.Model(inputs=inputs, outputs=output)

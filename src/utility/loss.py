@@ -3,38 +3,28 @@ from typing import Optional, Sequence
 import tensorflow_probability as tfp
 import numpy as np
 
-class CoxPHLossLA(tf.keras.losses.Loss):
-    """Negative partial log-likelihood of Cox's proportional hazards model."""
-
+class CoxPHLossLLA(tf.keras.losses.Loss):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-
-    def call(self,
-             y_true: Sequence[tf.Tensor],
-             y_pred: tfp.distributions.Distribution) -> tf.Tensor:
-        """Compute loss.
-
-        Parameters
-        ----------
-        y_true : list|tuple of tf.Tensor
-            The first element holds a binary vector where 1
-            indicates an event 0 censoring.
-            The second element holds the riskset, a
-            boolean matrix where the `i`-th row denotes the
-            risk set of the `i`-th instance, i.e. the indices `j`
-            for which the observer time `y_j >= y_i`.
-            Both must be rank 2 tensors.
-        y_pred : tf.Tensor
-            The predicted outputs. Must be a rank 2 tensor.
-
-        Returns
-        -------
-        loss : tf.Tensor
-            Loss for each instance in the batch.
-        """
+        
+    def call(self, y_true: Sequence[tf.Tensor], y_pred: tf.Tensor) -> tf.Tensor:
+        runs = 100
+        coxloss = CoxPHLoss() # regular Cox loss as below
+        logits_cpd = tf.zeros((runs, y_pred.shape[0]), dtype=np.float32)
+        output_list = []
+        tensor_shape = logits_cpd.get_shape()
+        for i in range(tensor_shape[0]):
+            output_list.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
+        logits_cpd = tf.stack(output_list)
+        
+        #log_dist_var = -tf.math.log(tf.math.reduce_std(logits_cpd, axis=0, keepdims=True) ** 2)
+        #return coxloss(y_true, y_pred) + tf.reduce_mean(log_dist_var)
+        variances = tf.transpose(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True))
+        predictions =  tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+        
+        # Perform Cox loss
         event, riskset = y_true
-        predictions = y_pred.sample()
-
+        
         pred_shape = predictions.shape
         if pred_shape.ndims != 2:
             raise ValueError("Rank mismatch: Rank of predictions (received %s) should "
@@ -58,7 +48,7 @@ class CoxPHLossLA(tf.keras.losses.Loss):
 
         event = tf.cast(event, predictions.dtype)
         predictions = safe_normalize(predictions)
-
+        
         with tf.name_scope("assertions"):
             assertions = (
                 tf.debugging.assert_less_equal(event, 1.),
@@ -73,20 +63,12 @@ class CoxPHLossLA(tf.keras.losses.Loss):
         # compute log of sum over risk set for each row
         rr = logsumexp_masked(pred_t, riskset, axis=1, keepdims=True)
         assert rr.shape.as_list() == predictions.shape.as_list()
-        
-        # compute variance across samples
-        runs = 100
-        y_pred_cpd = np.zeros((runs, y_pred.batch_shape[0]), dtype=np.float32)
-        for i in range(0, runs):
-            y_pred_cpd[i,:] = np.reshape(y_pred.sample(), y_pred.batch_shape[0])
-            
-        si = tf.math.log(tf.math.reduce_variance(y_pred_cpd, axis=0))
-        exp_log_var = 0.5*tf.math.exp(-si)
-        
-        risk_loss = (rr - predictions) + tf.reshape(exp_log_var, (predictions.shape[0], 1))
-        losses = tf.math.multiply(event, risk_loss) + 0.5*tf.reshape(si, (predictions.shape[0], 1))
 
-        return losses
+        losses = tf.math.multiply(event, rr - predictions)
+        variances = tf.math.multiply(event, variances)
+        
+        return losses + variances
+        #return coxloss(y_true, y_pred)
 
 class CoxPHLoss(tf.keras.losses.Loss):
     """Negative partial log-likelihood of Cox's proportional hazards model."""
@@ -194,35 +176,6 @@ def logsumexp_masked(risk_scores: tf.Tensor,
         exp_masked = tf.math.multiply(tf.exp(risk_scores_shift), mask_f)
         exp_sum = tf.reduce_sum(exp_masked, axis=axis, keepdims=True)
         output = amax + tf.math.log(exp_sum)
-        if not keepdims:
-            output = tf.squeeze(output, axis=axis)
-    return output
-
-def logsumexp_lla_masked(risk_scores: tf.Tensor,
-                         pred_vars: tf.Tensor,
-                         mask: tf.Tensor,
-                         axis: int = 0,
-                         keepdims: Optional[bool] = None) -> tf.Tensor:
-    """Compute logsumexp across `axis` for entries where `mask` is true."""
-    risk_scores.shape.assert_same_rank(mask.shape)
-
-    with tf.name_scope("logsumexp_masked"):
-        mask_f = tf.cast(mask, risk_scores.dtype)
-        risk_scores_masked = tf.math.multiply(risk_scores, mask_f)
-
-        # for numerical stability, substract the maximum value
-        # before taking the exponential
-        amax = tf.reduce_max(risk_scores_masked, axis=axis, keepdims=True)
-        risk_scores_shift = risk_scores_masked - amax
-
-        exp_masked = tf.math.multiply(tf.exp(risk_scores_shift), mask_f) # for risks
-        exp_sum = tf.reduce_sum(exp_masked, axis=axis, keepdims=True)
-        output = amax + tf.math.log(exp_sum)
-        
-        var_sum = tf.reduce_sum(pred_vars, axis=axis, keepdims=True) # for variance
-        
-        
-        
         if not keepdims:
             output = tf.squeeze(output, axis=axis)
     return output
