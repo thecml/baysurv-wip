@@ -11,9 +11,3 @@ optimizer:
     learning_rate: 0.005
     momentum: 0.95
     decay: 0.001
-
-loss_fn:
-  class_name: CoxPHLoss
-  config:
-    reduction: 'auto'
-    name: None

@@ -16,7 +16,7 @@ random.seed(0)
 
 N_EPOCHS = 5
 MODEL_NAME = "MCD"
-DATASET = "SEER"
+DATASET = "METABRIC"
 
 coxloss = CoxPHLoss()
 

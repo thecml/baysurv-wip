@@ -10,9 +10,3 @@ optimizer:
   config:
     learning_rate: 0.1
     momentum: 0
-
-loss_fn:
-  class_name: CoxPHLoss
-  config:
-    reduction: 'auto'
-    name: None

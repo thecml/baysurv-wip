@@ -229,7 +229,8 @@ class FlchainDataLoader(BaseDataLoader):
 class MetabricDataLoader(BaseDataLoader):
     def load_data(self) -> None:
         path = Path.joinpath(pt.DATA_DIR, 'metabric.feather')
-        data = pd.read_feather(path)
+        data = pd.read_feather(path) 
+        data['duration'] = data['duration'].apply(round)
 
         data = data.loc[data['duration'] > 0]
 
