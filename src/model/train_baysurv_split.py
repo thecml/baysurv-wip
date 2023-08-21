@@ -139,17 +139,18 @@ if __name__ == "__main__":
             for model_name, trainer in zip(model_names, trainers):
                 # Training
                 train_loss = trainer.train_loss_scores
-                train_ci = trainer.train_ci_scores
                 train_ctd = trainer.train_ctd_scores
                 train_ibs = trainer.train_ibs_scores
+                train_inbll = trainer.train_inbll_scores
                 train_times = trainer.train_times
 
                 # Test
                 test_loss = trainer.test_loss_scores
-                tests_ci = trainer.test_ci_scores
                 test_ctd = trainer.test_ctd_scores
                 test_ibs = trainer.test_ibs_scores
+                test_inbll = trainer.test_inbll_scores
                 test_times = trainer.test_times
+                
                 if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
                     test_variance = trainer.test_variance
                 else:
@@ -157,11 +158,11 @@ if __name__ == "__main__":
 
                 # Save to df
                 print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
-                res_df = pd.DataFrame(np.column_stack([train_loss, train_ci, train_ctd, train_ibs, # train
-                                                        test_loss, tests_ci, test_ctd, test_ibs, test_variance, # test
+                res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, # train
+                                                        test_loss, test_ctd, test_ibs, test_inbll, test_variance, # test
                                                         train_times, test_times]), # times
-                                    columns=["TrainLoss", "TrainCI", "TrainCTD", "TrainIBS",
-                                            "TestLoss", "TestCI", "TestCTD", "TestIBS", "TestVar",
+                                    columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL",
+                                            "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestVar",
                                             "TrainTime", "TestTime"])
                 res_df['ModelName'] = model_name
                 res_df['DatasetName'] = dataset_name
