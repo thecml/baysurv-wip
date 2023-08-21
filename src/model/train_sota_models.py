@@ -19,6 +19,7 @@ from time import time
 from utility.config import load_config
 from sksurv.linear_model.coxph import BreslowEstimator
 from utility.loss import CoxPHLoss
+from pycox.evaluation import EvalSurv
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -141,9 +142,8 @@ if __name__ == "__main__":
             else:
                 loss_avg = np.nan
 
-            # Compute CI/CTD
+            # Compute CI
             ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
-            ctd = concordance_index_ipcw(y_train_struc, y_test_struc, preds)[0]
 
             # Compute IBS
             if model_name == "DSM":
@@ -165,10 +165,16 @@ if __name__ == "__main__":
                 test_surv_fn = breslow.get_survival_function(test_predictions)
             surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
-
+            
+            # Compute CTD and INBLL
+            surv_test = pd.DataFrame(surv_preds, columns=times)
+            ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
+            ctd = ev.concordance_td()
+            inbll = ev.integrated_nbll(times)
+            
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([loss_avg, ci, ctd, ibs, train_time, test_time]),
-                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS",
+            res_df = pd.DataFrame(np.column_stack([loss_avg, ci, ctd, ibs, inbll, train_time, test_time]),
+                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS", "TestINBLL"
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
