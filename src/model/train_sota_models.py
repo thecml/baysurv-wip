@@ -142,20 +142,11 @@ if __name__ == "__main__":
             else:
                 loss_avg = np.nan
 
-            # Compute CI
-            ci = concordance_index_censored(y_test["event"], y_test["time"], preds)[0]
-
             # Compute IBS
             if model_name == "DSM":
-                train_predictions = model.predict_risk(X_train.astype(np.float64), y_train['time'].max()).reshape(-1)
-                test_predictions = model.predict_risk(X_test.astype(np.float64), y_train['time'].max()).reshape(-1)
-                breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-                test_surv_fn = breslow.get_survival_function(test_predictions)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(times)), columns=times)
             elif model_name == "DCPH":
-                train_predictions = model.predict_risk(np.array(X_train), y_train['time'].max())
-                test_predictions = model.predict_risk(np.array(X_test), y_train['time'].max())
-                breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-                test_surv_fn = breslow.get_survival_function(test_predictions)
+                surv_preds = pd.DataFrame(model.predict_survival(np.array(X_test), t=list(times)), columns=times)
             elif model_name == "RSF": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test)
             else:
@@ -173,7 +164,7 @@ if __name__ == "__main__":
             inbll = ev.integrated_nbll(times)
             
             # Save to df
-            res_df = pd.DataFrame(np.column_stack([loss_avg, ci, ctd, ibs, inbll, train_time, test_time]),
+            res_df = pd.DataFrame(np.column_stack([loss_avg, ctd, ibs, inbll, train_time, test_time]),
                                   columns=["TestLoss", "TestCI", "TestCTD", "TestIBS", "TestINBLL"
                                            "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
