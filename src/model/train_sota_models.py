@@ -149,12 +149,13 @@ if __name__ == "__main__":
                 surv_preds = pd.DataFrame(model.predict_survival(np.array(X_test), t=list(times)), columns=times)
             elif model_name == "RSF": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test)
+                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
             else:
                 train_predictions = model.predict(X_train).reshape(-1)
                 test_predictions = model.predict(X_test).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
-            surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
             ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
             
             # Compute CTD and INBLL
