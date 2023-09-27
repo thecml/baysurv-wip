@@ -21,7 +21,7 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS500"]
+DATASETS = ["SEER"]
 N_EPOCHS = 1
 
 if __name__ == "__main__":

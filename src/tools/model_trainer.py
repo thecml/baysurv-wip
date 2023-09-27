@@ -58,7 +58,6 @@ class Trainer:
 
     def train(self, epoch):
         train_start_time = time()
-        print(f"Training epoch {epoch+1}/{self.num_epochs} for {self.model_name}")
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
@@ -94,7 +93,7 @@ class Trainer:
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        print(f"Completed epoch {epoch+1}/{self.num_epochs} for {self.model_name}")
+        print(f"Completed {self.model_name} epoch {epoch+1}/{self.num_epochs}")
         total_train_time = time() - train_start_time
 
         epoch_loss = self.train_loss_metric.result()

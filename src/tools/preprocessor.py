@@ -317,7 +317,7 @@ class Preprocessor:
     """Impute and scale the dataset."""
 
     data_imputed = self.imputer.transform(data)
-    data_transformed = self.scaler.fit_transform(data_imputed, self._num_feats)
+    data_transformed = self.scaler.transform(data_imputed)
     
     data_transformed = data_transformed.reset_index(drop=True)
 
