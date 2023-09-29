@@ -21,8 +21,8 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["SEER"]
-N_EPOCHS = 1
+DATASETS = ["WHAS500"]
+N_EPOCHS = 10
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores

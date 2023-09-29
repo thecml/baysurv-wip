@@ -54,10 +54,6 @@ if __name__ == "__main__":
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
 
-        # Make event times
-        lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
-        event_times = np.arange(lower, upper+1)
-
         # Load training parameters
         rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         cox_config = load_config(pt.COX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -101,7 +97,7 @@ if __name__ == "__main__":
         dcph_train_start_time = time()
         dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
                        iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
-                       optimizer=dcph_config['optimizer'], random_state=0)
+                       optimizer=dcph_config['optimizer'])
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
 
@@ -109,7 +105,7 @@ if __name__ == "__main__":
         train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
 
         # Compute scores
-        lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])
+        lower, upper = np.percentile(y['time'], [10, 90])
         times = np.arange(lower, upper+1)
         y_train_struc = convert_to_structured(t_train, e_train)
         y_test_struc = convert_to_structured(t_test, e_test)
@@ -117,15 +113,7 @@ if __name__ == "__main__":
         risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
             # Make predictions
-            test_start_time = time()
-            if model_name == "DSM":
-                preds = model.predict_risk(X_test.astype(np.float64), times=y_train['time'].max()).flatten()
-            elif model_name == "DCPH":
-                preds = model.predict_risk(np.array(X_test), t=y_train['time'].max()).flatten()
-            else:
-                preds = model.predict(X_test)
-            test_time = time() - test_start_time
-
+            test_start_time = time()                
             # Compute loss
             if model_name in ["Cox", "CoxNet"]:
                 total_loss = list()
@@ -163,6 +151,7 @@ if __name__ == "__main__":
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
             ctd = ev.concordance_td()
             inbll = ev.integrated_nbll(times)
+            test_time = time() - test_start_time
             
             # Save to df
             res_df = pd.DataFrame(np.column_stack([loss_avg, ctd, ibs, inbll, train_time, test_time]),
@@ -173,7 +162,7 @@ if __name__ == "__main__":
             results = pd.concat([results, res_df], axis=0)
 
             # Save model
-            path = Path.joinpath(pt.MODELS_DIR, f"{model_name.lower()}.joblib")
+            path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}.joblib")
             joblib.dump(model, path)
 
     # Save results
