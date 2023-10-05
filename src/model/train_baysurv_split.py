@@ -11,7 +11,7 @@ from tools.model_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.plot import plot_training_curves
-from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model
+from tools.model_builder import make_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from pathlib import Path
@@ -72,10 +72,10 @@ if __name__ == "__main__":
             test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
             # Make models
-            mlp_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
+            mlp_model = make_model(input_shape=X_train.shape[1:], output_dim=1,
                                     layers=layers, activation_fn=activation_fn,
                                     dropout_rate=dropout_rate, regularization_pen=l2_reg)
-            mlp_alea_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
+            mlp_alea_model = make_model(input_shape=X_train.shape[1:], output_dim=2,
                                             layers=layers, activation_fn=activation_fn,
                                             dropout_rate=dropout_rate, regularization_pen=l2_reg)
             vi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],

@@ -8,7 +8,7 @@ Tuning script for mlp model
 import numpy as np
 import os
 import tensorflow as tf
-from tools.model_builder import make_mlp_model
+from tools.model_builder import make_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from tools import data_loader, model_trainer
@@ -118,7 +118,7 @@ def train_model():
         valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=batch_size)()
 
         # Make model
-        model = make_mlp_model(input_shape=ti_X.shape[1:],
+        model = make_model(input_shape=ti_X.shape[1:],
                                output_dim=1,
                                layers=wandb.config['network_layers'],
                                activation_fn=wandb.config['activation_fn'],

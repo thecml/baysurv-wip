@@ -16,6 +16,7 @@ from utility.loss import CoxPHLoss
 import paths as pt
 from utility.survival import get_breslow_survival_times, compute_survival_times
 import joblib
+import numpy as np
 
 curr_dir = os.getcwd()
 root_dir = Path(curr_dir).absolute().parent

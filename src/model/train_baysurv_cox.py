@@ -24,6 +24,9 @@ random.seed(0)
 DATASETS = ["WHAS500"]
 N_EPOCHS = 10
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids, load_whas500, load_flchain
 from sklearn.model_selection import train_test_split
-import shap
+#import shap
 from abc import ABC, abstractmethod
 from typing import Tuple, List
 from tools.preprocessor import Preprocessor
@@ -140,6 +140,7 @@ class SupportDataLoader(BaseDataLoader):
 
         return self
 
+'''
 class NhanesDataLoader(BaseDataLoader):
     """
     Data loader for NHANES dataset
@@ -160,6 +161,7 @@ class NhanesDataLoader(BaseDataLoader):
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         return self
+'''
 
 class AidsDataLoader(BaseDataLoader):
     def load_data(self) -> None:

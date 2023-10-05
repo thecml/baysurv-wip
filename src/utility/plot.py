@@ -4,9 +4,9 @@ import os
 import numpy as np
 from pathlib import Path
 import paths as pt
-#matplotlib_style = 'fivethirtyeight'
-import matplotlib.pyplot as plt;
-#plt.style.use(matplotlib_style)
+matplotlib_style = 'default'
+import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
+import seaborn as sns
 
 class _TFColor(object):
     """Enum of colors used in TF docs."""
@@ -32,6 +32,36 @@ class _TFColor(object):
             self.gray,
         ][i % 9]
 TFColor = _TFColor()
+
+def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dataset_name):
+    fig, axes = plt.subplots(4, 2, figsize=(12, 12))
+    labels = list()
+    plt.rcParams.update({'axes.labelsize': 'small',
+                        'axes.titlesize': 'small',
+                        'lines.linewidth': 3,
+                        'font.size':14.0})
+    for i, (q, pctl) in enumerate(percentiles.items()):
+        for model_idx, model_name in enumerate(model_names):
+            pred = pred_obs[pctl][model_name][0]
+            obs = pred_obs[pctl][model_name][1]
+            preds = predictions[pctl][model_name]
+            data = pd.DataFrame({'Pred': pred, 'Obs': obs})
+            axes[i][0].set_xlabel("Predicted probability")
+            axes[i][1].set_xlabel("Predicted probability")
+            axes[i][0].set_title(f"Calibration at {q}th of survival time")
+            axes[i][1].set_title(f"Probabilities at {q}th")
+            axes[i][0].grid()
+            axes[i][1].grid()
+            sns.lineplot(data, x='Pred', y='Obs', color=TFColor[model_idx], ax=axes[i][0], legend=False, label=f"{model_name}")
+            sns.kdeplot(preds, fill=True, common_norm=True, alpha=.5, cut=0, linewidth=1, color=TFColor[model_idx], ax=axes[i][1])
+        ax=axes[i][0].plot([0, 1], [0, 1], c="k", ls="--", linewidth=1.5)
+    fig.tight_layout()
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right')
+    plt.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_calibration.pdf"),
+                format='pdf', bbox_inches="tight")
+    plt.grid(True)
+    plt.close()
 
 def plot_training_curves(results, n_epochs, dataset_name):
     mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]

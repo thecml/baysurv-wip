@@ -6,6 +6,163 @@ from lifelines.utils import CensoringType
 from lifelines.fitters import RegressionFitter
 from lifelines import CRCSplineFitter
 import warnings
+import torch
+import math
+from typing import Optional
+from typing import List, Tuple, Optional, Union
+
+Numeric = Union[float, int, bool]
+NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
+
+def cox_survival(
+        baseline_survival: torch.Tensor,
+        linear_predictor: torch.Tensor
+) -> torch.Tensor:
+    """
+    Calculate the individual survival distributions based on the baseline survival curves and the liner prediction values.
+    :param baseline_survival: (n_time_bins, )
+    :param linear_predictor: (n_samples, n_data)
+    :return:
+    The invidual survival distributions. shape = (n_samples, n_time_bins)
+    """
+    n_sample = linear_predictor.shape[0]
+    n_data = linear_predictor.shape[1]
+    risk_score = torch.exp(linear_predictor)
+    survival_curves = torch.empty((n_sample, n_data, baseline_survival.shape[0]), dtype=torch.float).to(linear_predictor.device)
+    for i in range(n_sample):
+        for j in range(n_data):
+            survival_curves[i, j, :] = torch.pow(baseline_survival, risk_score[i, j])
+    return survival_curves
+
+def make_monotonic(
+        array: Union[torch.Tensor, np.ndarray, list]
+):
+    for i in range(len(array) - 1):
+        if not array[i] >= array[i + 1]:
+            array[i + 1] = array[i]
+    return array
+
+def compute_unique_counts(
+        event: torch.Tensor,
+        time: torch.Tensor,
+        order: Optional[torch.Tensor] = None):
+    """Count right censored and uncensored samples at each unique time point.
+
+    Parameters
+    ----------
+    event : array
+        Boolean event indicator.
+
+    time : array
+        Survival time or time of censoring.
+
+    order : array or None
+        Indices to order time in ascending order.
+        If None, order will be computed.
+
+    Returns
+    -------
+    times : array
+        Unique time points.
+
+    n_events : array
+        Number of events at each time point.
+
+    n_at_risk : array
+        Number of samples that have not been censored or have not had an event at each time point.
+
+    n_censored : array
+        Number of censored samples at each time point.
+    """
+    n_samples = event.shape[0]
+
+    if order is None:
+        order = torch.argsort(time)
+
+    uniq_times = torch.empty(n_samples, dtype=time.dtype, device=time.device)
+    uniq_events = torch.empty(n_samples, dtype=torch.int, device=time.device)
+    uniq_counts = torch.empty(n_samples, dtype=torch.int, device=time.device)
+
+    i = 0
+    prev_val = time[order[0]]
+    j = 0
+    while True:
+        count_event = 0
+        count = 0
+        while i < n_samples and prev_val == time[order[i]]:
+            if event[order[i]]:
+                count_event += 1
+
+            count += 1
+            i += 1
+
+        uniq_times[j] = prev_val
+        uniq_events[j] = count_event
+        uniq_counts[j] = count
+        j += 1
+
+        if i == n_samples:
+            break
+
+        prev_val = time[order[i]]
+
+    uniq_times = uniq_times[:j]
+    uniq_events = uniq_events[:j]
+    uniq_counts = uniq_counts[:j]
+    n_censored = uniq_counts - uniq_events
+
+    # offset cumulative sum by one
+    total_count = torch.cat([torch.tensor([0], device=uniq_counts.device), uniq_counts], dim=0)
+    n_at_risk = n_samples - torch.cumsum(total_count, dim=0)
+
+    return uniq_times, uniq_events, n_at_risk[:-1], n_censored
+
+def make_time_bins(
+        times: NumericArrayLike,
+        num_bins: Optional[int] = None,
+        use_quantiles: bool = True,
+        event: Optional[NumericArrayLike] = None
+) -> torch.Tensor:
+    """
+    Courtesy of https://ieeexplore.ieee.org/document/10158019
+    
+    Creates the bins for survival time discretisation.
+
+    By default, sqrt(num_observation) bins corresponding to the quantiles of
+    the survival time distribution are used, as in https://github.com/haiderstats/MTLR.
+
+    Parameters
+    ----------
+    times
+        Array or tensor of survival times.
+    num_bins
+        The number of bins to use. If None (default), sqrt(num_observations)
+        bins will be used.
+    use_quantiles
+        If True, the bin edges will correspond to quantiles of `times`
+        (default). Otherwise, generates equally-spaced bins.
+    event
+        Array or tensor of event indicators. If specified, only samples where
+        event == 1 will be used to determine the time bins.
+
+    Returns
+    -------
+    torch.Tensor
+        Tensor of bin edges.
+    """
+    # TODO this should handle arrays and (CUDA) tensors
+    if event is not None:
+        times = times[event == 1]
+    if num_bins is None:
+        num_bins = math.ceil(math.sqrt(len(times)))
+    if use_quantiles:
+        # NOTE we should switch to using torch.quantile once it becomes
+        # available in the next version
+        bins = np.unique(np.quantile(times, np.linspace(0, 1, num_bins)))
+    else:
+        bins = np.linspace(times.min(), times.max(), num_bins)
+    bins = torch.tensor(bins, dtype=torch.float)
+    return bins
 
 def survival_probability_calibration(surv_preds: pd.DataFrame,
                                      times,
@@ -101,9 +258,123 @@ def get_breslow_survival_times(model, X_train, X_test, e_train, t_train, event_t
     model_cpd = np.zeros((runs, len(X_test)))
     for i in range(0, runs):
         model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=0), len(X_test))
-    breslow_surv_times = np.zeros((len(X_test), runs, len(event_times)))
+    breslow_surv_times = np.zeros((runs, len(X_test), len(event_times)))
     for i in range(0, runs):
         surv_fns = breslow.get_survival_function(model_cpd[i,:])
         for j, surv_fn in enumerate(surv_fns):
-            breslow_surv_times[j,i,:] = surv_fn.y
+            breslow_surv_times[i,j,:] = surv_fn.y
     return breslow_surv_times
+
+def coverage(time_bins, upper, lower, true_times, true_indicator) -> float:
+    '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
+    time_bins = check_and_convert(time_bins)
+    upper, lower = check_and_convert(upper, lower)
+    true_times, true_indicator = check_and_convert(true_times, true_indicator)
+    true_indicator = true_indicator.astype(bool)
+    covered = 0
+    upper_median_times = predict_median_survival_times(upper, time_bins, round_up=True)
+    lower_median_times = predict_median_survival_times(lower, time_bins, round_up=False)
+    covered += 2 * np.logical_and(upper_median_times[true_indicator] >= true_times[true_indicator],
+                                  lower_median_times[true_indicator] <= true_times[true_indicator]).sum()
+    covered += np.sum(upper_median_times[~true_indicator] >= true_times[~true_indicator])
+    total = 2 * true_indicator.sum() + (~true_indicator).sum()
+    return covered / total
+
+def coverage_curves(
+        upper: torch.Tensor,
+        lower: torch.Tensor,
+        test_curves: torch.Tensor
+) -> float:
+    upper = upper.cpu().detach().numpy()
+    lower = lower.cpu().detach().numpy()
+    test_curves = test_curves.cpu().detach().numpy()
+    return ((upper >= test_curves) & (lower <= test_curves)).mean()
+
+
+def predict_median_survival_times(
+        survival_curves: np.ndarray,
+        times_coordinate: np.ndarray,
+        round_up: bool = True
+):
+    median_probability_times = np.zeros(survival_curves.shape[0])
+    max_time = times_coordinate[-1]
+    slopes = (1 - survival_curves[:, -1]) / (0 - max_time)
+
+    if round_up:
+        # Find the first index in each row that are smaller or equal than 0.5
+        times_indices = np.where(survival_curves <= 0.5, survival_curves, -np.inf).argmax(axis=1)
+    else:
+        # Find the last index in each row that are larger or equal than 0.5
+        times_indices = np.where(survival_curves >= 0.5, survival_curves, np.inf).argmin(axis=1)
+
+    need_extend = survival_curves[:, -1] > 0.5
+    median_probability_times[~need_extend] = times_coordinate[times_indices][~need_extend]
+    median_probability_times[need_extend] = (max_time + (0.5 - survival_curves[:, -1]) / slopes)[need_extend]
+
+    return median_probability_times
+
+def check_and_convert(*args):
+    """ Makes sure that the given inputs are numpy arrays, list,
+        tuple, panda Series, pandas DataFrames, or torch Tensors.
+
+        Also makes sure that the given inputs have the same shape.
+
+        Then convert the inputs to numpy array.
+
+        Parameters
+        ----------
+        * args : tuple of objects
+                 Input object to check / convert.
+
+        Returns
+        -------
+        * result : tuple of numpy arrays
+                   The converted and validated arg.
+
+        If the input isn't numpy arrays, list or pandas DataFrames, it will
+        fail and ask to provide the valid format.
+    """
+
+    result = ()
+    last_length = ()
+    for i, arg in enumerate(args):
+
+        if len(arg) == 0:
+            error = " The input is empty. "
+            error += "Please provide at least 1 element in the array."
+            raise IndexError(error)
+
+        else:
+
+            if isinstance(arg, np.ndarray):
+                x = (arg.astype(np.double),)
+            elif isinstance(arg, list):
+                x = (np.asarray(arg).astype(np.double),)
+            elif isinstance(arg, tuple):
+                x = (np.asarray(arg).astype(np.double),)
+            elif isinstance(arg, pd.Series):
+                x = (arg.values.astype(np.double),)
+            elif isinstance(arg, pd.DataFrame):
+                x = (arg.values.astype(np.double),)
+            elif isinstance(arg, torch.Tensor):
+                x = (arg.cpu().numpy().astype(np.double),)
+            else:
+                error = """{arg} is not a valid data format. Only use 'list', 'tuple', 'np.ndarray', 'torch.Tensor', 
+                        'pd.Series', 'pd.DataFrame'""".format(arg=type(arg))
+                raise TypeError(error)
+
+            if np.sum(np.isnan(x)) > 0.:
+                error = "The #{} argument contains null values"
+                error = error.format(i + 1)
+                raise ValueError(error)
+
+            if len(args) > 1:
+                if i > 0:
+                    assert x[0].shape == last_length, """Shapes between {}-th input array and 
+                    {}-th input array are not consistent""".format(i - 1, i)
+                result += x
+                last_length = x[0].shape
+            else:
+                result = x[0]
+
+    return result

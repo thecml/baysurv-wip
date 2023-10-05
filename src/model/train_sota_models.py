@@ -9,7 +9,8 @@ from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
 from sksurv.metrics import integrated_brier_score
 from utility.survival import convert_to_structured
 from utility.training import get_data_loader, scale_data, make_time_event_split
-from tools.model_builder import make_cox_model, make_coxnet_model, make_rsf_model, make_dsm_model, make_dcph_model
+from tools.model_builder import make_cox_model, make_coxnet_model, make_coxboost_model
+from tools.model_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from utility.risk import _make_riskset
 from pathlib import Path
 import paths as pt
@@ -25,8 +26,8 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS500", "SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"]
-MODEL_NAMES = ["Cox", "CoxNet", "RSF", "DSM", "DCPH"]
+DATASETS = ["WHAS500"] #"SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"
+MODEL_NAMES = ["Cox", "CoxNet", "CoxBoost", "RSF", "DSM", "DCPH", "DCM"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -58,15 +59,19 @@ if __name__ == "__main__":
         rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         cox_config = load_config(pt.COX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         coxnet_config = load_config(pt.COXNET_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        coxboost_config = load_config(pt.COXBOOST_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dsm_config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dcph_config = load_config(pt.DCPH_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        dcm_config = load_config(pt.DCM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
 
         # Make models
         rsf_model = make_rsf_model(rsf_config)
         cox_model = make_cox_model(cox_config)
         coxnet_model = make_coxnet_model(coxnet_config)
+        coxboost_model = make_coxboost_model(coxboost_config)
         dsm_model = make_dsm_model(dsm_config)
         dcph_model = make_dcph_model(dcph_config)
+        dcm_model = make_dcm_model(dcm_config)
 
         # Train models
         print("Now training Cox")
@@ -81,6 +86,12 @@ if __name__ == "__main__":
         coxnet_train_time = time() - coxnet_train_start_time
         print(f"Finished training CoxNet in {coxnet_train_time}")
 
+        print("Now training CoxBoost")
+        coxboost_train_start_time = time()
+        coxboost_model.fit(X_train, y_train)
+        coxboost_train_time = time() - coxboost_train_start_time
+        print(f"Finished training CoxBoost in {coxboost_train_time}")
+
         print("Now training RSF")
         rsf_train_start_time = time()
         rsf_model.fit(X_train, y_train)
@@ -93,6 +104,12 @@ if __name__ == "__main__":
         dsm_train_time = time() - dsm_train_start_time
         print(f"Finished training DSM in {dsm_train_time}")
 
+        print("Now training DCM")
+        dcm_train_start_time = time()
+        dcm_model.fit(X_train, pd.DataFrame(y_train))
+        dcm_train_time = time() - dcm_train_start_time
+        print(f"Finished training DCM in {dcm_train_time}")
+
         print("Now training DCPH")
         dcph_train_start_time = time()
         dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
@@ -101,8 +118,9 @@ if __name__ == "__main__":
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
 
-        trained_models = [cox_model, coxnet_model, rsf_model, dsm_model, dcph_model]
-        train_times = [cox_train_time, coxnet_train_time, rsf_train_time, dsm_train_time, dcph_train_time]
+        trained_models = [cox_model, coxnet_model, coxboost_model, rsf_model, dsm_model, dcph_model, dcm_model]
+        train_times = [cox_train_time, coxnet_train_time, coxboost_train_time,
+                       rsf_train_time, dsm_train_time, dcph_train_time, dcm_train_time]
 
         # Compute scores
         lower, upper = np.percentile(y['time'], [10, 90])
@@ -115,7 +133,7 @@ if __name__ == "__main__":
             # Make predictions
             test_start_time = time()                
             # Compute loss
-            if model_name in ["Cox", "CoxNet"]:
+            if model_name in ["Cox", "CoxNet", "CoxBoost"]:
                 total_loss = list()
                 from utility.risk import InputFunction
                 X_test_arr = np.array(X_test)
@@ -130,12 +148,17 @@ if __name__ == "__main__":
             else:
                 loss_avg = np.nan
 
-            # Compute IBS
+            # Compute survival function
             if model_name == "DSM":
                 surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(times)), columns=times)
             elif model_name == "DCPH":
-                surv_preds = pd.DataFrame(model.predict_survival(np.array(X_test), t=list(times)), columns=times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(times)), columns=times)
+            elif model_name == "DCM":
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(times)), columns=times)
             elif model_name == "RSF": # uses KM estimator instead
+                test_surv_fn = model.predict_survival_function(X_test)
+                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+            elif model_name == "CoxBoost":
                 test_surv_fn = model.predict_survival_function(X_test)
                 surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
             else:
@@ -144,19 +167,19 @@ if __name__ == "__main__":
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
                 surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
-            ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
+            #ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
             
             # Compute CTD and INBLL
             surv_test = pd.DataFrame(surv_preds, columns=times)
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
             ctd = ev.concordance_td()
+            ibs = ev.integrated_brier_score(times)
             inbll = ev.integrated_nbll(times)
             test_time = time() - test_start_time
             
             # Save to df
             res_df = pd.DataFrame(np.column_stack([loss_avg, ctd, ibs, inbll, train_time, test_time]),
-                                  columns=["TestLoss", "TestCI", "TestCTD", "TestIBS", "TestINBLL"
-                                           "TrainTime", "TestTime"])
+                                  columns=["TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)

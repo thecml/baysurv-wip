@@ -74,9 +74,9 @@ def get_initial_state(weight_prior, bias_prior, num_features, layers=None):
 
     architecture = []
     for idx in range(len(layers) - 1):
-        weigths = weight_prior.sample((layers[idx], layers[idx + 1]))
+        weights = weight_prior.sample((layers[idx], layers[idx + 1]))
         biases = bias_prior.sample((layers[idx + 1]))
-        architecture.extend((weigths, biases))
+        architecture.extend((weights, biases))
     return architecture
 
 def bnn_joint_log_prob_fn(weight_prior, bias_prior, X_train, e_train, t_train, *args):
