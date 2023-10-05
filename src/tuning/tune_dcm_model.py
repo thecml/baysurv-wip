@@ -1,14 +1,12 @@
-from sksurv.linear_model import CoxPHSurvivalAnalysis
 import numpy as np
 import os
-from pathlib import Path
-from utility.tuning import get_cox_sweep_config
+from utility.tuning import get_dcm_sweep_config
 import argparse
 from tools import data_loader
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored
-from utility.survival import compute_survival_function
+from auton_survival.estimators import SurvivalModel
 import pandas as pd
 from pycox.evaluation import EvalSurv
 
@@ -17,7 +15,7 @@ import wandb
 
 N_RUNS = 10
 N_SPLITS = 5
-PROJECT_NAME = "baysurv_bo_cox"
+PROJECT_NAME = "baysurv_bo_dcm"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,18 +27,14 @@ def main():
     if args.dataset:
         dataset = args.dataset
 
-    sweep_config = get_cox_sweep_config()
+    sweep_config = get_dcm_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
 def train_model():
     config_defaults = {
-        'n_estimators': [100],
-        'max_depth' : [None],
-        'min_samples_split': [2],
-        'min_samples_leaf': [1],
-        'max_features': [None],
-        "seed": 0
+        'network_layers': [32, 32],
+        'n_iters' : 100
     }
 
     # Initialize a new wandb run
@@ -83,21 +77,21 @@ def train_model():
         preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
         transformer = preprocessor.fit(ti_X, cat_feats=cat_features, num_feats=num_features,
                                        one_hot=True, fill_value=-1)
-        ti_X = np.array(transformer.transform(ti_X))
-        cvi_X = np.array(transformer.transform(cvi_X))
+        ti_X = transformer.transform(ti_X)
+        cvi_X = transformer.transform(cvi_X)
 
         # Make model
-        model = CoxPHSurvivalAnalysis(n_iter=config.n_iter,
-                                      tol=config.tol,
-                                      alpha=0.0001)
+        layers = config['network_layers']
+        n_iter = config['n_iter']
+        model = SurvivalModel('dcm', random_seed=0, iters=n_iter, layers=layers)
+
         # Fit model
-        model.fit(ti_X, ti_y)
-        
+        model.fit(ti_X, pd.DataFrame(ti_y))
+
         # Compute survival function
         lower, upper = np.percentile(y['time'], [10, 90])
         times = np.arange(lower, upper+1)
-        test_surv_fn = compute_survival_function(model, ti_X, cvi_X, ti_y['event'], ti_y['time'], times)
-        surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+        surv_preds = pd.DataFrame(model.predict_survival(cvi_X, times=list(times)), columns=times)
         
         # Compute CTD
         surv_test = pd.DataFrame(surv_preds, columns=times)

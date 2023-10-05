@@ -1,5 +1,63 @@
 import numpy as np
 
+def get_baymtlr_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+        }
+    }
+
+def get_baycox_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+        }
+    }
+
+def get_coxboost_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+            "n_estimators": {
+                "values": [50, 100, 200, 400, 600, 800, 1000]
+            },
+            "learning_rate": {
+                "values": [0.1, 0.5, 1.0]
+            },
+            "max_depth": {
+                "values": [int(x) for x in np.linspace(1, 18, 15, endpoint=True)]
+            },
+            "loss": {
+                "values": ['coxph']
+            },
+            "min_samples_split": {
+                "values": [int(x) for x in np.linspace(2, 10, 10, endpoint=True)]
+            },
+            "max_features": {
+                "values": [None, "auto", "sqrt", "log2"]
+            },
+            "dropout_rate": {
+                "values": [float(x) for x in np.linspace(0.0, 0.9, 10, endpoint=True)]
+            },
+            "subsample": {
+                "values": [float(x) for x in np.linspace(0.1, 1.0, 10, endpoint=True)]
+            }
+        }
+    }
+
+
 def get_mlp_sweep_config():
     return {
         "method": "bayes",
@@ -111,6 +169,25 @@ def get_coxnet_sweep_config():
                 "values": [100000]
             }
 
+        }
+    }
+    
+def get_dcm_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+            "network_layers": {
+                "values": [[16], [16, 16], [16, 16, 16],
+                           [32], [32, 32], [32, 32, 32],
+                           [64], [64, 64], [64, 64, 64]]
+            },
+            "n_iter": {
+                "values": [50, 100, 200, 500, 1000, 5000, 10000]
+            }
         }
     }
 

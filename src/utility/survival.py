@@ -252,7 +252,7 @@ def convert_to_structured(T, E):
     # return structured array
     return np.array(concat, dtype=default_dtypes)
 
-def get_breslow_survival_times(model, X_train, X_test, e_train, t_train, event_times, runs):
+def compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, runs=1):
     train_predictions = model.predict(X_train, verbose=0).reshape(-1)
     breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
     model_cpd = np.zeros((runs, len(X_test)))

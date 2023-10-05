@@ -5,7 +5,7 @@ from sksurv.linear_model.coxph import BreslowEstimator
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.survival import survival_probability_calibration
 from utility.model import load_mlp_model, load_sota_model, load_vi_model, load_mcd_model
-from utility.survival import get_breslow_survival_times
+from utility.survival import compute_survival_function
 from utility.plot import plot_calibration_curves
 from collections import defaultdict
 from pathlib import Path
@@ -70,7 +70,7 @@ if __name__ == "__main__":
                     surv_fn = model.predict_survival_function(X_test)
                     surv_preds = pd.DataFrame(np.row_stack([fn(event_times) for fn in surv_fn]), columns=event_times)
                 else:
-                    surv_fn = get_breslow_survival_times(model, X_train, X_test, e_train, t_train, event_times, RUNS[model_name])
+                    surv_fn = compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, RUNS[model_name])
                     surv_preds = pd.DataFrame(np.mean(surv_fn, axis=0), columns=event_times)
                 pred_t0, obs_t0, predictions_at_t0, deltas_t0 = survival_probability_calibration(surv_preds, t_test, e_test, t0)
                 pred_obs[t0][model_name] = (pred_t0, obs_t0)

@@ -14,7 +14,7 @@ from tools.model_builder import make_mcd_model, make_mlp_model, make_vi_model
 from utility.config import load_config
 from utility.loss import CoxPHLoss
 import paths as pt
-from utility.survival import get_breslow_survival_times, compute_survival_times
+from utility.survival import compute_survival_function, compute_survival_times
 import joblib
 import numpy as np
 

@@ -8,6 +8,9 @@ from tools import data_loader
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored
+import pandas as pd
+from pycox.evaluation import EvalSurv
+from utility.survival import compute_survival_function
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -94,10 +97,17 @@ def train_model():
         # Fit model
         model.fit(ti_X, ti_y)
 
-        # Get predictions
-        preds = model.predict(cvi_X)
-        ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
-        c_indicies.append(ci)
+        # Compute survival function
+        lower, upper = np.percentile(y['time'], [10, 90])
+        times = np.arange(lower, upper+1)
+        test_surv_fn = compute_survival_function(model, ti_X, cvi_X, ti_y['event'], ti_y['time'], times)
+        surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+        
+        # Compute CTD
+        surv_test = pd.DataFrame(surv_preds, columns=times)
+        ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")
+        ctd = ev.concordance_td()
+        c_indicies.append(ctd)
 
     mean_ci = np.nanmean(c_indicies)
 

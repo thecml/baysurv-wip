@@ -1,14 +1,13 @@
-from sksurv.linear_model import CoxPHSurvivalAnalysis
+from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 import numpy as np
 import os
 from pathlib import Path
-from utility.tuning import get_cox_sweep_config
+from utility.tuning import get_coxboost_sweep_config
 import argparse
 from tools import data_loader
 from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored
-from utility.survival import compute_survival_function
 import pandas as pd
 from pycox.evaluation import EvalSurv
 
@@ -17,7 +16,7 @@ import wandb
 
 N_RUNS = 10
 N_SPLITS = 5
-PROJECT_NAME = "baysurv_bo_cox"
+PROJECT_NAME = "baysurv_bo_coxboost"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,19 +28,23 @@ def main():
     if args.dataset:
         dataset = args.dataset
 
-    sweep_config = get_cox_sweep_config()
+    sweep_config = get_coxboost_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
 def train_model():
     config_defaults = {
-        'n_estimators': [100],
-        'max_depth' : [None],
-        'min_samples_split': [2],
-        'min_samples_leaf': [1],
-        'max_features': [None],
-        "seed": 0
-    }
+            'n_estimators': 100,
+            'learning_rate': 0.1,
+            'max_depth': 3,
+            'loss': 'coxph',
+            'min_samples_split': 2,
+            'max_features': None,
+            'dropout_rate': 0.0,
+            'subsample': 1.0,
+            'seed': 0,
+            'test_size': 0.3,
+        }
 
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=dataset)
@@ -87,18 +90,24 @@ def train_model():
         cvi_X = np.array(transformer.transform(cvi_X))
 
         # Make model
-        model = CoxPHSurvivalAnalysis(n_iter=config.n_iter,
-                                      tol=config.tol,
-                                      alpha=0.0001)
+        model = GradientBoostingSurvivalAnalysis(n_estimators=config.n_estimators,
+                                                 learning_rate=config.learning_rate,
+                                                 max_depth=config.max_depth,
+                                                 loss=config.loss,
+                                                 min_samples_split=config.min_samples_split,
+                                                 max_features=config.max_features,
+                                                 dropout_rate=config.dropout_rate,
+                                                 random_state=0)
+        
         # Fit model
         model.fit(ti_X, ti_y)
         
         # Compute survival function
         lower, upper = np.percentile(y['time'], [10, 90])
         times = np.arange(lower, upper+1)
-        test_surv_fn = compute_survival_function(model, ti_X, cvi_X, ti_y['event'], ti_y['time'], times)
+        test_surv_fn = model.predict_survival_function(X_test)
         surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
-        
+
         # Compute CTD
         surv_test = pd.DataFrame(surv_preds, columns=times)
         ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")

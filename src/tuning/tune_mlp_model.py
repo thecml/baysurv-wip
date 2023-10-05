@@ -8,7 +8,7 @@ Tuning script for mlp model
 import numpy as np
 import os
 import tensorflow as tf
-from tools.model_builder import make_model
+from tools.model_builder import make_mlp_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from tools import data_loader, model_trainer
@@ -18,6 +18,9 @@ from sklearn.model_selection import train_test_split, KFold
 from tools.preprocessor import Preprocessor
 from utility.tuning import get_mlp_sweep_config
 import argparse
+from utility.survival import compute_survival_function
+import pandas as pd
+from pycox.evaluation import EvalSurv
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -81,8 +84,7 @@ def train_model():
     T1, HOS = (X_train, y_train), (X_test, y_test)
 
     # Perform K-fold cross-validation
-    split_train_loss_scores, split_train_ci_scores = list(), list()
-    split_valid_loss_scores, split_valid_ci_scores = list(), list()
+    c_indicies = list()
     kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=0)
     for train, test in kf.split(T1[0], T1[1]):
         ti_X = T1[0].iloc[train]
@@ -118,7 +120,7 @@ def train_model():
         valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=batch_size)()
 
         # Make model
-        model = make_model(input_shape=ti_X.shape[1:],
+        model = make_mlp_model(input_shape=ti_X.shape[1:],
                                output_dim=1,
                                layers=wandb.config['network_layers'],
                                activation_fn=wandb.config['activation_fn'],
@@ -143,29 +145,31 @@ def train_model():
         trainer = model_trainer.Trainer(model=model,
                                         model_type="MLP",
                                         train_dataset=train_ds,
-                                        valid_dataset=valid_ds,
+                                        valid_dataset=None,
                                         test_dataset=None,
                                         optimizer=optimizer,
                                         loss_function=loss_fn,
                                         num_epochs=N_EPOCHS,
                                         event_times=event_times)
         trainer.train_and_evaluate()
+        
+        # Compute survival function
+        model = trainer.model
+        lower, upper = np.percentile(y['time'], [10, 90])
+        times = np.arange(lower, upper+1)
+        test_surv_fn = compute_survival_function(model, ti_X, cvi_X, ti_y['event'], ti_y['time'], times)
+        surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+        
+        # Compute CTD
+        surv_test = pd.DataFrame(surv_preds, columns=times)
+        ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")
+        ctd = ev.concordance_td()
+        c_indicies.append(ctd)
 
-        split_train_loss_scores.append(trainer.train_loss_scores)
-        split_train_ci_scores.append(trainer.train_ci_scores)
-        split_valid_loss_scores.append(trainer.valid_loss_scores)
-        split_valid_ci_scores.append(trainer.valid_ci_scores)
+    mean_ci = np.nanmean(c_indicies)
 
-    train_loss_per_epoch = np.nanmean(split_train_loss_scores, axis=0)
-    train_ci_per_epoch = np.nanmean(split_train_ci_scores, axis=0)
-    valid_loss_per_epoch = np.nanmean(split_valid_loss_scores, axis=0)
-    valid_ci_per_epoch = np.nanmean(split_valid_ci_scores, axis=0)
-
-    for i in range(N_EPOCHS): # log mean for every epoch
-        wandb.log({'loss': train_loss_per_epoch[i],
-                   'ci': train_ci_per_epoch[i],
-                   'val_loss': valid_loss_per_epoch[i],
-                   'val_ci': valid_ci_per_epoch[i]})
+    # Log to wandb
+    wandb.log({"val_ci": mean_ci})
 
 if __name__ == "__main__":
     main()

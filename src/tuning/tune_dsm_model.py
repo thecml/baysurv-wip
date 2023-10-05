@@ -10,6 +10,7 @@ from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored
 from auton_survival.estimators import SurvivalModel
 import pandas as pd
+from pycox.evaluation import EvalSurv
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -80,7 +81,7 @@ def train_model():
                                        one_hot=True, fill_value=-1)
         ti_X = transformer.transform(ti_X)
         cvi_X = transformer.transform(cvi_X)
-
+        
         # Make model
         layers = config['network_layers']
         n_iter = config['n_iter']
@@ -90,11 +91,16 @@ def train_model():
         # Fit model
         model.fit(ti_X, pd.DataFrame(ti_y))
 
-        # Get predictions
-        pred_time = min(ti_y["time"].max(), cvi_y["time"].max())
-        preds = model.predict_risk(cvi_X.astype(np.float64), times=pred_time).flatten()
-        ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
-        c_indicies.append(ci)
+        # Compute survival function
+        lower, upper = np.percentile(y['time'], [10, 90])
+        times = np.arange(lower, upper+1)
+        surv_preds = pd.DataFrame(model.predict_survival(cvi_X, times=list(times)), columns=times)
+        
+        # Compute CTD
+        surv_test = pd.DataFrame(surv_preds, columns=times)
+        ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")
+        ctd = ev.concordance_td()
+        c_indicies.append(ctd)
 
     mean_ci = np.nanmean(c_indicies)
 

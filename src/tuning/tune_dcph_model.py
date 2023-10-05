@@ -10,6 +10,7 @@ from tools.preprocessor import Preprocessor
 from sksurv.metrics import concordance_index_censored
 from auton_survival import DeepCoxPH
 import pandas as pd
+from pycox.evaluation import EvalSurv
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -27,7 +28,6 @@ def main():
     global dataset
     if args.dataset:
         dataset = args.dataset
-    dataset = "SUPPORT"
 
     sweep_config = get_dcph_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
@@ -107,12 +107,17 @@ def train_model():
                   iters=iters, vsize=0.15, learning_rate=learning_rate,
                   optimizer=optimizer, random_state=0)
 
-        # Get predictions
-        pred_time = min(ti_y["time"].max(), cvi_y["time"].max())
-        preds = model.predict_risk(np.array(cvi_X), t=pred_time).flatten()
-        ci = concordance_index_censored(cvi_y["event"], cvi_y["time"], preds)[0]
-        c_indicies.append(ci)
-
+        # Compute survival function
+        lower, upper = np.percentile(y['time'], [10, 90])
+        times = np.arange(lower, upper+1)
+        surv_preds = pd.DataFrame(model.predict_survival(cvi_X, t=list(times)), columns=times)
+        
+        # Compute CTD
+        surv_test = pd.DataFrame(surv_preds, columns=times)
+        ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")
+        ctd = ev.concordance_td()
+        c_indicies.append(ctd)
+    
     mean_ci = np.nanmean(c_indicies)
 
     # Log to wandb
