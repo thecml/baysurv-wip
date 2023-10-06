@@ -7,11 +7,11 @@ from sklearn.model_selection import train_test_split
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
-from tools.model_trainer import Trainer
+from tools.baysurv_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from utility.plot import plot_training_curves
-from tools.model_builder import make_mlp_model, make_vi_model, make_mcd_model
+from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLossLLA
 from pathlib import Path

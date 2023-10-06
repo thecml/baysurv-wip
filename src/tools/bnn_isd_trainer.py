@@ -6,8 +6,8 @@ matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
 from utility.training import get_data_loader, scale_data, make_time_event_split, train_val_test_stratified_split
-from utility.survival import make_time_bins, cox_survival
-from utility.torch_models import BayesCox, BayesEleCox, BayesLinCox, BayesianBaseModel
+from utility.survival import make_time_bins, mtlr_survival, reformat_survival
+from utility.bnn_isd_models import BayesMtlr, BayesEleCox, BayesLinCox, BayesianBaseModel, BayesEleMtlr
 import math
 import torch
 import torch.optim as optim
@@ -18,11 +18,6 @@ from torch.utils.data import DataLoader, TensorDataset
 from datetime import datetime
 from tqdm import trange
 from pycox.evaluation import EvalSurv
-
-random.seed(0)
-
-DATASETS = ["WHAS500"]
-N_EPOCHS = 10
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -106,6 +101,45 @@ def train_model(
                 if (i - best_ep) > config.patience:
                     print(f"Validation loss converges at {best_ep}-th epoch.")
                     break
+    elif isinstance(model, BayesEleMtlr):
+        x, y = reformat_survival(data_train, time_bins)
+        x_val, y_val = reformat_survival(data_val, time_bins)
+        x_val, y_val = x_val.to(device), y_val.to(device)
+        train_loader = DataLoader(TensorDataset(x, y), batch_size=config.batch_size, shuffle=True)
+        for i in pbar:
+            total_loss = 0
+            total_log_likelihood = 0
+            total_kl_divergence = 0
+            for xi, yi in train_loader:
+                xi, yi = xi.to(device), yi.to(device)
+                optimizer.zero_grad()
+                loss, log_prior, log_variational_posterior, log_likelihood = model.sample_elbo(xi, yi, train_size)
+
+                loss.backward()
+                optimizer.step()
+
+                total_loss += loss.item() / train_size
+                total_log_likelihood += log_likelihood.item() / train_size
+                total_kl_divergence += (log_variational_posterior.item() -
+                                        log_prior.item()) * config.batch_size / train_size**2
+
+            val_loss, _, _, val_log_likelihood = model.sample_elbo(x_val, y_val, dataset_size=val_size)
+            val_loss /= val_size
+            val_log_likelihood /= val_size
+            pbar.set_description(f"[epoch {i + 1: 4}/{config.num_epochs}]")
+            pbar.set_postfix_str(f"Train: Total = {total_loss:.4f}, "
+                                 f"KL = {total_kl_divergence:.4f}, "
+                                 f"nll = {total_log_likelihood:.4f}; "
+                                 f"Val: Total = {val_loss.item():.4f}, "
+                                 f"nll = {val_log_likelihood.item():.4f}; ")
+            if config.early_stop:
+                if best_val_nll > val_loss:
+                    best_val_nll = val_loss
+                    best_ep = i
+                if (i - best_ep) > config.patience:
+                    print(f"Validation loss converges at {best_ep}-th epoch.")
+                    break            
+    
     else:
         raise TypeError("Model type cannot be identified.")
     end_time = datetime.now()
@@ -115,76 +149,3 @@ def train_model(
     if isinstance(model, BayesEleCox) or isinstance(model, BayesLinCox):
         model.calculate_baseline_survival(x_train.to(device), t_train.to(device), e_train.to(device))
     return model
-
-def make_ensemble_cox_prediction(
-        model: BayesianBaseModel,
-        x: torch.Tensor,
-        config: dotdict
-) -> (torch.Tensor, torch.Tensor, torch.Tensor):
-    model.eval()
-    start_time = datetime.now()
-    with torch.no_grad():
-        logits_outputs = model.forward(x, sample=True, n_samples=config.n_samples_test)
-        end_time = datetime.now()
-        inference_time = end_time - start_time
-        print(f"Inference time: {inference_time.total_seconds()}")
-        survival_outputs = cox_survival(model.baseline_survival, logits_outputs)
-        mean_survival_outputs = survival_outputs.mean(dim=0)
-
-    time_bins = model.time_bins
-    return mean_survival_outputs, time_bins, survival_outputs
-
-if __name__ == "__main__":
-    # Setup device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
-    
-    # Load data
-    dataset_name = DATASETS[0]
-    dl = get_data_loader(dataset_name).load_data()
-    X, y = dl.get_data()
-    num_features, cat_features = dl.get_features()
-
-    # Split data in train and test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
-    
-    # Scale data
-    X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
-    
-    # Make dataframe                                                                
-    data_train = X_train
-    data_train["time"] = pd.Series(y_train['time'])
-    data_train["event"] = pd.Series(y_train['event']).astype(int)
-    
-    data_test = X_test
-    data_test["time"] = pd.Series(y_test['time'])
-    data_test["event"] = pd.Series(y_test['event']).astype(int)
-    
-    # Make times
-    lower, upper = np.percentile(y['time'], [10, 90])
-    time_bins = np.arange(lower, upper+1)
-    
-    # Make model
-    config = {'hidden_size': 32, 'mu_scale': None, 'rho_scale': -5,
-              'sigma1': 1, 'sigma2': math.exp(-6), 'pi': 0.5,
-              'verbose': True, 'lr': 0.005, 'num_epochs': 1000,
-              'dropout': 0, 'n_samples_train': 10,
-              'n_samples_test': 10, 'batch_size': 32,
-              'early_stop': True, 'patience': 100}
-    config=dotdict(config)
-    num_features = X_train.shape[1] - 2
-    model = BayesCox(in_features=num_features, config=config)
-    
-    # Train model
-    model = train_model(model, data_train, time_bins, config=config, random_state=0, reset_model=True, device=device)
-    
-    # Test model
-    X_test = torch.tensor(data_test.drop(["time", "event"], axis=1).values, dtype=torch.float, device=device)
-    survival_outputs, time_bins, ensemble_outputs = make_ensemble_cox_prediction(model, X_test, config=config)
-    surv_test = pd.DataFrame(survival_outputs.numpy(), columns=time_bins.numpy())
-    ev = EvalSurv(surv_test.T, np.array(data_test["time"]), np.array(data_test["event"]), censor_surv="km")
-    print("CTD:", ev.concordance_td())
-    print("IBS:", ev.integrated_brier_score(np.array(time_bins)))
-    
-    
-    

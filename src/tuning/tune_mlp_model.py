@@ -8,10 +8,10 @@ Tuning script for mlp model
 import numpy as np
 import os
 import tensorflow as tf
-from tools.model_builder import make_mlp_model
+from tools.baysurv_builder import make_mlp_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
-from tools import data_loader, model_trainer
+from tools import baysurv_trainer, data_loader
 import os
 import random
 from sklearn.model_selection import train_test_split, KFold
@@ -142,7 +142,7 @@ def train_model():
 
         # Train model
         loss_fn = CoxPHLoss()
-        trainer = model_trainer.Trainer(model=model,
+        trainer = baysurv_trainer.Trainer(model=model,
                                         model_type="MLP",
                                         train_dataset=train_ds,
                                         valid_dataset=None,

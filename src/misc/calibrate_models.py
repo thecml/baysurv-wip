@@ -10,6 +10,7 @@ from utility.plot import plot_calibration_curves
 from collections import defaultdict
 from pathlib import Path
 import paths as pt
+from utility.survival import make_time_bins
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -40,7 +41,7 @@ if __name__ == "__main__":
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
 
-        # Fit Breslow to get event times
+        # Fit Breslow to get unique event times
         cox_model = load_sota_model(dataset_name, "Cox")
         train_predictions = cox_model.predict(X_train)
         breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)

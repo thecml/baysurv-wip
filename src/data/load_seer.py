@@ -5,7 +5,7 @@ from pathlib import Path
 from utility.survival import convert_to_structured
 from tools.preprocessor import Preprocessor
 from sklearn.model_selection import train_test_split
-from tools.model_builder import make_coxnet_model
+from tools.baysurv_builder import make_coxnet_model
 from utility.metrics import concordance_index_censored
 from sklearn.preprocessing import LabelEncoder
 

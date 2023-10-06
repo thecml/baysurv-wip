@@ -10,7 +10,6 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         
     def call(self, y_true: Sequence[tf.Tensor], y_pred: tf.Tensor) -> tf.Tensor:
         runs = 100
-        coxloss = CoxPHLoss() # regular Cox loss as below
         logits_cpd = tf.zeros((runs, y_pred.shape[0]), dtype=np.float32)
         output_list = []
         tensor_shape = logits_cpd.get_shape()
@@ -69,7 +68,6 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         variances = tf.math.multiply(event, variances)
         
         return losses + variances
-        #return coxloss(y_true, y_pred)
 
 class CoxPHLoss(tf.keras.losses.Loss):
     """Negative partial log-likelihood of Cox's proportional hazards model."""

@@ -1,4 +1,3 @@
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,7 +10,30 @@ from utility.survival import compute_unique_counts, make_monotonic
 
 from utility.loss import mtlr_nll, cox_nll
 
-from utility.torch_distributions import ParametrizedGaussian, ScaleMixtureGaussian, InverseGamma
+from utility.bnn_isd_distributions import ParametrizedGaussian, ScaleMixtureGaussian, InverseGamma
+import numpy as np
+import pandas as pd
+from sksurv.linear_model.coxph import BreslowEstimator
+import matplotlib.pyplot as plt
+from lifelines.utils import CensoringType
+from lifelines.fitters import RegressionFitter
+from lifelines import CRCSplineFitter
+import warnings
+import torch
+import math
+from typing import Optional
+from typing import List, Tuple, Optional, Union
+from datetime import datetime
+from utility.survival import cox_survival, mtlr_survival
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+Numeric = Union[float, int, bool]
+NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
 
 class BayesianBaseModel(nn.Module):
     def __init__(self):
@@ -31,6 +53,139 @@ class BayesianBaseModel(nn.Module):
 
     def get_name(self):
         return self._get_name()
+
+def make_ensemble_cox_prediction(
+        model: BayesianBaseModel,
+        x: torch.Tensor,
+        config: dotdict
+) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    model.eval()
+    start_time = datetime.now()
+    with torch.no_grad():
+        logits_outputs = model.forward(x, sample=True, n_samples=config.n_samples_test)
+        end_time = datetime.now()
+        inference_time = end_time - start_time
+        print(f"Inference time: {inference_time.total_seconds()}")
+        survival_outputs = cox_survival(model.baseline_survival, logits_outputs)
+        mean_survival_outputs = survival_outputs.mean(dim=0)
+
+    time_bins = model.time_bins
+    return mean_survival_outputs, time_bins, survival_outputs
+
+def make_ensemble_mtlr_prediction(
+        model: BayesianBaseModel,
+        x: torch.Tensor,
+        time_bins: NumericArrayLike,
+        config: dotdict
+) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    model.eval()
+    start_time = datetime.now()
+
+    with torch.no_grad():
+        # ensemble_output should have size: n_samples * dataset_size * n_bin
+        logits_outputs = model.forward(x, sample=True, n_samples=config.n_samples_test)
+        end_time = datetime.now()
+        inference_time = end_time - start_time
+        print(f"Inference time: {inference_time.total_seconds()}")
+        survival_outputs = mtlr_survival(logits_outputs, with_sample=True)
+        mean_survival_outputs = survival_outputs.mean(dim=0)
+
+    time_bins = torch.cat([torch.tensor([0]), time_bins], 0).to(survival_outputs.device)
+    return mean_survival_outputs, time_bins, survival_outputs
+    
+class BayesEleMtlr(BayesianBaseModel):
+    def __init__(self, in_features: int, num_time_bins: int, config: argparse.Namespace):
+        super().__init__()
+        if num_time_bins < 1:
+            raise ValueError("The number of time bins must be at least 1")
+        self.config = config
+        self.in_features = in_features
+        self.hidden_size = in_features
+        self.num_time_bins = num_time_bins + 1  # + extra time bin [max_time, inf)
+        self.l1 = BayesianElementwiseLinear(self.in_features, config)
+        self.l2 = BayesianLinear(self.in_features, self.num_time_bins - 1, config)
+        self.register_buffer(
+            "G",
+            torch.tril(
+                torch.ones(self.num_time_bins - 1,
+                           self.num_time_bins,
+                           requires_grad=True)))
+
+    def forward(self, x: torch.Tensor, sample: bool, n_samples) -> torch.Tensor:
+        this_batch_size = x.shape[0]    # because the last batch may not be a complete batch.
+        x = F.dropout(F.relu(self.l1(x, n_samples=n_samples)), p=self.config.dropout)
+        outputs = self.l2(x, sample, n_samples)
+        outputs = outputs.reshape(n_samples, this_batch_size, self.num_time_bins - 1)    # this can be deleted, just for the safety
+
+        # forward only returns (w * x + b) for computing nll loss
+        # survival curves will be generated using mtlr_survival() function.
+        # return outputs
+        G_with_samples = self.G.expand(n_samples, -1, -1)
+        # b: n_samples; i: n_data; j: n_bin - 1; k: n_bin
+        return torch.einsum('bij,bjk->bik', outputs, G_with_samples)
+
+    def log_prior(self):
+        return self.l1.log_prior + self.l2.log_prior
+
+    def log_variational_posterior(self):
+        return self.l1.log_variational_posterior + self.l2.log_variational_posterior
+
+    def sample_elbo(
+            self,
+            x,
+            y,
+            dataset_size
+    ) -> (torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor):
+        num_batch = dataset_size / self.config.batch_size
+        n_samples = self.config.n_samples_train
+        outputs = self(x, sample=True, n_samples=n_samples)
+        log_prior = self.log_prior() / n_samples
+        log_variational_posterior = self.log_variational_posterior() / n_samples
+        # remark if average is needed or not
+        nll = mtlr_nll(outputs.mean(dim=0), y, model=self, C1=0, average=False)
+        # Shouldn't here be batch_size instead?
+        loss = (log_variational_posterior - log_prior) / num_batch + nll
+        return loss, log_prior, log_variational_posterior, nll
+
+    def reset_parameters(self):
+        """Reinitialize the model."""
+        self.l1.reset_parameters()
+        self.l2.reset_parameters()
+        return self
+
+    def __repr__(self):
+        return (f"{self.__class__.__name__}(in_features={self.in_features}, "
+                f"hidden_size={self.hidden_size}), "
+                f"num_time_bins={self.num_time_bins})")
+
+class BayesMtlr(BayesEleMtlr):
+    def __init__(self, in_features: int, num_time_bins: int, config: argparse.Namespace):
+        """Initialises the module.
+
+        Parameters
+        ----------
+        in_features
+            Number of input features.
+        num_time_bins
+            The number of bins to divide the time axis into.
+        config
+            Configuration/hyper-parameters of the network.
+        """
+        super(BayesEleMtlr, self).__init__()
+        if num_time_bins < 1:
+            raise ValueError("The number of time bins must be at least 1")
+        self.config = config
+        self.in_features = in_features
+        self.hidden_size = config.hidden_size
+        self.num_time_bins = num_time_bins + 1  # + extra time bin [max_time, inf)
+        self.l1 = BayesianLinear(self.in_features, self.hidden_size, config)
+        self.l2 = BayesianLinear(self.hidden_size, self.num_time_bins - 1, config)
+        self.register_buffer(
+            "G",
+            torch.tril(
+                torch.ones(self.num_time_bins - 1,
+                           self.num_time_bins,
+                           requires_grad=True)))
 
 class BayesEleCox(BayesianBaseModel):
     def __init__(self, in_features: int, config: argparse.Namespace):

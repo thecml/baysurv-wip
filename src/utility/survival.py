@@ -11,8 +11,116 @@ import math
 from typing import Optional
 from typing import List, Tuple, Optional, Union
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
+
+def encode_survival(
+        time: Union[float, int, NumericArrayLike],
+        event: Union[int, bool, NumericArrayLike],
+        bins: NumericArrayLike
+) -> torch.Tensor:
+    """Encodes survival time and event indicator in the format
+    required for MTLR training.
+
+    For uncensored instances, one-hot encoding of binned survival time
+    is generated. Censoring is handled differently, with all possible
+    values for event time encoded as 1s. For example, if 5 time bins are used,
+    an instance experiencing event in bin 3 is encoded as [0, 0, 0, 1, 0], and
+    instance censored in bin 2 as [0, 0, 1, 1, 1]. Note that an additional
+    'catch-all' bin is added, spanning the range `(bins.max(), inf)`.
+
+    Parameters
+    ----------
+    time
+        Time of event or censoring.
+    event
+        Event indicator (0 = censored).
+    bins
+        Bins used for time axis discretisation.
+
+    Returns
+    -------
+    torch.Tensor
+        Encoded survival times.
+    """
+    # TODO this should handle arrays and (CUDA) tensors
+    if isinstance(time, (float, int, np.ndarray)):
+        time = np.atleast_1d(time)
+        time = torch.tensor(time)
+    if isinstance(event, (int, bool, np.ndarray)):
+        event = np.atleast_1d(event)
+        event = torch.tensor(event)
+
+    if isinstance(bins, np.ndarray):
+        bins = torch.tensor(bins)
+
+    try:
+        device = bins.device
+    except AttributeError:
+        device = "cpu"
+
+    time = np.clip(time, 0, bins.max())
+    # add extra bin [max_time, inf) at the end
+    y = torch.zeros((time.shape[0], bins.shape[0] + 1),
+                    dtype=torch.float,
+                    device=device)
+    # For some reason, the `right` arg in torch.bucketize
+    # works in the _opposite_ way as it does in numpy,
+    # so we need to set it to True
+    bin_idxs = torch.bucketize(time, bins, right=True)
+    for i, (bin_idx, e) in enumerate(zip(bin_idxs, event)):
+        if e == 1:
+            y[i, bin_idx] = 1
+        else:
+            y[i, bin_idx:] = 1
+    return y.squeeze()
+
+def reformat_survival(
+        dataset: pd.DataFrame,
+        time_bins: NumericArrayLike
+) -> (torch.Tensor, torch.Tensor):
+    x = torch.tensor(dataset.drop(["time", "event"], axis=1).values, dtype=torch.float)
+    y = encode_survival(dataset["time"].values, dataset["event"].values, time_bins)
+    return x, y
+
+def mtlr_survival(
+        logits: torch.Tensor,
+        with_sample: bool = True
+) -> torch.Tensor:
+    """Generates predicted survival curves from predicted logits.
+
+    Parameters
+    ----------
+    logits
+        Tensor with the time-logits (as returned by the MTLR module)
+        with size (n_samples, n_data, n_bins) or (n_data, n_bins).
+
+    Returns
+    -------
+    torch.Tensor
+        The predicted survival curves for each row in `pred` at timepoints used
+        during training.
+    """
+    # TODO: do not reallocate G in every call
+    if with_sample:
+        assert logits.dim() == 3, "The logits should have dimension with with size (n_samples, n_data, n_bins)"
+        G = torch.tril(torch.ones(logits.shape[2], logits.shape[2])).to(logits.device)
+        density = torch.softmax(logits, dim=2)
+        G_with_samples = G.expand(density.shape[0], -1, -1)
+
+        # b: n_samples; i: n_data; j: n_bin; k: n_bin
+        return torch.einsum('bij,bjk->bik', density, G_with_samples)
+    else:   # no sampling
+        assert logits.dim() == 2, "The logits should have dimension with with size (n_data, n_bins)"
+        G = torch.tril(torch.ones(logits.shape[1], logits.shape[1])).to(logits.device)
+        density = torch.softmax(logits, dim=1)
+        return torch.matmul(density, G)
 
 def cox_survival(
         baseline_survival: torch.Tensor,

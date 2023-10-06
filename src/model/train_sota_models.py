@@ -7,11 +7,14 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
 from sksurv.metrics import integrated_brier_score
-from utility.survival import convert_to_structured
+from utility.survival import convert_to_structured, make_time_bins
 from utility.training import get_data_loader, scale_data, make_time_event_split
-from tools.model_builder import make_cox_model, make_coxnet_model, make_coxboost_model
-from tools.model_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
+from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
+from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
+from tools.sota_builder import make_baycox_model, make_baymtlr_model
 from utility.risk import _make_riskset
+from tools.bnn_isd_trainer import train_model
+from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
 from pathlib import Path
 import paths as pt
 import joblib
@@ -21,17 +24,28 @@ from utility.config import load_config
 from sksurv.linear_model.coxph import BreslowEstimator
 from utility.loss import CoxPHLoss
 from pycox.evaluation import EvalSurv
+import torch
 
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
 DATASETS = ["WHAS500"] #"SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"
-MODEL_NAMES = ["Cox", "CoxNet", "CoxBoost", "RSF", "DSM", "DCPH", "DCM"]
+MODEL_NAMES = ["Cox", "CoxNet", "CoxBoost", "RSF", "DSM", "DCPH", "DCM", "BayCox", "BayMTLR"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
 if __name__ == "__main__":
+    # Setup device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = torch.device(device)
+    
     # For each dataset, train three models (Cox, CoxNet, RSF)
     for dataset_name in DATASETS:
         print(f"Now training dataset {dataset_name}")
@@ -54,6 +68,22 @@ if __name__ == "__main__":
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
         t_test, e_test = make_time_event_split(y_test)
+        
+        # Make event times
+        #lower, upper = np.percentile(y['time'], [10, 90])
+        #times = np.arange(lower, upper+1)
+        times = make_time_bins(t_train, event=e_train)
+        times = times.numpy()
+        #compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
+        
+        # Make data for BayCox/BayMTLR models
+        data_train = X_train.copy()
+        data_train["time"] = pd.Series(y_train['time'])
+        data_train["event"] = pd.Series(y_train['event']).astype(int)
+        data_test = X_test.copy()
+        data_test["time"] = pd.Series(y_test['time'])
+        data_test["event"] = pd.Series(y_test['event']).astype(int)
+        num_features = X_train.shape[1]
 
         # Load training parameters
         rsf_config = load_config(pt.RSF_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -63,6 +93,8 @@ if __name__ == "__main__":
         dsm_config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dcph_config = load_config(pt.DCPH_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
         dcm_config = load_config(pt.DCM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
+        baycox_config = dotdict(load_config(pt.BAYCOX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml"))
+        baymtlr_config = dotdict(load_config(pt.BAYMTLR_CONFIGS_DIR, f"{dataset_name.lower()}.yaml"))
 
         # Make models
         rsf_model = make_rsf_model(rsf_config)
@@ -72,6 +104,8 @@ if __name__ == "__main__":
         dsm_model = make_dsm_model(dsm_config)
         dcph_model = make_dcph_model(dcph_config)
         dcm_model = make_dcm_model(dcm_config)
+        baycox_model = make_baycox_model(num_features, baycox_config)
+        baymtlr_model = make_baymtlr_model(num_features, times, baymtlr_config)
 
         # Train models
         print("Now training Cox")
@@ -117,21 +151,31 @@ if __name__ == "__main__":
                        optimizer=dcph_config['optimizer'])
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
-
-        trained_models = [cox_model, coxnet_model, coxboost_model, rsf_model, dsm_model, dcph_model, dcm_model]
+        
+        print("Now training BayCox")
+        baycox_train_start_time = time()
+        baycox_model = train_model(baycox_model, data_train, torch.tensor(times, dtype=torch.float),
+                                   config=baycox_config, random_state=0, reset_model=True, device=device)
+        baycox_train_time = time() - baycox_train_start_time
+        print(f"Finished training BayCox in {baycox_train_time}")
+        
+        print("Now training BayMTLR")
+        baymtlr_train_start_time = time()
+        baymtlr_model = train_model(baymtlr_model, data_train, torch.tensor(times, dtype=torch.float),
+                                    config=baymtlr_config, random_state=0, reset_model=True, device=device)
+        baymtlr_train_time = time() - baymtlr_train_start_time
+        print(f"Finished training BayMTLR in {baymtlr_train_time}")
+        
+        trained_models = [cox_model, coxnet_model, coxboost_model, rsf_model,
+                          dsm_model, dcph_model, dcm_model, baycox_model, baymtlr_model]
         train_times = [cox_train_time, coxnet_train_time, coxboost_train_time,
-                       rsf_train_time, dsm_train_time, dcph_train_time, dcm_train_time]
+                       rsf_train_time, dsm_train_time, dcph_train_time,
+                       dcm_train_time, baycox_train_time, baymtlr_train_time]
 
         # Compute scores
-        lower, upper = np.percentile(y['time'], [10, 90])
-        times = np.arange(lower, upper+1)
-        y_train_struc = convert_to_structured(t_train, e_train)
-        y_test_struc = convert_to_structured(t_test, e_test)
-        event_set = tf.expand_dims(e_test.astype(np.int32), axis=1)
-        risk_set = tf.convert_to_tensor(_make_riskset(t_test), dtype=np.bool_)
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
             # Make predictions
-            test_start_time = time()                
+            test_start_time = time()
             # Compute loss
             if model_name in ["Cox", "CoxNet", "CoxBoost"]:
                 total_loss = list()
@@ -161,15 +205,26 @@ if __name__ == "__main__":
             elif model_name == "CoxBoost":
                 test_surv_fn = model.predict_survival_function(X_test)
                 surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+            elif model_name == "BayCox":
+                baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
+                                                dtype=torch.float, device=device)
+                survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data,
+                                                                                     config=baycox_config)
+                surv_preds = survival_outputs.numpy()
+            elif model_name == "BayMTLR":
+                baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
+                                                dtype=torch.float, device=device)
+                survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data,
+                                                                                      times, config=baymtlr_config)
+                surv_preds = survival_outputs.numpy()
             else:
                 train_predictions = model.predict(X_train).reshape(-1)
                 test_predictions = model.predict(X_test).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
                 surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
-            #ibs = integrated_brier_score(y_train_struc, y_test_struc, surv_preds, list(times))
             
-            # Compute CTD and INBLL
+            # Compute CTD, IBS and INBLL
             surv_test = pd.DataFrame(surv_preds, columns=times)
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
             ctd = ev.concordance_td()
