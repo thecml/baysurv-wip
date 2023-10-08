@@ -5,14 +5,11 @@ import random
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from sksurv.metrics import concordance_index_censored, concordance_index_ipcw
-from sksurv.metrics import integrated_brier_score
-from utility.survival import convert_to_structured, make_time_bins
+from utility.survival import make_time_bins, make_event_times
 from utility.training import get_data_loader, scale_data, make_time_event_split
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
-from utility.risk import _make_riskset
 from tools.bnn_isd_trainer import train_model
 from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
 from pathlib import Path
@@ -25,7 +22,6 @@ from sksurv.linear_model.coxph import BreslowEstimator
 from utility.loss import CoxPHLoss
 from pycox.evaluation import EvalSurv
 import torch
-from utility.survival import compute_unique_counts
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -63,27 +59,29 @@ if __name__ == "__main__":
         X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
         
-        # Split data in train and test set
-        X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
-
+        # Split data in train, valid and test set
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
+    
         # Scale data
-        X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
+        X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
 
         # Make time/event split
         t_train, e_train = make_time_event_split(y_train)
+        t_valid, e_valid = make_time_event_split(y_valid)
         t_test, e_test = make_time_event_split(y_test)
         
         # Make event times
         mtlr_times = make_time_bins(t_train, event=e_train)
-        unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
-        if 0 not in unique_times:
-            unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
-        unique_times = unique_times.numpy()
+        event_times = make_event_times(t_train, e_train)
         
         # Make data for BayCox/BayMTLR models
         data_train = X_train.copy()
         data_train["time"] = pd.Series(y_train['time'])
         data_train["event"] = pd.Series(y_train['event']).astype(int)
+        data_valid = X_valid.copy()
+        data_valid["time"] = pd.Series(y_valid['time'])
+        data_valid["event"] = pd.Series(y_valid['event']).astype(int)
         data_test = X_test.copy()
         data_test["time"] = pd.Series(y_test['time'])
         data_test["event"] = pd.Series(y_test['event']).astype(int)
@@ -138,45 +136,36 @@ if __name__ == "__main__":
 
         print("Now training DSM")
         dsm_train_start_time = time()
-        dsm_model.fit(X_train, pd.DataFrame(y_train))
+        dsm_model.fit(X_train, pd.DataFrame(y_train), val_data=(X_valid, pd.DataFrame(y_valid)))
         dsm_train_time = time() - dsm_train_start_time
         print(f"Finished training DSM in {dsm_train_time}")
 
         print("Now training DCM")
         dcm_train_start_time = time()
-        dcm_model.fit(X_train, pd.DataFrame(y_train))
+        dcm_model.fit(X_train, pd.DataFrame(y_train), val_data=(X_valid, pd.DataFrame(y_valid)))
         dcm_train_time = time() - dcm_train_start_time
         print(f"Finished training DCM in {dcm_train_time}")
 
         print("Now training DCPH")
         dcph_train_start_time = time()
         dcph_model.fit(np.array(X_train), t_train, e_train, batch_size=dcph_config['batch_size'],
-                       iters=dcph_config['iters'], vsize=0.15, learning_rate=dcph_config['learning_rate'],
-                       optimizer=dcph_config['optimizer'])
+                       iters=dcph_config['iters'], val_data=(X_valid, t_valid, e_valid),
+                       learning_rate=dcph_config['learning_rate'], optimizer=dcph_config['optimizer'])
         dcph_train_time = time() - dcph_train_start_time
         print(f"Finished training DCPH in {dcph_train_time}")
         
         print("Now training BayCox")
         baycox_train_start_time = time()
-        baycox_model = train_model(baycox_model, data_train, mtlr_times,
+        baycox_model = train_model(baycox_model, data_train, data_valid, mtlr_times,
                                    config=baycox_config, random_state=0, reset_model=True, device=device)
-        
-        # Calculate baseline survival on whole train set
-        x_train_te = torch.tensor(data_train.drop(["time", "event"], axis=1).values, dtype=torch.float)
-        t_train_te = torch.tensor(t_train, dtype=torch.float)
-        e_train_te = torch.tensor(e_train, dtype=torch.float)
-        baycox_model.calculate_baseline_survival(x_train_te.to(device),
-                                                 t_train_te.to(device),
-                                                 e_train_te.to(device))
-        
         baycox_train_time = time() - baycox_train_start_time
         print(f"Finished training BayCox in {baycox_train_time}")
         
         print("Now training BayMTLR")
         baymtlr_train_start_time = time()
-        baymtlr_model = train_model(baymtlr_model, data_train, mtlr_times,
-                                    config=baymtlr_config, random_state=0,
-                                    reset_model=True, device=device)
+        baymtlr_model = train_model(baymtlr_model, data_train, data_valid,
+                                    mtlr_times, config=baymtlr_config,
+                                    random_state=0, reset_model=True, device=device)
         baymtlr_train_time = time() - baymtlr_train_start_time
         print(f"Finished training BayMTLR in {baymtlr_train_time}")
         
@@ -186,11 +175,9 @@ if __name__ == "__main__":
                        rsf_train_time, dsm_train_time, dcph_train_time,
                        dcm_train_time, baycox_train_time, baymtlr_train_time]
 
-        # Compute scores
+        # Compute loss
         for model, model_name, train_time in zip(trained_models, MODEL_NAMES, train_times):
-            # Make predictions
             test_start_time = time()
-            # Compute loss
             if model_name in ["Cox", "CoxNet", "CoxBoost"]:
                 total_loss = list()
                 from utility.risk import InputFunction
@@ -208,17 +195,17 @@ if __name__ == "__main__":
 
             # Compute survival function
             if model_name == "DSM":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(unique_times)), columns=unique_times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(event_times)), columns=event_times)
             elif model_name == "DCPH":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(unique_times)), columns=unique_times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(event_times)), columns=event_times)
             elif model_name == "DCM":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(unique_times)), columns=unique_times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(event_times)), columns=event_times)
             elif model_name == "RSF": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test)
-                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
             elif model_name == "CoxBoost":
                 test_surv_fn = model.predict_survival_function(X_test)
-                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
             elif model_name == "BayCox":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
@@ -238,19 +225,19 @@ if __name__ == "__main__":
                 test_predictions = model.predict(X_test).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
-                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
             
             # Compute CTD, IBS and INBLL
             if model_name == "BayMTLR":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_test = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
-                surv_test = pd.DataFrame(surv_preds, columns=unique_times)
+                surv_test = pd.DataFrame(surv_preds, columns=event_times)
             
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
             ctd = ev.concordance_td()
-            ibs = ev.integrated_brier_score(unique_times)
-            inbll = ev.integrated_nbll(unique_times)
+            ibs = ev.integrated_brier_score(event_times)
+            inbll = ev.integrated_nbll(event_times)
             test_time = time() - test_start_time
             
             # Save to df

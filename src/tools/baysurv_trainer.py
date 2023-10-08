@@ -8,7 +8,7 @@ from utility.loss import CoxPHLoss, CoxPHLossLLA
 class Trainer:
     def __init__(self, model, model_name, train_dataset, valid_dataset,
                  test_dataset, optimizer, loss_function, num_epochs,
-                 event_times):
+                 event_times, early_stop, patience):
         self.num_epochs = num_epochs
         self.model = model
         self.model_name = model_name
@@ -46,14 +46,24 @@ class Trainer:
         self.train_times, self.test_times = list(), list()
         
         self.test_variance = list()
+        
+        self.early_stop = early_stop
+        self.patience = patience
+        
+        self.best_val_nll = np.inf
+        self.best_ep = -1
 
     def train_and_evaluate(self):
-        for epoch in range(self.num_epochs):
+        stop_training = False
+        for epoch in range(1, self.num_epochs+1):
             self.train(epoch)
             if self.valid_ds is not None:
-                self.validate()
+                stop_training = self.validate(epoch)
             if self.test_ds is not None:
                 self.test()
+            if stop_training:
+                self.cleanup()
+                break
             self.cleanup()
 
     def train(self, epoch):
@@ -61,12 +71,24 @@ class Trainer:
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
-                logits = self.model(x, training=True)
-                if self.model_name == "VI" or self.model_name == "VI-EPI":
-                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
+                    runs = 100
+                    logits_cpd = tf.zeros((runs, y_event.shape[0]), dtype=np.float32)
+                    output_list = []
+                    tensor_shape = logits_cpd.get_shape()
+                    for i in range(tensor_shape[0]):
+                        y_pred = self.model(x, training=True)
+                        if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                            output_list.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
+                        else:
+                            output_list.append(tf.reshape(y_pred, y_pred.shape[0]))
+                    logits_cpd = tf.stack(output_list)
+                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                    logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
                     self.train_loss_metric.update_state(cox_loss)
                 else:
+                    logits = self.model(x, training=True)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
                 y_train = convert_to_structured(y["label_time"], y["label_event"])
@@ -93,7 +115,7 @@ class Trainer:
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
 
-        print(f"Completed {self.model_name} epoch {epoch+1}/{self.num_epochs}")
+        print(f"Completed {self.model_name} epoch {epoch}/{self.num_epochs}")
         total_train_time = time() - train_start_time
 
         epoch_loss = self.train_loss_metric.result()
@@ -108,15 +130,46 @@ class Trainer:
 
         self.train_times.append(float(total_train_time))
 
-    def validate(self):
+    def validate(self, epoch):
+        stop_training = False
         for x, y in self.valid_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
-            logits = self.model(x, training=False)
-            loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-            self.valid_loss_metric.update_state(loss)
+            if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
+                runs = 100
+                logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                for i in range(0, runs):
+                    if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+                    else:
+                        logits_cpd[i,:] = np.reshape(self.model(x, training=False), len(x))
+                logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                if isinstance(self.loss_fn, CoxPHLoss):
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
+                else:
+                    logits = self.model(x, training=False)
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                self.valid_loss_metric.update_state(loss)
+            else:
+                logits = self.model(x, training=False)
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                self.valid_loss_metric.update_state(loss)
 
         epoch_valid_loss = self.valid_loss_metric.result()
         self.valid_loss_scores.append(float(epoch_valid_loss))
+        
+        # Early stopping
+        if self.early_stop:
+            print(f'Best Val NLL: {self.best_val_nll}, epoch Val NNL: {epoch_valid_loss}')
+            if self.best_val_nll > epoch_valid_loss:
+                self.best_val_nll = epoch_valid_loss
+                self.best_ep = epoch
+            if (epoch - self.best_ep) > self.patience:
+                print(f"Validation loss converges at {self.best_ep}th epoch.")
+                stop_training = True
+            else:
+                stop_training = False
+                
+        return stop_training
 
     def test(self):
         test_start_time = time()
@@ -139,8 +192,7 @@ class Trainer:
                 if isinstance(self.loss_fn, CoxPHLoss):
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 else:
-                    logits = self.model(x, training=False)
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 
                 self.test_loss_metric.update_state(loss)
                 y_test = convert_to_structured(y["label_time"], y["label_event"])

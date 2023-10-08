@@ -31,6 +31,7 @@ NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, p
 def train_model(
         model: nn.Module,
         data_train: pd.DataFrame,
+        data_val: pd.DataFrame,
         time_bins: NumericArrayLike,
         config: dotdict,
         random_state: int,
@@ -41,10 +42,9 @@ def train_model(
         print(f"Training {model.get_name()}: reset mode is {reset_model}, number of epochs is {config.num_epochs}, "
               f"learning rate is {config.lr}, C1 is {config.c1}, "
               f"batch size is {config.batch_size}, device is {device}.")
-    data_train, _, data_val = train_val_test_stratified_split(data_train, stratify_colname='both',
-                                                              frac_train=0.9, frac_test=0.1,
-                                                              random_state=random_state)
-
+    #data_train, _, data_val = train_val_test_stratified_split(data_train, stratify_colname='both',
+    #                                                          frac_train=0.9, frac_test=0.1,
+    #                                                          random_state=random_state)
     train_size = data_train.shape[0]
     val_size = data_val.shape[0]
     optimizer = optim.Adam(model.parameters(), lr=config.lr)

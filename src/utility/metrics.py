@@ -63,14 +63,18 @@ class IbsMetric:
             test_predictions = data['pred_train'].reshape(-1)
             test_surv_fn = breslow.get_survival_function(test_predictions)
             surv_preds = np.row_stack([fn(self._event_times) for fn in test_surv_fn])
-            ibs = integrated_brier_score(data["y_train"], data["y_train"], surv_preds, self._event_times)
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            ev = EvalSurv(surv_test.T, data["y_train"]["time"], data["y_train"]["event"], censor_surv="km")
+            ibs = ev.integrated_brier_score(self._event_times)
         else:
             train_predictions = data['pred_train'].reshape(-1)
             breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
             test_predictions = data['pred_test'].reshape(-1)
             test_surv_fn = breslow.get_survival_function(test_predictions)
             surv_preds = np.row_stack([fn(self._event_times) for fn in test_surv_fn])
-            ibs = integrated_brier_score(data["y_train"], data["y_test"], surv_preds, self._event_times)
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            ev = EvalSurv(surv_test.T, data["y_test"]["time"], data["y_test"]["event"], censor_surv="km")
+            ibs = ev.integrated_brier_score(self._event_times)
         return ibs
 
 class CindexTdMetric:

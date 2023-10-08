@@ -9,6 +9,7 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         super().__init__(**kwargs)
         
     def call(self, y_true: Sequence[tf.Tensor], y_pred: tf.Tensor) -> tf.Tensor:
+        '''
         runs = 100
         logits_cpd = tf.zeros((runs, y_pred.shape[0]), dtype=np.float32)
         output_list = []
@@ -16,11 +17,12 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         for i in range(tensor_shape[0]):
             output_list.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
         logits_cpd = tf.stack(output_list)
-        
+        '''
         #log_dist_var = -tf.math.log(tf.math.reduce_std(logits_cpd, axis=0, keepdims=True) ** 2)
         #return coxloss(y_true, y_pred) + tf.reduce_mean(log_dist_var)
-        variances = tf.transpose(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True))
-        predictions =  tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+        
+        variances = tf.transpose(tf.math.reduce_variance(y_pred, axis=0, keepdims=True))
+        predictions = tf.transpose(tf.reduce_mean(y_pred, axis=0, keepdims=True))
         
         # Perform Cox loss
         event, riskset = y_true

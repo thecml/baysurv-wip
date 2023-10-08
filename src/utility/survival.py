@@ -225,6 +225,12 @@ def compute_unique_counts(
 
     return uniq_times, uniq_events, n_at_risk[:-1], n_censored
 
+def make_event_times(t_train, e_train):
+    unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
+    if 0 not in unique_times:
+        unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
+    return unique_times.numpy() 
+
 def make_time_bins(
         times: NumericArrayLike,
         num_bins: Optional[int] = None,
