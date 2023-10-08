@@ -90,7 +90,7 @@ def make_ensemble_mtlr_prediction(
         survival_outputs = mtlr_survival(logits_outputs, with_sample=True)
         mean_survival_outputs = survival_outputs.mean(dim=0)
 
-    time_bins = torch.cat([torch.tensor([0]), time_bins], 0).to(survival_outputs.device)
+    time_bins = time_bins.to(survival_outputs.device)
     return mean_survival_outputs, time_bins, survival_outputs
     
 class BayesEleMtlr(BayesianBaseModel):

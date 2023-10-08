@@ -25,6 +25,10 @@ from sksurv.linear_model.coxph import BreslowEstimator
 from utility.loss import CoxPHLoss
 from pycox.evaluation import EvalSurv
 import torch
+from utility.survival import compute_unique_counts
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -70,11 +74,11 @@ if __name__ == "__main__":
         t_test, e_test = make_time_event_split(y_test)
         
         # Make event times
-        #lower, upper = np.percentile(y['time'], [10, 90])
-        #times = np.arange(lower, upper+1)
-        times = make_time_bins(t_train, event=e_train)
-        times = times.numpy()
-        #compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
+        mtlr_times = make_time_bins(t_train, event=e_train)
+        unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
+        if 0 not in unique_times:
+            unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
+        unique_times = unique_times.numpy()
         
         # Make data for BayCox/BayMTLR models
         data_train = X_train.copy()
@@ -105,7 +109,7 @@ if __name__ == "__main__":
         dcph_model = make_dcph_model(dcph_config)
         dcm_model = make_dcm_model(dcm_config)
         baycox_model = make_baycox_model(num_features, baycox_config)
-        baymtlr_model = make_baymtlr_model(num_features, times, baymtlr_config)
+        baymtlr_model = make_baymtlr_model(num_features, mtlr_times, baymtlr_config)
 
         # Train models
         print("Now training Cox")
@@ -154,15 +158,25 @@ if __name__ == "__main__":
         
         print("Now training BayCox")
         baycox_train_start_time = time()
-        baycox_model = train_model(baycox_model, data_train, torch.tensor(times, dtype=torch.float),
+        baycox_model = train_model(baycox_model, data_train, mtlr_times,
                                    config=baycox_config, random_state=0, reset_model=True, device=device)
+        
+        # Calculate baseline survival on whole train set
+        x_train_te = torch.tensor(data_train.drop(["time", "event"], axis=1).values, dtype=torch.float)
+        t_train_te = torch.tensor(t_train, dtype=torch.float)
+        e_train_te = torch.tensor(e_train, dtype=torch.float)
+        baycox_model.calculate_baseline_survival(x_train_te.to(device),
+                                                 t_train_te.to(device),
+                                                 e_train_te.to(device))
+        
         baycox_train_time = time() - baycox_train_start_time
         print(f"Finished training BayCox in {baycox_train_time}")
         
         print("Now training BayMTLR")
         baymtlr_train_start_time = time()
-        baymtlr_model = train_model(baymtlr_model, data_train, torch.tensor(times, dtype=torch.float),
-                                    config=baymtlr_config, random_state=0, reset_model=True, device=device)
+        baymtlr_model = train_model(baymtlr_model, data_train, mtlr_times,
+                                    config=baymtlr_config, random_state=0,
+                                    reset_model=True, device=device)
         baymtlr_train_time = time() - baymtlr_train_start_time
         print(f"Finished training BayMTLR in {baymtlr_train_time}")
         
@@ -194,17 +208,17 @@ if __name__ == "__main__":
 
             # Compute survival function
             if model_name == "DSM":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(times)), columns=times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(unique_times)), columns=unique_times)
             elif model_name == "DCPH":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(times)), columns=times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(unique_times)), columns=unique_times)
             elif model_name == "DCM":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(times)), columns=times)
+                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(unique_times)), columns=unique_times)
             elif model_name == "RSF": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test)
-                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
             elif model_name == "CoxBoost":
                 test_surv_fn = model.predict_survival_function(X_test)
-                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
             elif model_name == "BayCox":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
@@ -214,22 +228,29 @@ if __name__ == "__main__":
             elif model_name == "BayMTLR":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
-                survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data,
-                                                                                      times, config=baymtlr_config)
+                survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model,
+                                                                                      baycox_test_data,
+                                                                                      mtlr_times,
+                                                                                      config=baymtlr_config)
                 surv_preds = survival_outputs.numpy()
             else:
                 train_predictions = model.predict(X_train).reshape(-1)
                 test_predictions = model.predict(X_test).reshape(-1)
                 breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
                 test_surv_fn = breslow.get_survival_function(test_predictions)
-                surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(unique_times) for fn in test_surv_fn])
             
             # Compute CTD, IBS and INBLL
-            surv_test = pd.DataFrame(surv_preds, columns=times)
+            if model_name == "BayMTLR":
+                mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
+                surv_test = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
+            else:
+                surv_test = pd.DataFrame(surv_preds, columns=unique_times)
+            
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
             ctd = ev.concordance_td()
-            ibs = ev.integrated_brier_score(times)
-            inbll = ev.integrated_nbll(times)
+            ibs = ev.integrated_brier_score(unique_times)
+            inbll = ev.integrated_nbll(unique_times)
             test_time = time() - test_start_time
             
             # Save to df
@@ -240,8 +261,12 @@ if __name__ == "__main__":
             results = pd.concat([results, res_df], axis=0)
 
             # Save model
-            path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}.joblib")
-            joblib.dump(model, path)
+            if model_name in ["BayCox", "BayMTLR"]:
+                path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}.pt")
+                torch.save(model.state_dict(), path)
+            else:
+                path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}.joblib")
+                joblib.dump(model, path)
 
     # Save results
     results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
