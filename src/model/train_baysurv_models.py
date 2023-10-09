@@ -179,7 +179,7 @@ if __name__ == "__main__":
                                         "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
-            res_df['BestEP'] = best_ep
+            res_df['BestEpoch'] = best_ep
             results = pd.concat([results, res_df], axis=0)
             print(f"Completed dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
 

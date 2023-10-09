@@ -19,7 +19,7 @@ import joblib
 import numpy as np
 
 curr_dir = os.getcwd()
-root_dir = Path(curr_dir).absolute()
+root_dir = Path(curr_dir).absolute().parent
 
 def load_sota_model(dataset_name, model_name):
     return joblib.load(Path.joinpath(pt.MODELS_DIR,
@@ -36,7 +36,22 @@ def load_mlp_model(dataset_name, n_input_dims):
     mlp_model = make_mlp_model(input_shape=n_input_dims, output_dim=1,
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    mlp_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mlp_coxphloss')
+    mlp_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mlp')
+    mlp_model.compile(loss=loss_fn, optimizer=optimizer)
+    return mlp_model
+
+def load_mlp_alea_model(dataset_name, n_input_dims):
+    config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name}.yaml")
+    optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+    loss_fn = CoxPHLoss()
+    activation_fn = config['activiation_fn']
+    layers = config['network_layers']
+    dropout_rate = config['dropout_rate']
+    l2_reg = config['l2_reg']
+    mlp_model = make_mlp_model(input_shape=n_input_dims, output_dim=2,
+                               layers=layers, activation_fn=activation_fn,
+                               dropout_rate=dropout_rate, regularization_pen=l2_reg)
+    mlp_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mlp-alea')
     mlp_model.compile(loss=loss_fn, optimizer=optimizer)
     return mlp_model
 
@@ -51,7 +66,22 @@ def load_vi_model(dataset_name, n_train_samples, n_input_dims):
     vi_model = make_vi_model(n_train_samples=n_train_samples, input_shape=n_input_dims,
                             output_dim=2, layers=layers, activation_fn=activation_fn,
                             dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    vi_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_vi_coxphloss')
+    vi_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_vi')
+    vi_model.compile(loss=loss_fn, optimizer=optimizer)
+    return vi_model
+
+def load_vi_epi_model(dataset_name, n_train_samples, n_input_dims):
+    config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name}.yaml")
+    optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+    loss_fn = CoxPHLoss()
+    activation_fn = config['activiation_fn']
+    layers = config['network_layers']
+    dropout_rate = config['dropout_rate']
+    l2_reg = config['l2_reg']
+    vi_model = make_vi_model(n_train_samples=n_train_samples, input_shape=n_input_dims,
+                             output_dim=1, layers=layers, activation_fn=activation_fn,
+                             dropout_rate=dropout_rate, regularization_pen=l2_reg)
+    vi_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_vi-epi')
     vi_model.compile(loss=loss_fn, optimizer=optimizer)
     return vi_model
 
@@ -66,7 +96,7 @@ def load_mcd_model(dataset_name, n_input_dims):
     mcd_model = make_mcd_model(input_shape=n_input_dims, output_dim=2,
                             layers=layers, activation_fn=activation_fn,
                             dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    mcd_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mcd_coxphloss')
+    mcd_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mcd')
     mcd_model.compile(loss=loss_fn, optimizer=optimizer)
     return mcd_model
     
