@@ -7,19 +7,16 @@ if [[ -z "$base_path" ]] ; then  # error; for some reason, the path is not acces
 fi
 echo "$base_path"
 
-models=("baycox" "baymtlr" "cox" "coxboost" "coxnet" "dcm" "dcph" "dsm" "mlp" "rsf")
 datasets=("SUPPORT" "SEER" "GBSG2" "WHAS500" "FLCHAIN" "METABRIC")
 echo "=============================================================================================="
 echo "Starting datasets tuning"
 echo "=============================================================================================="
-for model in ${models[@]}; do
-  for dataset in ${datasets[@]}; do
-      echo "Starting dataset run <$model> <$dataset>"
-      python $base_path/../src/tuning/tune_<$model>_model.py --dataset $dataset
-      echo "Tuning <$model> <$dataset> done"
-      echo -e "\n\n\n\n\n"
-      echo "=============================================================================================="
-      echo -e "\n\n\n\n\n"
-  done
+for dataset in ${datasets[@]}; do
+    echo "Starting dataset run for MLP on <$dataset>"
+    python $base_path/../src/tuning/tune_sota_models.py --dataset $dataset
+    echo "Tuning MLP <$dataset> done"
+    echo -e "\n\n\n\n\n"
+    echo "=============================================================================================="
+    echo -e "\n\n\n\n\n"
 done
 echo "Finished executing datasets"

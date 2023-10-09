@@ -4,10 +4,28 @@ def get_baymtlr_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
+            "hidden_size": {
+                "values": [16, 32, 64, 128]
+            },
+            "dropout": {
+                "values": [0, 0.25, 0.5]
+            },
+            "num_epochs": {
+                "values": [100, 500, 1000, 5000]
+            },
+            "early_stop": {
+                "values": [False]
+            },
+            "patience": {
+                "values": [0]
+            },
+            "batch_size": {
+                "values": [32]
+            }
         }
     }
 
@@ -15,10 +33,28 @@ def get_baycox_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
+            "hidden_size": {
+                "values": [16, 32, 64, 128]
+            },
+            "dropout": {
+                "values": [0, 0.25, 0.5]
+            },
+            "num_epochs": {
+                "values": [100, 500, 1000, 5000]
+            },
+            "early_stop": {
+                "values": [False]
+            },
+            "batch_size": {
+                "values": [32]
+            },
+            "patience": {
+                "values": [0]
+            },
         }
     }
 
@@ -26,7 +62,7 @@ def get_coxboost_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
@@ -62,7 +98,7 @@ def get_mlp_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "early_terminate": {
@@ -95,7 +131,19 @@ def get_mlp_sweep_config():
             },
             "l2_reg": {
                 "values": [None, 0.001, 0.01, 0.1]
-            }
+            },
+            "batch_size": {
+                "values": [32]
+            },
+            "num_epochs": {
+                "values": [10, 25, 50]
+            },
+            "early_stop": {
+                "values": [False]
+            },
+            "patience": {
+                "values": [0]
+            },
         }
     }
 
@@ -103,7 +151,7 @@ def get_rsf_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
             },
         "parameters": {
@@ -129,7 +177,7 @@ def get_cox_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
@@ -146,7 +194,7 @@ def get_coxnet_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
@@ -176,7 +224,7 @@ def get_dcm_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
@@ -195,7 +243,7 @@ def get_dsm_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {
@@ -214,7 +262,7 @@ def get_dcph_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ci",
+            "name": "val_ctd",
             "goal": "maximize"
         },
         "parameters": {

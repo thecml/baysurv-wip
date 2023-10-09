@@ -10,7 +10,7 @@ from utility.training import get_data_loader, scale_data, make_time_event_split
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
-from tools.bnn_isd_trainer import train_model
+from tools.bnn_isd_trainer import train_bnn_model
 from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
 from pathlib import Path
 import paths as pt
@@ -37,7 +37,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 DATASETS = ["WHAS500"] #"SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"
-MODEL_NAMES = ["Cox", "CoxNet", "CoxBoost", "RSF", "DSM", "DCPH", "DCM", "BayCox", "BayMTLR"]
+MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -156,14 +156,14 @@ if __name__ == "__main__":
         
         print("Now training BayCox")
         baycox_train_start_time = time()
-        baycox_model = train_model(baycox_model, data_train, data_valid, mtlr_times,
+        baycox_model = train_bnn_model(baycox_model, data_train, data_valid, mtlr_times,
                                    config=baycox_config, random_state=0, reset_model=True, device=device)
         baycox_train_time = time() - baycox_train_start_time
         print(f"Finished training BayCox in {baycox_train_time}")
         
         print("Now training BayMTLR")
         baymtlr_train_start_time = time()
-        baymtlr_model = train_model(baymtlr_model, data_train, data_valid,
+        baymtlr_model = train_bnn_model(baymtlr_model, data_train, data_valid,
                                     mtlr_times, config=baymtlr_config,
                                     random_state=0, reset_model=True, device=device)
         baymtlr_train_time = time() - baymtlr_train_start_time

@@ -13,21 +13,30 @@ from utility.risk import InputFunction
 from utility.loss import CoxPHLoss
 from tools import baysurv_trainer, data_loader
 import os
-import random
-from sklearn.model_selection import train_test_split, KFold
-from tools.preprocessor import Preprocessor
+from sklearn.model_selection import train_test_split
 from utility.tuning import get_mlp_sweep_config
 import argparse
-from utility.survival import compute_survival_function
 import pandas as pd
 from pycox.evaluation import EvalSurv
+import numpy as np
+import os
+import argparse
+from tools import data_loader
+from sklearn.model_selection import train_test_split
+import pandas as pd
+from pycox.evaluation import EvalSurv
+from utility.training import scale_data, make_time_event_split
+from utility.survival import make_event_times
+import config as cfg
+from sksurv.linear_model.coxph import BreslowEstimator
+
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 10
-N_EPOCHS = 10
-N_SPLITS = 5
+N_RUNS = 1
 PROJECT_NAME = "baysurv_bo_mlp"
 
 def main():
@@ -39,26 +48,21 @@ def main():
     global dataset
     if args.dataset:
         dataset = args.dataset
-
+    
     sweep_config = get_mlp_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
 def train_model():
-    config_defaults = {
-        'network_layers': [32],
-        'learning_rate': [0.001],
-        'momentum': [0.0],
-        'optimizer': ["Adam"],
-        'activation_fn': ["relu"],
-        'weight_decay': [None],
-        'dropout': [None],
-        'l2_reg': [None]
-    }
+    config_defaults = cfg.MLP_DEFAULT_PARAMS
 
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=dataset)
-    wandb.config.epochs = N_EPOCHS
+    config = wandb.config
+    num_epochs = config['num_epochs']
+    batch_size = config['batch_size']
+    early_stop = config['early_stop']
+    patience = config['patience']
 
     # Load data
     if dataset == "SUPPORT":
@@ -78,98 +82,77 @@ def train_model():
 
     num_features, cat_features = dl.get_features()
     X, y = dl.get_data()
+    
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
+    
+    # Scale data
+    X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
+    X_train, X_valid, X_test = np.array(X_train), np.array(X_valid), np.array(X_test)
+    
+    # Make time/event split
+    t_train, e_train = make_time_event_split(y_train)
+    t_valid, e_valid = make_time_event_split(y_valid)
 
-    # Split data in T1 and HOS
-    X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.7, random_state=0)
-    T1, HOS = (X_train, y_train), (X_test, y_test)
+    # Make event times
+    event_times = make_event_times(t_train, e_train)
 
-    # Perform K-fold cross-validation
-    c_indicies = list()
-    kf = KFold(n_splits=N_SPLITS, shuffle=True, random_state=0)
-    for train, test in kf.split(T1[0], T1[1]):
-        ti_X = T1[0].iloc[train]
-        ti_y = T1[1][train]
-        cvi_X = T1[0].iloc[test]
-        cvi_y = T1[1][test]
-
-        # Scale data split
-        preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
-        transformer = preprocessor.fit(ti_X, cat_feats=cat_features, num_feats=num_features,
-                                       one_hot=True, fill_value=-1)
-        ti_X = np.array(transformer.transform(ti_X))
-        cvi_X = np.array(transformer.transform(cvi_X))
-
-        # Make time event split
-        t_train = np.array(ti_y['time'])
-        t_valid = np.array(cvi_y['time'])
-        e_train = np.array(ti_y['event'])
-        e_valid = np.array(cvi_y['event'])
-
-        # Make event times
-        lower, upper = np.percentile(t_train[t_train.dtype.names], [10, 90])
-        event_times = np.arange(lower, upper+1)
-
-        # Set batch size
-        if dataset in ["FLCHAIN", "SEER", "SUPPORT"]:
-            batch_size = 128
-        else:
-            batch_size = 32
-
-        train_ds = InputFunction(ti_X, t_train, e_train, batch_size=batch_size,
-                                 drop_last=True, shuffle=True)()
-        valid_ds = InputFunction(cvi_X, t_valid, e_valid, batch_size=batch_size)()
-
-        # Make model
-        model = make_mlp_model(input_shape=ti_X.shape[1:],
-                               output_dim=1,
-                               layers=wandb.config['network_layers'],
-                               activation_fn=wandb.config['activation_fn'],
-                               dropout_rate=wandb.config['dropout'],
-                               regularization_pen=wandb.config['l2_reg'])
-
-        # Define optimizer
-        if wandb.config['optimizer'] == "Adam":
-            optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate,
-                                                 weight_decay=wandb.config.weight_decay)
-        elif wandb.config['optimizer'] == "SGD":
-            optimizer = tf.keras.optimizers.SGD(learning_rate=wandb.config.learning_rate,
+    # Make datasets
+    train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
+                             drop_last=True, shuffle=True)()
+    valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)()
+    
+    model = make_mlp_model(input_shape=X_train.shape[1:],
+                           output_dim=1,
+                           layers=config['network_layers'],
+                           activation_fn=config['activation_fn'],
+                           dropout_rate=config['dropout'],
+                           regularization_pen=config['l2_reg'])
+    
+    # Define optimizer
+    if config['optimizer'] == "Adam":
+        optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate,
+                                                weight_decay=wandb.config.weight_decay)
+    elif config['optimizer'] == "SGD":
+        optimizer = tf.keras.optimizers.SGD(learning_rate=wandb.config.learning_rate,
+                                            weight_decay=wandb.config.weight_decay,
+                                            momentum=wandb.config.momentum)
+    elif config['optimizer'] == "RMSprop":
+        optimizer = tf.keras.optimizers.RMSprop(learning_rate=wandb.config.learning_rate,
                                                 weight_decay=wandb.config.weight_decay,
                                                 momentum=wandb.config.momentum)
-        elif wandb.config['optimizer'] == "RMSprop":
-            optimizer = tf.keras.optimizers.RMSprop(learning_rate=wandb.config.learning_rate,
-                                                    weight_decay=wandb.config.weight_decay,
-                                                    momentum=wandb.config.momentum)
+    else:
+        raise ValueError("Optimizer not found")
+    
+    # Train model
+    trainer = baysurv_trainer.Trainer(model=model,
+                                      model_name="MLP",
+                                      train_dataset=train_ds,
+                                      valid_dataset=valid_ds,
+                                      test_dataset=None,
+                                      optimizer=optimizer,
+                                      loss_function=CoxPHLoss(),
+                                      num_epochs=num_epochs,
+                                      event_times=event_times,
+                                      early_stop=early_stop,
+                                      patience=patience)
+    trainer.train_and_evaluate()
 
-        # Train model
-        loss_fn = CoxPHLoss()
-        trainer = baysurv_trainer.Trainer(model=model,
-                                        model_type="MLP",
-                                        train_dataset=train_ds,
-                                        valid_dataset=None,
-                                        test_dataset=None,
-                                        optimizer=optimizer,
-                                        loss_function=loss_fn,
-                                        num_epochs=N_EPOCHS,
-                                        event_times=event_times)
-        trainer.train_and_evaluate()
-        
-        # Compute survival function
-        model = trainer.model
-        lower, upper = np.percentile(y['time'], [10, 90])
-        times = np.arange(lower, upper+1)
-        test_surv_fn = compute_survival_function(model, ti_X, cvi_X, ti_y['event'], ti_y['time'], times)
-        surv_preds = np.row_stack([fn(times) for fn in test_surv_fn])
-        
-        # Compute CTD
-        surv_test = pd.DataFrame(surv_preds, columns=times)
-        ev = EvalSurv(surv_test.T, cvi_y["time"], cvi_y["event"], censor_surv="km")
-        ctd = ev.concordance_td()
-        c_indicies.append(ctd)
-
-    mean_ci = np.nanmean(c_indicies)
-
+    # Compute survival function
+    train_predictions = model.predict(X_train).reshape(-1)
+    test_predictions = model.predict(X_valid).reshape(-1)
+    breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+    test_surv_fn = breslow.get_survival_function(test_predictions)
+    surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+    
+    # Compute CTD
+    surv_test = pd.DataFrame(surv_preds, columns=event_times)
+    ev = EvalSurv(surv_test.T, y_valid["time"], y_valid["event"], censor_surv="km")
+    ctd = ev.concordance_td()
+    
     # Log to wandb
-    wandb.log({"val_ci": mean_ci})
+    wandb.log({"val_ctd": ctd})
 
 if __name__ == "__main__":
     main()

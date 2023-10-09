@@ -28,7 +28,7 @@ class dotdict(dict):
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
 
-def train_model(
+def train_bnn_model(
         model: nn.Module,
         data_train: pd.DataFrame,
         data_val: pd.DataFrame,
