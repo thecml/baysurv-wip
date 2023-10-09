@@ -27,6 +27,7 @@ random.seed(0)
 
 DATASETS = ["WHAS500"]
 N_EPOCHS = 1
+RUNS = {'MLP': 1, 'VI': 100, 'MCD': 100}
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -85,8 +86,8 @@ if __name__ == "__main__":
                                      output_dim=1, layers=layers, activation_fn=activation_fn,
                                      dropout_rate=dropout_rate, regularization_pen=l2_reg)
         mcd_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
-                                layers=layers, activation_fn=activation_fn,
-                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                                   layers=layers, activation_fn=activation_fn,
+                                   dropout_rate=dropout_rate, regularization_pen=l2_reg)
 
         # Make trainers
         mlp_trainer = Trainer(model=mlp_model, model_name="MLP",

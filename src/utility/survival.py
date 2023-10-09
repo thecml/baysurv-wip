@@ -20,6 +20,19 @@ class dotdict(dict):
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+def calculate_percentiles(times):
+    times_pct = dict()
+    for q in [25, 50, 75]:
+        t = int(np.percentile(times, q))
+        t_nearest = find_nearest(times, t)
+        times_pct[q] = t_nearest
+    return times_pct
+
 def encode_survival(
         time: Union[float, int, NumericArrayLike],
         event: Union[int, bool, NumericArrayLike],

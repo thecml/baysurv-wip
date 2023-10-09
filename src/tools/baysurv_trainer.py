@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utility.metrics import CindexMetric, CindexTdMetric, IbsMetric, InbllMetric
+from utility.metrics import CindexMetric, CtdMetric, IbsMetric, InbllMetric
 from utility.survival import convert_to_structured
 from time import time
 from utility.loss import CoxPHLoss, CoxPHLossLLA
@@ -24,14 +24,14 @@ class Trainer:
         self.valid_loss_scores, self.valid_ci_scores = list(), list()
 
         self.train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
-        self.train_ctd_metric = CindexTdMetric(event_times)
+        self.train_ctd_metric = CtdMetric(event_times)
         self.train_ibs_metric = IbsMetric(event_times)
         self.train_inbll_metric = InbllMetric(event_times)
         
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
-        self.test_ctd_metric = CindexTdMetric(event_times)
+        self.test_ctd_metric = CtdMetric(event_times)
         self.test_ibs_metric = IbsMetric(event_times)
         self.test_inbll_metric = InbllMetric(event_times)
 
