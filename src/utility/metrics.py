@@ -9,6 +9,7 @@ from utility.survival import compute_survival_times
 from sksurv.linear_model.coxph import BreslowEstimator
 import pandas as pd
 from pycox.evaluation import EvalSurv
+from utility.survival import survival_probability_calibration
 
 class IbsMetric:
     """Computes integrated brier score across one epoch."""
@@ -214,6 +215,162 @@ class InbllMetric:
             ev = EvalSurv(surv_preds.T, t_test, e_test, censor_surv="km")
             inbll = ev.integrated_nbll(self._event_times)
         return inbll
+
+class EceMetric:
+    """Computes ECE across one epoch."""
+    def __init__(self, event_times, event_times_pct) -> None:
+        self._event_times = event_times
+        self._event_times_pct = event_times_pct
+        self._data = {
+            "y_train": [],
+            "y_test": [],
+            "pred_train": [],
+            "pred_test": [],
+        }
+
+    def reset_states(self) -> None:
+        """Clear the buffer of collected values."""
+        self._data = {
+            "y_train": [],
+            "y_test": [],
+            "pred_train": [],
+            "pred_test": [],
+        }
+        
+    def update_train_state(self, y_train) -> None:
+        self._data["y_train"].append(y_train)
+        
+    def update_test_state(self, y_test) -> None:
+        self._data["y_test"].append(y_test)
+    
+    def update_train_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_train"].append(tf.squeeze(y_pred).numpy())
+    
+    def update_test_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_test"].append(tf.squeeze(y_pred).numpy())
+
+    def result(self) -> Dict[str, float]:
+        """Computes the integrated negative binomial log-likelihood across collected values.
+
+        Returns
+        ----------
+        metrics : dict
+            Computed metrics.
+        """
+        data = {}
+        for k, v in self._data.items():
+            if len(v) > 0:
+                data[k] = np.concatenate(v)
+        
+        t_train = data["y_train"]['time']
+        e_train = data["y_train"]['event']
+        if "pred_test" not in data: # no test preds
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_train'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = pd.DataFrame(np.row_stack([fn(self._event_times) for fn in test_surv_fn]),
+                                      columns=self._event_times)
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            deltas = dict()
+            for t0 in self._event_times_pct.values():
+                _, _, _, deltas_t0 = survival_probability_calibration(surv_test, t_train, e_train, t0)                
+                deltas[t0] = deltas_t0
+        else:
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_test'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = pd.DataFrame(np.row_stack([fn(self._event_times) for fn in test_surv_fn]),
+                                      columns=self._event_times)
+            t_test = data["y_test"]['time']
+            e_test = data["y_test"]['event']
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            deltas = dict()            
+            for t0 in self._event_times_pct.values():
+                _, _, _, deltas_t0 = survival_probability_calibration(surv_test, t_test, e_test, t0)    
+                deltas[t0] = deltas_t0
+                
+        ice = deltas[t0].mean()   
+        return ice
+    
+class E50Metric:
+    """Computes E50 across one epoch."""
+    def __init__(self, event_times, event_times_pct) -> None:
+        self._event_times = event_times
+        self._event_times_pct = event_times_pct
+        self._data = {
+            "y_train": [],
+            "y_test": [],
+            "pred_train": [],
+            "pred_test": [],
+        }
+
+    def reset_states(self) -> None:
+        """Clear the buffer of collected values."""
+        self._data = {
+            "y_train": [],
+            "y_test": [],
+            "pred_train": [],
+            "pred_test": [],
+        }
+        
+    def update_train_state(self, y_train) -> None:
+        self._data["y_train"].append(y_train)
+        
+    def update_test_state(self, y_test) -> None:
+        self._data["y_test"].append(y_test)
+    
+    def update_train_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_train"].append(tf.squeeze(y_pred).numpy())
+    
+    def update_test_pred(self, y_pred: tf.Tensor) -> None:
+        self._data["pred_test"].append(tf.squeeze(y_pred).numpy())
+
+    def result(self) -> Dict[str, float]:
+        """Computes the integrated negative binomial log-likelihood across collected values.
+
+        Returns
+        ----------
+        metrics : dict
+            Computed metrics.
+        """
+        data = {}
+        for k, v in self._data.items():
+            if len(v) > 0:
+                data[k] = np.concatenate(v)
+        
+        t_train = data["y_train"]['time']
+        e_train = data["y_train"]['event']
+        if "pred_test" not in data: # no test preds
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_train'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = pd.DataFrame(np.row_stack([fn(self._event_times) for fn in test_surv_fn]),
+                                      columns=self._event_times)
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            deltas = dict()
+            for t0 in self._event_times_pct.values():
+                _, _, _, deltas_t0 = survival_probability_calibration(surv_test, t_train, e_train, t0)                
+                deltas[t0] = deltas_t0
+        else:
+            train_predictions = data['pred_train'].reshape(-1)
+            breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
+            test_predictions = data['pred_test'].reshape(-1)
+            test_surv_fn = breslow.get_survival_function(test_predictions)
+            surv_preds = pd.DataFrame(np.row_stack([fn(self._event_times) for fn in test_surv_fn]),
+                                      columns=self._event_times)
+            t_test = data["y_test"]['time']
+            e_test = data["y_test"]['event']
+            surv_test = pd.DataFrame(surv_preds, columns=self._event_times)
+            deltas = dict()
+            for t0 in self._event_times_pct.values():
+                _, _, _, deltas_t0 = survival_probability_calibration(surv_test, t_test, e_test, t0)    
+                deltas[t0] = deltas_t0
+                
+        e50 = np.percentile(deltas[t0], 50)
+        return e50
     
 class CindexMetric:
     """Computes concordance index across one epoch."""

@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utility.metrics import CindexMetric, CtdMetric, IbsMetric, InbllMetric
+from utility.metrics import CtdMetric, IbsMetric, InbllMetric, EceMetric, E50Metric
 from utility.survival import convert_to_structured
 from time import time
 from utility.loss import CoxPHLoss, CoxPHLossLLA
@@ -8,7 +8,7 @@ from utility.loss import CoxPHLoss, CoxPHLossLLA
 class Trainer:
     def __init__(self, model, model_name, train_dataset, valid_dataset,
                  test_dataset, optimizer, loss_function, num_epochs,
-                 event_times, early_stop, patience):
+                 event_times, early_stop, patience, event_times_pct):
         self.num_epochs = num_epochs
         self.model = model
         self.model_name = model_name
@@ -27,6 +27,8 @@ class Trainer:
         self.train_ctd_metric = CtdMetric(event_times)
         self.train_ibs_metric = IbsMetric(event_times)
         self.train_inbll_metric = InbllMetric(event_times)
+        self.train_ece_metric = EceMetric(event_times, event_times_pct)
+        self.train_e50_metric = E50Metric(event_times, event_times_pct)
         
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         
@@ -34,14 +36,18 @@ class Trainer:
         self.test_ctd_metric = CtdMetric(event_times)
         self.test_ibs_metric = IbsMetric(event_times)
         self.test_inbll_metric = InbllMetric(event_times)
+        self.test_ece_metric = EceMetric(event_times, event_times_pct)
+        self.test_e50_metric = E50Metric(event_times, event_times_pct)
 
         self.train_loss_scores, self.train_inbll_scores = list(), list()
         self.train_ctd_scores, self.train_ibs_scores = list(), list()
+        self.train_ece_scores, self.train_e50_scores = list(), list()
         
         self.valid_loss_scores = list()
         
         self.test_loss_scores, self.test_inbll_scores = list(), list()
         self.test_ctd_scores, self.test_ibs_scores = list(), list()
+        self.test_ece_scores, self.test_e50_scores = list(), list()
 
         self.train_times, self.test_times = list(), list()
         
@@ -52,7 +58,7 @@ class Trainer:
         
         self.best_val_nll = np.inf
         self.best_ep = -1
-
+        
     def train_and_evaluate(self):
         stop_training = False
         for epoch in range(1, self.num_epochs+1):
@@ -111,6 +117,18 @@ class Trainer:
                 self.test_inbll_metric.update_train_state(y_train)
                 self.test_inbll_metric.update_train_pred(logits)
                 
+                # ECE
+                self.train_ece_metric.update_train_state(y_train)
+                self.train_ece_metric.update_train_pred(logits)
+                self.test_ece_metric.update_train_state(y_train)
+                self.test_ece_metric.update_train_pred(logits)
+                
+                # E50
+                self.train_e50_metric.update_train_state(y_train)
+                self.train_e50_metric.update_train_pred(logits)
+                self.test_e50_metric.update_train_state(y_train)
+                self.test_e50_metric.update_train_pred(logits)   
+                
             with tf.name_scope("gradients"):
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
@@ -122,11 +140,15 @@ class Trainer:
         epoch_ctd = self.train_ctd_metric.result()
         epoch_ibs = self.train_ibs_metric.result()
         epoch_inbll = self.train_inbll_metric.result()
+        epoch_ece = self.train_ece_metric.result()
+        epoch_e50 = self.train_e50_metric.result()
 
         self.train_loss_scores.append(float(epoch_loss))
         self.train_ctd_scores.append(float(epoch_ctd))
         self.train_ibs_scores.append(float(epoch_ibs))
         self.train_inbll_scores.append(float(epoch_inbll))
+        self.train_ece_scores.append(float(epoch_ece))
+        self.train_e50_scores.append(float(epoch_e50))
 
         self.train_times.append(float(total_train_time))
 
@@ -202,6 +224,10 @@ class Trainer:
                 self.test_ibs_metric.update_test_pred(logits_mean)
                 self.test_inbll_metric.update_test_state(y_test)
                 self.test_inbll_metric.update_test_pred(logits_mean)
+                self.test_ece_metric.update_test_state(y_test)
+                self.test_ece_metric.update_test_pred(logits_mean)
+                self.test_e50_metric.update_test_state(y_test)
+                self.test_e50_metric.update_test_pred(logits_mean)
                 
             else:
                 logits = self.model(x, training=False)
@@ -214,24 +240,31 @@ class Trainer:
                 self.test_ibs_metric.update_test_pred(logits)
                 self.test_inbll_metric.update_test_state(y_test)
                 self.test_inbll_metric.update_test_pred(logits)
+                self.test_ece_metric.update_test_state(y_test)
+                self.test_ece_metric.update_test_pred(logits)
+                self.test_e50_metric.update_test_state(y_test)
+                self.test_e50_metric.update_test_pred(logits)
          
         total_test_time = time() - test_start_time
         
         # Std
         if len(batch_stds) > 0:
             model_var = float(np.mean(batch_stds) ** 2)
-            print(f"Model test variance: {model_var}")
             self.test_variance.append(model_var)
 
         epoch_loss = self.test_loss_metric.result()
         epoch_ctd = self.test_ctd_metric.result()
         epoch_ibs = self.test_ibs_metric.result()
         epoch_inbll = self.test_inbll_metric.result()
+        epoch_ece = self.test_ece_metric.result()
+        epoch_e50 = self.test_e50_metric.result()
 
         self.test_loss_scores.append(float(epoch_loss))
         self.test_ctd_scores.append(float(epoch_ctd))
         self.test_ibs_scores.append(float(epoch_ibs))
         self.test_inbll_scores.append(float(epoch_inbll))
+        self.test_ece_scores.append(float(epoch_ece))
+        self.test_e50_scores.append(float(epoch_e50))
         self.test_times.append(float(total_test_time))
     
     def cleanup(self):
@@ -239,8 +272,12 @@ class Trainer:
         self.train_ctd_metric.reset_states()
         self.train_ibs_metric.reset_states()
         self.train_inbll_metric.reset_states()
+        self.train_ece_metric.reset_states()
+        self.train_e50_metric.reset_states()
         self.valid_loss_metric.reset_states()
         self.test_loss_metric.reset_states()
         self.test_ctd_metric.reset_states()
         self.test_ibs_metric.reset_states()
         self.test_inbll_metric.reset_states()
+        self.test_ece_metric.reset_states()
+        self.test_e50_metric.reset_states()

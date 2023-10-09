@@ -16,7 +16,7 @@ from utility.risk import InputFunction
 from utility.loss import CoxPHLoss, CoxPHLossLLA
 from pathlib import Path
 import paths as pt
-from utility.survival import make_event_times
+from utility.survival import make_event_times, calculate_percentiles
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -27,7 +27,6 @@ random.seed(0)
 
 DATASETS = ["WHAS500"]
 N_EPOCHS = 1
-RUNS = {'MLP': 1, 'VI': 100, 'MCD': 100}
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -66,6 +65,9 @@ if __name__ == "__main__":
 
         # Make event times
         event_times = make_event_times(t_train, e_train)
+        
+        # Calculate quantiles
+        event_times_pct = calculate_percentiles(event_times)
 
         # Make data loaders
         train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
@@ -95,31 +97,31 @@ if __name__ == "__main__":
                               test_dataset=test_ds, optimizer=optimizer,
                               loss_function=CoxPHLoss(), num_epochs=N_EPOCHS,
                               event_times=event_times, early_stop=early_stop,
-                              patience=patience)
+                              patience=patience, event_times_pct=event_times_pct)
         mlp_alea_trainer = Trainer(model=mlp_alea_model, model_name="MLP-ALEA",
                                 train_dataset=train_ds, valid_dataset=valid_ds,
                                 test_dataset=test_ds, optimizer=optimizer,
                                 loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
                                 event_times=event_times, early_stop=early_stop,
-                                patience=patience)
+                                patience=patience, event_times_pct=event_times_pct)
         vi_trainer = Trainer(model=vi_model, model_name="VI",
                             train_dataset=train_ds, valid_dataset=valid_ds,
                             test_dataset=test_ds, optimizer=optimizer,
                             loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
                             event_times=event_times, early_stop=early_stop,
-                            patience=patience)
+                            patience=patience, event_times_pct=event_times_pct)
         vi_epi_trainer = Trainer(model=vi_epi_model, model_name="VI-EPI",
                                 train_dataset=train_ds, valid_dataset=valid_ds,
                                 test_dataset=test_ds, optimizer=optimizer,
                                 loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
                                 event_times=event_times, early_stop=early_stop,
-                                patience=patience)
+                                patience=patience, event_times_pct=event_times_pct)
         mcd_trainer = Trainer(model=mcd_model, model_name="MCD",
                             train_dataset=train_ds, valid_dataset=valid_ds,
                             test_dataset=test_ds, optimizer=optimizer,
                             loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
                             event_times=event_times, early_stop=early_stop,
-                            patience=patience)
+                            patience=patience, event_times_pct=event_times_pct)
 
         # Train models
         print(f"Started training models for {dataset_name}")
@@ -148,6 +150,8 @@ if __name__ == "__main__":
             train_ctd = trainer.train_ctd_scores
             train_ibs = trainer.train_ibs_scores
             train_inbll = trainer.train_inbll_scores
+            train_ece = trainer.train_ece_scores
+            train_e50 = trainer.train_e50_scores
             train_times = trainer.train_times
             best_ep = trainer.best_ep
             
@@ -156,6 +160,8 @@ if __name__ == "__main__":
             test_ctd = trainer.test_ctd_scores
             test_ibs = trainer.test_ibs_scores
             test_inbll = trainer.test_inbll_scores
+            test_ece = trainer.test_ece_scores
+            test_e50 = trainer.test_e50_scores
             test_times = trainer.test_times
             
             if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
@@ -165,11 +171,11 @@ if __name__ == "__main__":
 
             # Save to df
             print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
-            res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, # train
-                                                   test_loss, test_ctd, test_ibs, test_inbll, test_variance, # test
+            res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, train_ece, train_e50, # train
+                                                   test_loss, test_ctd, test_ibs, test_inbll, test_ece, test_e50, test_variance, # test
                                                    train_times, test_times]), # times
-                                columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL",
-                                        "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestVar",
+                                columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL", "TrainECE", "TrainE50",
+                                        "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestECE", "TestE50", "TestVar",
                                         "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
