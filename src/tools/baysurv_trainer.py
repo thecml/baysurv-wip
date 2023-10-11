@@ -20,9 +20,6 @@ class Trainer:
         self.optimizer = optimizer
         self.loss_fn = loss_function
 
-        self.train_loss_scores = list()
-        self.valid_loss_scores, self.valid_ci_scores = list(), list()
-
         self.train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
         self.train_ctd_metric = CtdMetric(event_times)
         self.train_ibs_metric = IbsMetric(event_times)
@@ -78,7 +75,7 @@ class Trainer:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
                 if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                    runs = 100
+                    runs = 1
                     logits_cpd = tf.zeros((runs, y_event.shape[0]), dtype=np.float32)
                     output_list = []
                     tensor_shape = logits_cpd.get_shape()
@@ -89,10 +86,15 @@ class Trainer:
                         else:
                             output_list.append(tf.reshape(y_pred, y_pred.shape[0]))
                     logits_cpd = tf.stack(output_list)
-                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                    logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
-                    loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                    self.train_loss_metric.update_state(cox_loss)
+                    if self.model_name in ["VI", "VI-EPI"]:
+                        cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                        logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                        loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
+                        self.train_loss_metric.update_state(cox_loss)
+                    else:
+                        loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                        logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                        self.train_loss_metric.update_state(loss)
                 else:
                     logits = self.model(x, training=True)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
@@ -157,7 +159,7 @@ class Trainer:
         for x, y in self.valid_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                runs = 100
+                runs = 1
                 logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
                     if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
@@ -199,7 +201,7 @@ class Trainer:
         for x, y in self.test_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                runs = 100
+                runs = 1
                 logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
                     if self.model_name in ["MLP-ALEA", "VI", "MCD"]:

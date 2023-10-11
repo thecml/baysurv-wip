@@ -59,7 +59,25 @@ def make_coxnet_model(config):
                                   max_iter=max_iter)
     
 def make_coxboost_model(config):
-    return GradientBoostingSurvivalAnalysis() # TODO: load params
+    n_estimators = config['n_estimators']
+    learning_rate = config['learning_rate']
+    max_depth = config['max_depth']
+    loss = config['loss']
+    min_samples_split = config['min_samples_split']
+    min_samples_leaf = config['min_samples_leaf']
+    max_features = config['max_features']
+    dropout_rate = config['dropout_rate']
+    subsample = config['subsample']
+    return GradientBoostingSurvivalAnalysis(n_estimators=n_estimators,
+                                            learning_rate=learning_rate,
+                                            max_depth=max_depth,
+                                            loss=loss,
+                                            min_samples_split=min_samples_split,
+                                            min_samples_leaf=min_samples_leaf,
+                                            max_features=max_features,
+                                            dropout_rate=dropout_rate,
+                                            subsample=subsample,
+                                            random_state=0)
 
 def make_dsm_model(config):
     layers = config['network_layers']

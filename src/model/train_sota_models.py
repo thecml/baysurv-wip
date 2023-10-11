@@ -28,6 +28,8 @@ from utility.survival import survival_probability_calibration
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+np.seterr(divide = 'ignore')
+
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
@@ -43,7 +45,7 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["WHAS500"] #"SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"
+DATASETS = ["SEER"] #"SEER", "GBSG2", "FLCHAIN", "SUPPORT", "METABRIC"
 MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()

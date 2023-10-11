@@ -113,7 +113,7 @@ def train_model():
     # Define optimizer
     if config['optimizer'] == "Adam":
         optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate,
-                                                weight_decay=wandb.config.weight_decay)
+                                             weight_decay=wandb.config.weight_decay)
     elif config['optimizer'] == "SGD":
         optimizer = tf.keras.optimizers.SGD(learning_rate=wandb.config.learning_rate,
                                             weight_decay=wandb.config.weight_decay,

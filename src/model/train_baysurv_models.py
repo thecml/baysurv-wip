@@ -21,6 +21,8 @@ from utility.survival import make_event_times, calculate_percentiles
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+np.seterr(divide = 'ignore')
+
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
@@ -145,7 +147,7 @@ if __name__ == "__main__":
         print(f"Finished training all models for {dataset_name}")
         # Save results per dataset
         for model_name, trainer in zip(model_names, trainers):
-            # Training
+            # Train
             train_loss = trainer.train_loss_scores
             train_ctd = trainer.train_ctd_scores
             train_ibs = trainer.train_ibs_scores
