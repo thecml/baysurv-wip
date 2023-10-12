@@ -8,6 +8,10 @@ matplotlib_style = 'default'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 import seaborn as sns
 
+plt.rcParams.update({'axes.labelsize': 'small',
+                     'axes.titlesize': 'small',
+                     'font.size': 14.0})
+
 class _TFColor(object):
     """Enum of colors used in TF docs."""
     red = '#F15854'
@@ -33,13 +37,30 @@ class _TFColor(object):
         ][i % 9]
 TFColor = _TFColor()
 
+def get_y_label(metric_name):
+    if "Loss" in metric_name:
+        return r'Loss $\mathcal{L}(\theta)$'
+    elif "CTD" in metric_name:
+        return 'CTD'
+    elif "IBS" in metric_name:
+        return "IBS"
+    else:
+        return "INBLL"
+
+def get_label_name(model_name):
+    if model_name == "MLP":
+        return "Baseline (MLP)"
+    elif model_name == "MLP-ALEA":
+        return "Aleatoric"
+    elif model_name == "VI-EPI":
+        return "Epistemic"
+    else:
+        return "Aleatoric & Epistemic"
+
 def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dataset_name):
-    fig, axes = plt.subplots(4, 2, figsize=(12, 12))
+    n_percentiles = len(percentiles.keys())
+    fig, axes = plt.subplots(n_percentiles, 2, figsize=(12, 12))
     labels = list()
-    plt.rcParams.update({'axes.labelsize': 'small',
-                        'axes.titlesize': 'small',
-                        'lines.linewidth': 3,
-                        'font.size':14.0})
     for i, (q, pctl) in enumerate(percentiles.items()):
         for model_idx, model_name in enumerate(model_names):
             pred = pred_obs[pctl][model_name][0]
@@ -48,11 +69,12 @@ def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dat
             data = pd.DataFrame({'Pred': pred, 'Obs': obs})
             axes[i][0].set_xlabel("Predicted probability")
             axes[i][1].set_xlabel("Predicted probability")
-            axes[i][0].set_title(f"Calibration at {q}th of survival time")
-            axes[i][1].set_title(f"Probabilities at {q}th")
+            axes[i][0].set_ylabel("Observed probability")
+            axes[i][0].set_title(f"Calibration at {q}th percentile of survival time")
+            axes[i][1].set_title(f"Probabilities at {q}th percentile")
             axes[i][0].grid()
             axes[i][1].grid()
-            sns.lineplot(data, x='Pred', y='Obs', color=TFColor[model_idx], ax=axes[i][0], legend=False, label=f"{model_name}")
+            sns.lineplot(data, x='Pred', y='Obs', color=TFColor[model_idx], ax=axes[i][0], legend=False, label=get_label_name(model_name))
             sns.kdeplot(preds, fill=True, common_norm=True, alpha=.5, cut=0, linewidth=1, color=TFColor[model_idx], ax=axes[i][1])
         ax=axes[i][0].plot([0, 1], [0, 1], c="k", ls="--", linewidth=1.5)
     fig.tight_layout()
@@ -60,85 +82,23 @@ def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dat
     fig.legend(handles, labels, loc='upper right')
     plt.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_calibration.pdf"),
                 format='pdf', bbox_inches="tight")
-    plt.grid(True)
+    plt.show()
     plt.close()
 
-def plot_training_curves(results, n_epochs, dataset_name):
-    mlp_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MLP")]
-    vi_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "VI")]
-    mc_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == "MCD")]
-    mlp_train_loss = mlp_results[['TrainLoss']]
-    mlp_train_ci = mlp_results[['TrainCI']]
-    mlp_train_ctd = mlp_results[['TrainCTD']]
-    mlp_train_ibs = mlp_results[['TrainIBS']]
-    mlp_test_loss = mlp_results[['TestLoss']]
-    mlp_test_ci = mlp_results[['TestCI']]
-    mlp_test_ctd = mlp_results[['TestCTD']]
-    mlp_test_ibs = mlp_results[['TestIBS']]
-
-    vi_train_loss = vi_results[['TrainLoss']]
-    vi_train_ci = vi_results[['TrainCI']]
-    vi_train_ctd = vi_results[['TrainCTD']]
-    vi_train_ibs = vi_results[['TrainIBS']]
-    vi_test_loss = vi_results[['TestLoss']]
-    vi_test_ci = vi_results[['TestCI']]
-    vi_test_ctd = vi_results[['TestCTD']]
-    vi_test_ibs = vi_results[['TestIBS']]
-
-    mc_train_loss = mc_results[['TrainLoss']]
-    mc_train_ci = mc_results[['TrainCI']]
-    mc_train_ctd = mc_results[['TrainCTD']]
-    mc_train_ibs = mc_results[['TrainIBS']]
-    mc_test_loss = mc_results[['TestLoss']]
-    mc_test_ci = mc_results[['TestCI']]
-    mc_test_ctd = mc_results[['TestCTD']]
-    mc_test_ibs = mc_results[['TestIBS']]
-
-    matplotlib_style = 'fivethirtyeight'
-    import matplotlib.pyplot as plt
-    plt.style.use(matplotlib_style)
-    epochs = range(1, n_epochs+1)
-    fig, axs = plt.subplots(1, 4, figsize=(18, 3))
-    plt.figure(dpi=80)
-    axs[0].plot(epochs, mlp_train_loss, label='Training set (MLP)', marker="o", color=TFColor[0], linewidth=1)
-    axs[0].plot(epochs, mlp_test_loss, label='Test set (MLP)', marker="s", color=TFColor[0], linewidth=1)
-    axs[0].plot(epochs, vi_train_loss, label='Training set (VI)', marker="o", color=TFColor[2], linewidth=1)
-    axs[0].plot(epochs, vi_test_loss, label='Test set (VI)', marker="s", color=TFColor[2], linewidth=1)
-    axs[0].plot(epochs, mc_train_loss, label='Training set (MCD)', marker="o", color=TFColor[3], linewidth=1)
-    axs[0].plot(epochs, mc_test_loss, label='Test set (MCD)', marker="s", color=TFColor[3], linewidth=1)
-    axs[0].set_xlabel('Epoch', fontsize="medium")
-    axs[0].set_ylabel(r'Model loss $\mathcal{L}(\theta)$', fontsize="medium")
-
-    axs[1].plot(epochs, mlp_train_ci, marker="o", color=TFColor[0], linewidth=1)
-    axs[1].plot(epochs, mlp_test_ci, marker="s", color=TFColor[0], linewidth=1)
-    axs[1].plot(epochs, vi_train_ci, marker="o", color=TFColor[2], linewidth=1)
-    axs[1].plot(epochs, vi_test_ci, marker="s", color=TFColor[2], linewidth=1)
-    axs[1].plot(epochs, mc_train_ci, marker="o", color=TFColor[3], linewidth=1)
-    axs[1].plot(epochs, mc_test_ci, marker="s", color=TFColor[3], linewidth=1)
-    axs[1].set_xlabel('Epoch', fontsize="medium")
-    axs[1].set_ylabel('CI', fontsize="medium")
-
-    axs[2].plot(epochs, mlp_train_ctd, marker="o", color=TFColor[0], linewidth=1)
-    axs[2].plot(epochs, mlp_test_ctd, marker="s", color=TFColor[0], linewidth=1)
-    axs[2].plot(epochs, vi_train_ctd, marker="o", color=TFColor[2], linewidth=1)
-    axs[2].plot(epochs, vi_test_ctd, marker="s", color=TFColor[2], linewidth=1)
-    axs[2].plot(epochs, mc_train_ctd, marker="o", color=TFColor[3], linewidth=1)
-    axs[2].plot(epochs, mc_test_ctd, marker="s", color=TFColor[3], linewidth=1)
-    axs[2].set_xlabel('Epoch', fontsize="medium")
-    axs[2].set_ylabel('$C_{td}$', fontsize="medium")
-
-    axs[3].plot(epochs, mlp_train_ibs,  marker="o", color=TFColor[0], linewidth=1)
-    axs[3].plot(epochs, mlp_test_ibs, marker="s", color=TFColor[0], linewidth=1)
-    axs[3].plot(epochs, vi_train_ibs, marker="o", color=TFColor[2], linewidth=1)
-    axs[3].plot(epochs, vi_test_ibs, marker="s", color=TFColor[2], linewidth=1)
-    axs[3].plot(epochs, mc_train_ibs, marker="o", color=TFColor[3], linewidth=1)
-    axs[3].plot(epochs, mc_test_ibs, marker="s", color=TFColor[3], linewidth=1)
-    axs[3].set_xlabel('Epoch', fontsize="medium")
-    axs[3].set_ylabel('IBS', fontsize="medium")
-    
-    fig.legend(loc=7)
-    fig.subplots_adjust(right=0.85, wspace=0.25)
-    fig.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_training_curves.pdf"),
-                format='pdf', bbox_inches="tight")    
-    
+def plot_training_curves(results, n_epochs, dataset_name, model_names, metric_names):
+    fig, axes = plt.subplots(1, 4, figsize=(18, 4))
+    for (j, metric_name) in enumerate(metric_names):
+        for (k, model_name) in enumerate(model_names):
+            model_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
+            metric_results = model_results[metric_name]            
+            axes[j].plot(range(n_epochs), metric_results, label=get_label_name(model_name),
+                            marker="o", color=TFColor[k], linewidth=1)
+        axes[j].set_xlabel('Epoch', fontsize="medium")
+        axes[j].set_ylabel(get_y_label(metric_name), fontsize="medium")
+        axes[j].grid()
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper right')
+    fig.tight_layout()
+    plt.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_training_curves.pdf"),
+                format='pdf', bbox_inches="tight")
     plt.close()

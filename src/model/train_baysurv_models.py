@@ -21,7 +21,8 @@ from utility.survival import make_event_times, calculate_percentiles
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-np.seterr(divide = 'ignore')
+np.seterr(divide ='ignore')
+np.seterr(invalid='ignore')
 
 np.random.seed(0)
 tf.random.set_seed(0)
@@ -157,6 +158,14 @@ if __name__ == "__main__":
             train_times = trainer.train_times
             best_ep = trainer.best_ep
             
+            # Valid
+            valid_loss = trainer.valid_loss_scores
+            valid_ctd = trainer.valid_ctd_scores
+            valid_ibs = trainer.valid_ibs_scores
+            valid_inbll = trainer.valid_inbll_scores
+            valid_ece = trainer.valid_ece_scores
+            valid_e50 = trainer.valid_e50_scores
+            
             # Test
             test_loss = trainer.test_loss_scores
             test_ctd = trainer.test_ctd_scores
@@ -174,11 +183,13 @@ if __name__ == "__main__":
             # Save to df
             print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
             res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, train_ece, train_e50, # train
+                                                   valid_loss, valid_ctd, valid_ibs, valid_inbll, valid_ece, valid_e50, # valid
                                                    test_loss, test_ctd, test_ibs, test_inbll, test_ece, test_e50, test_variance, # test
                                                    train_times, test_times]), # times
                                 columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL", "TrainECE", "TrainE50",
-                                        "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestECE", "TestE50", "TestVar",
-                                        "TrainTime", "TestTime"])
+                                         "ValidLoss", "ValidCTD", "ValidIBS", "ValidINBLL", "ValidECE", "ValidE50", 
+                                         "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestECE", "TestE50", "TestVar",
+                                         "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             res_df['BestEpoch'] = best_ep

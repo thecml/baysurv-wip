@@ -28,7 +28,8 @@ from utility.survival import survival_probability_calibration
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-np.seterr(divide = 'ignore')
+np.seterr(divide ='ignore')
+np.seterr(invalid='ignore')
 
 np.random.seed(0)
 tf.random.set_seed(0)

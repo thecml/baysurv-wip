@@ -10,7 +10,7 @@ from utility.plot import plot_calibration_curves
 from collections import defaultdict
 from pathlib import Path
 import paths as pt
-from utility.survival import make_time_bins
+from utility.survival import make_time_bins, make_event_times
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -42,14 +42,11 @@ if __name__ == "__main__":
         t_test, e_test = make_time_event_split(y_test)
 
         # Fit Breslow to get unique event times
-        cox_model = load_sota_model(dataset_name, "Cox")
-        train_predictions = cox_model.predict(X_train)
-        breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-        event_times = breslow.unique_times_
+        event_times = make_event_times(t_train, e_train)
             
         # Calculate quantiles
         percentiles = dict()
-        for q in [25, 50, 75]:
+        for q in [25, 50, 75, 90]:
             t = int(np.percentile(event_times, q))
             t_nearest = find_nearest(event_times, t)
             percentiles[q] = t_nearest
@@ -57,22 +54,19 @@ if __name__ == "__main__":
         # Load models
         n_input_dims = X_train.shape[1:]
         n_train_samples = X_train.shape[0]
-        rsf_model = load_sota_model(dataset_name, "RSF")
+        cox_model = load_sota_model(dataset_name, "cox")
+        rsf_model = load_sota_model(dataset_name, "rsf")
         mlp_model = load_mlp_model(dataset_name, n_input_dims)
         vi_model = load_vi_model(dataset_name, n_train_samples, n_input_dims)
         mcd_model = load_mcd_model(dataset_name, n_input_dims)
 
         # Compute calibration curves
         pred_obs, predictions, deltas = defaultdict(dict), defaultdict(dict), defaultdict(dict)
-        models = {'Cox': cox_model, 'RSF': rsf_model, 'MLP':mlp_model, 'VI': vi_model, 'MCD': mcd_model}
+        models = {'Cox': cox_model, 'RSF': rsf_model, 'MLP': mlp_model, 'VI': vi_model, 'MCD': mcd_model}
         for t0 in percentiles.values():
             for model_name, model in models.items():
-                if type(model).__name__ in ["CoxPHSurvivalAnalysis", "RandomSurvivalForest"]:
-                    surv_fn = model.predict_survival_function(X_test)
-                    surv_preds = pd.DataFrame(np.row_stack([fn(event_times) for fn in surv_fn]), columns=event_times)
-                else:
-                    surv_fn = compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, RUNS[model_name])
-                    surv_preds = pd.DataFrame(np.mean(surv_fn, axis=0), columns=event_times)
+                surv_fn = compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, RUNS[model_name])
+                surv_preds = pd.DataFrame(np.mean(surv_fn, axis=0), columns=event_times)
                 pred_t0, obs_t0, predictions_at_t0, deltas_t0 = survival_probability_calibration(surv_preds, t_test, e_test, t0)
                 pred_obs[t0][model_name] = (pred_t0, obs_t0)
                 predictions[t0][model_name] = predictions_at_t0

@@ -382,12 +382,19 @@ def convert_to_structured(T, E):
     # return structured array
     return np.array(concat, dtype=default_dtypes)
 
-def compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, runs=1):
-    train_predictions = model.predict(X_train).reshape(-1)
+def compute_survival_function(model, X_train, X_test, e_train, t_train,
+                              event_times, runs=1, model_type="TF"):
+    if model_type == "TF":
+        train_predictions = model.predict(X_train, verbose=False).reshape(-1)
+    else:
+        train_predictions = model.predict(X_train).reshape(-1)
     breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
     model_cpd = np.zeros((runs, len(X_test)))
     for i in range(0, runs):
-        model_cpd[i,:] = np.reshape(model.predict(X_test), len(X_test))
+        if model_type =="TF":
+            model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=False), len(X_test))
+        else:
+            model_cpd[i,:] = np.reshape(model.predict(X_test), len(X_test))
     breslow_surv_times = np.zeros((runs, len(X_test), len(event_times)))
     for i in range(0, runs):
         surv_fn = breslow.get_survival_function(model_cpd[i,:])
