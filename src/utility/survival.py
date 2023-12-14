@@ -391,7 +391,7 @@ def compute_survival_function(model, X_train, X_test, e_train, t_train,
     breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
     model_cpd = np.zeros((runs, len(X_test)))
     for i in range(0, runs):
-        if model_type =="TF":
+        if model_type == "TF":
             model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=False), len(X_test))
         else:
             model_cpd[i,:] = np.reshape(model.predict(X_test), len(X_test))

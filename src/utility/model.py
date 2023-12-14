@@ -19,7 +19,7 @@ import joblib
 import numpy as np
 
 curr_dir = os.getcwd()
-root_dir = Path(curr_dir).absolute()
+root_dir = Path(curr_dir).absolute().parent # TODO: Fix this to properly set path
 
 def load_sota_model(dataset_name, model_name):
     return joblib.load(Path.joinpath(pt.MODELS_DIR,
