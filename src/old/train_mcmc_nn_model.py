@@ -18,7 +18,7 @@ from utility.risk import _make_riskset
 from utility.risk import InputFunction
 from sksurv.metrics import concordance_index_censored
 from collections import defaultdict
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 
 import os
 from pathlib import Path
@@ -161,8 +161,8 @@ if __name__ == "__main__":
     X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
 
     # Make time/event split
-    t_train, e_train = make_time_event_split(y_train)
-    t_test, e_test = make_time_event_split(y_test)
+    t_train, e_train = split_time_event(y_train)
+    t_test, e_test = split_time_event(y_test)
 
     bnn_joint_log_prob = partial(bnn_joint_log_prob_fn, weight_prior, bias_prior, X_train, e_train, t_train)
     num_features = X_train.shape[1]

@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
-from utility.training import get_data_loader, scale_data, make_time_event_split, train_val_test_stratified_split
+from utility.training import get_data_loader, scale_data, split_time_event, train_val_test_stratified_split
 from utility.survival import make_time_bins, mtlr_survival, reformat_survival
 from utility.bnn_isd_models import BayesMtlr, BayesEleCox, BayesLinCox, BayesianBaseModel, BayesEleMtlr
 import math

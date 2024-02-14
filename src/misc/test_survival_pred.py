@@ -11,8 +11,8 @@ from sksurv.linear_model.coxph import BreslowEstimator, CoxPHSurvivalAnalysis
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from sklearn.model_selection import train_test_split
-from utility.training import get_data_loader, scale_data, make_time_event_split
-from utility.survival import make_event_times, predict_median_survival_time, predict_mean_survival_time
+from utility.training import get_data_loader, scale_data, split_time_event
+from utility.survival import calculate_event_times, predict_median_survival_time, predict_mean_survival_time
 from utility.config import load_config
 import paths as pt
 from utility.model import load_mlp_model
@@ -34,11 +34,11 @@ if __name__ == "__main__":
     X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
 
     # Make time/event split
-    t_train, e_train = make_time_event_split(y_train)
-    t_test, e_test = make_time_event_split(y_test)
+    t_train, e_train = split_time_event(y_train)
+    t_test, e_test = split_time_event(y_test)
 
     # Make event times
-    event_times = make_event_times(t_train, e_train)
+    event_times = calculate_event_times(t_train, e_train)
 
     # Load MLP model
     n_input_dims = X_train.shape[1:]

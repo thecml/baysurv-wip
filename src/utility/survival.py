@@ -241,7 +241,7 @@ def compute_unique_counts(
 
     return uniq_times, uniq_events, n_at_risk[:-1], n_censored
 
-def make_event_times(t_train, e_train):
+def calculate_event_times(t_train, e_train):
     unique_times = compute_unique_counts(torch.Tensor(e_train), torch.Tensor(t_train))[0]
     if 0 not in unique_times:
         unique_times = torch.cat([torch.tensor([0]).to(unique_times.device), unique_times], 0)
@@ -298,8 +298,13 @@ def survival_probability_calibration(surv_preds: pd.DataFrame,
                                      times,
                                      events,
                                      t0: float):
+    def safe_log(x, eps=1e-10):
+        result = np.where(x > eps, x, -10)
+        np.log(result, out=result, where=result > 0)
+        return result
+
     def ccl(p):
-        return np.log(-np.log(1 - p))
+        return safe_log(-safe_log(1-p))
     
     T = "Survival_time"
     E = "Event"

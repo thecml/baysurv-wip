@@ -9,14 +9,14 @@ import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
 from tools.baysurv_trainer import Trainer
 from utility.config import load_config
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 from utility.plot import plot_training_curves
 from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss, CoxPHLossLLA
 from pathlib import Path
 import paths as pt
-from utility.survival import make_event_times, calculate_percentiles
+from utility.survival import calculate_event_times, calculate_percentiles
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -60,12 +60,12 @@ if __name__ == "__main__":
     X_train, X_valid, X_test = np.array(X_train), np.array(X_valid), np.array(X_test)
 
     # Make time/event split
-    t_train, e_train = make_time_event_split(y_train)
-    t_valid, e_valid = make_time_event_split(y_valid)
-    t_test, e_test = make_time_event_split(y_test)
+    t_train, e_train = split_time_event(y_train)
+    t_valid, e_valid = split_time_event(y_valid)
+    t_test, e_test = split_time_event(y_test)
 
     # Make event times
-    event_times = make_event_times(t_train, e_train)
+    event_times = calculate_event_times(t_train, e_train)
     
     # Calculate quantiles
     event_times_pct = calculate_percentiles(event_times)
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     train_ctd = trainer.train_ctd_scores
     train_ibs = trainer.train_ibs_scores
     train_inbll = trainer.train_inbll_scores
-    train_ece = trainer.train_ece_scores
+    train_ece = trainer.train_ici_scores
     train_e50 = trainer.train_e50_scores
     train_times = trainer.train_times
     best_ep = trainer.best_ep

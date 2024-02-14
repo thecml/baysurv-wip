@@ -16,19 +16,17 @@ import os
 from sklearn.model_selection import train_test_split
 from utility.tuning import get_mlp_sweep_config
 import argparse
-import pandas as pd
-from pycox.evaluation import EvalSurv
 import numpy as np
 import os
 import argparse
 from tools import data_loader
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from pycox.evaluation import EvalSurv
-from utility.training import scale_data, make_time_event_split
-from utility.survival import make_event_times
+from utility.training import split_time_event
+from utility.survival import calculate_event_times, compute_survival_function, calculate_percentiles
 import config as cfg
-from sksurv.linear_model.coxph import BreslowEstimator
+from tools.evaluator import LifelinesEvaluator
+from tools.preprocessor import Preprocessor
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -84,19 +82,25 @@ def train_model():
     X, y = dl.get_data()
     
     # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=0)
     X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
     
     # Scale data
-    X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
-    X_train, X_valid, X_test = np.array(X_train), np.array(X_valid), np.array(X_test)
+    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
+    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
+                                   one_hot=True, fill_value=-1)
+    X_train = np.array(transformer.transform(X_train))
+    X_valid = np.array(transformer.transform(X_valid))
     
     # Make time/event split
-    t_train, e_train = make_time_event_split(y_train)
-    t_valid, e_valid = make_time_event_split(y_valid)
+    t_train, e_train = split_time_event(y_train)
+    t_valid, e_valid = split_time_event(y_valid)
 
-    # Make event times
-    event_times = make_event_times(t_train, e_train)
+    # Calculate event times
+    event_times = calculate_event_times(t_train, e_train)
+    
+    # Calculate percentiles
+    event_times_pct = calculate_percentiles(event_times)
 
     # Make datasets
     train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
@@ -136,23 +140,21 @@ def train_model():
                                       num_epochs=num_epochs,
                                       event_times=event_times,
                                       early_stop=early_stop,
-                                      patience=patience)
+                                      patience=patience,
+                                      event_times_pct=event_times_pct)
     trainer.train_and_evaluate()
 
     # Compute survival function
-    train_predictions = model.predict(X_train).reshape(-1)
-    test_predictions = model.predict(X_valid).reshape(-1)
-    breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-    test_surv_fn = breslow.get_survival_function(test_predictions)
-    surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+    surv_preds = pd.DataFrame(np.mean(compute_survival_function(
+        model, X_train, X_valid, e_train, t_train, event_times, runs=1), axis=0), columns=event_times)
     
     # Compute CTD
-    surv_test = pd.DataFrame(surv_preds, columns=event_times)
-    ev = EvalSurv(surv_test.T, y_valid["time"], y_valid["event"], censor_surv="km")
-    ctd = ev.concordance_td()
+    lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
+    ci = lifelines_eval.concordance()[0]
+    print(ci)
     
     # Log to wandb
-    wandb.log({"val_ctd": ctd})
+    wandb.log({"val_ci": ci})
 
 if __name__ == "__main__":
     main()

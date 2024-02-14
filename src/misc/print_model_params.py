@@ -9,14 +9,14 @@ from pathlib import Path
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)             
 from sklearn.model_selection import train_test_split
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 from utility.config import load_config
 from utility.loss import CoxPHLoss
 import paths as pt
 from utility.survival import compute_survival_times
 from utility.model import load_mlp_model, load_mlp_alea_model, load_vi_model, load_vi_epi_model, load_mcd_model
 import math
-from utility.survival import coverage, make_event_times, compute_survival_function
+from utility.survival import coverage, calculate_event_times, compute_survival_function
 import torch
 from utility.model import load_sota_model
 from sksurv.linear_model.coxph import BreslowEstimator

@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utility.metrics import CtdMetric, IbsMetric, InbllMetric, EceMetric, E50Metric
+from utility.metrics import CtdMetric, IbsMetric, InbllMetric, IciMetric, E50Metric
 from utility.survival import convert_to_structured
 from time import time
 from utility.loss import CoxPHLoss, CoxPHLossLLA
@@ -25,33 +25,33 @@ class Trainer:
         self.train_ctd_metric = CtdMetric(event_times)
         self.train_ibs_metric = IbsMetric(event_times)
         self.train_inbll_metric = InbllMetric(event_times)
-        self.train_ece_metric = EceMetric(event_times, event_times_pct)
+        self.train_ici_metric = IciMetric(event_times, event_times_pct)
         self.train_e50_metric = E50Metric(event_times, event_times_pct)
         self.train_loss_scores, self.train_inbll_scores = list(), list()
         self.train_ctd_scores, self.train_ibs_scores = list(), list()
-        self.train_ece_scores, self.train_e50_scores = list(), list()
+        self.train_ici_scores, self.train_e50_scores = list(), list()
         
         # Valid metrics
         self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
         self.valid_ctd_metric = CtdMetric(event_times)
         self.valid_ibs_metric = IbsMetric(event_times)
         self.valid_inbll_metric = InbllMetric(event_times)
-        self.valid_ece_metric = EceMetric(event_times, event_times_pct)
+        self.valid_ici_metric = IciMetric(event_times, event_times_pct)
         self.valid_e50_metric = E50Metric(event_times, event_times_pct)
         self.valid_loss_scores, self.valid_inbll_scores = list(), list()
         self.valid_ctd_scores, self.valid_ibs_scores = list(), list()
-        self.valid_ece_scores, self.valid_e50_scores = list(), list()
+        self.valid_ici_scores, self.valid_e50_scores = list(), list()
         
         # Test metrics
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
         self.test_ctd_metric = CtdMetric(event_times)
         self.test_ibs_metric = IbsMetric(event_times)
         self.test_inbll_metric = InbllMetric(event_times)
-        self.test_ece_metric = EceMetric(event_times, event_times_pct)
+        self.test_ici_metric = IciMetric(event_times, event_times_pct)
         self.test_e50_metric = E50Metric(event_times, event_times_pct)
         self.test_loss_scores, self.test_inbll_scores = list(), list()
         self.test_ctd_scores, self.test_ibs_scores = list(), list()
-        self.test_ece_scores, self.test_e50_scores = list(), list()
+        self.test_ici_scores, self.test_e50_scores = list(), list()
 
         self.train_times, self.test_times = list(), list()
         
@@ -132,13 +132,13 @@ class Trainer:
                 self.test_inbll_metric.update_train_state(y_train)
                 self.test_inbll_metric.update_train_pred(logits)
                 
-                # ECE
-                self.train_ece_metric.update_train_state(y_train)
-                self.train_ece_metric.update_train_pred(logits)
-                self.valid_ece_metric.update_train_state(y_train)
-                self.valid_ece_metric.update_train_pred(logits)
-                self.test_ece_metric.update_train_state(y_train)
-                self.test_ece_metric.update_train_pred(logits)
+                # ICI
+                self.train_ici_metric.update_train_state(y_train)
+                self.train_ici_metric.update_train_pred(logits)
+                self.valid_ici_metric.update_train_state(y_train)
+                self.valid_ici_metric.update_train_pred(logits)
+                self.test_ici_metric.update_train_state(y_train)
+                self.test_ici_metric.update_train_pred(logits)
                 
                 # E50
                 self.train_e50_metric.update_train_state(y_train)
@@ -159,14 +159,14 @@ class Trainer:
         epoch_ctd = self.train_ctd_metric.result()
         epoch_ibs = self.train_ibs_metric.result()
         epoch_inbll = self.train_inbll_metric.result()
-        epoch_ece = self.train_ece_metric.result()
+        epoch_ici = self.train_ici_metric.result()
         epoch_e50 = self.train_e50_metric.result()
 
         self.train_loss_scores.append(float(epoch_loss))
         self.train_ctd_scores.append(float(epoch_ctd))
         self.train_ibs_scores.append(float(epoch_ibs))
         self.train_inbll_scores.append(float(epoch_inbll))
-        self.train_ece_scores.append(float(epoch_ece))
+        self.train_ici_scores.append(float(epoch_ici))
         self.train_e50_scores.append(float(epoch_e50))
 
         self.train_times.append(float(total_train_time))
@@ -197,8 +197,8 @@ class Trainer:
                 self.valid_ibs_metric.update_test_pred(logits_mean)
                 self.valid_inbll_metric.update_test_state(y_valid)
                 self.valid_inbll_metric.update_test_pred(logits_mean)
-                self.valid_ece_metric.update_test_state(y_valid)
-                self.valid_ece_metric.update_test_pred(logits_mean)
+                self.valid_ici_metric.update_test_state(y_valid)
+                self.valid_ici_metric.update_test_pred(logits_mean)
                 self.valid_e50_metric.update_test_state(y_valid)
                 self.valid_e50_metric.update_test_pred(logits_mean)
             else:
@@ -212,8 +212,8 @@ class Trainer:
                 self.valid_ibs_metric.update_test_pred(logits)
                 self.valid_inbll_metric.update_test_state(y_valid)
                 self.valid_inbll_metric.update_test_pred(logits)
-                self.valid_ece_metric.update_test_state(y_valid)
-                self.valid_ece_metric.update_test_pred(logits)
+                self.valid_ici_metric.update_test_state(y_valid)
+                self.valid_ici_metric.update_test_pred(logits)
                 self.valid_e50_metric.update_test_state(y_valid)
                 self.valid_e50_metric.update_test_pred(logits)
                 
@@ -221,14 +221,14 @@ class Trainer:
         epoch_ctd = self.valid_ctd_metric.result()
         epoch_ibs = self.valid_ibs_metric.result()
         epoch_inbll = self.valid_inbll_metric.result()
-        epoch_ece = self.valid_ece_metric.result()
+        epoch_ici = self.valid_ici_metric.result()
         epoch_e50 = self.valid_e50_metric.result()
         
         self.valid_loss_scores.append(float(epoch_loss))
         self.valid_ctd_scores.append(float(epoch_ctd))
         self.valid_ibs_scores.append(float(epoch_ibs))
         self.valid_inbll_scores.append(float(epoch_inbll))
-        self.valid_ece_scores.append(float(epoch_ece))
+        self.valid_ici_scores.append(float(epoch_ici))
         self.valid_e50_scores.append(float(epoch_e50))
         
         # Early stopping
@@ -276,8 +276,8 @@ class Trainer:
                 self.test_ibs_metric.update_test_pred(logits_mean)
                 self.test_inbll_metric.update_test_state(y_test)
                 self.test_inbll_metric.update_test_pred(logits_mean)
-                self.test_ece_metric.update_test_state(y_test)
-                self.test_ece_metric.update_test_pred(logits_mean)
+                self.test_ici_metric.update_test_state(y_test)
+                self.test_ici_metric.update_test_pred(logits_mean)
                 self.test_e50_metric.update_test_state(y_test)
                 self.test_e50_metric.update_test_pred(logits_mean)
             else:
@@ -291,8 +291,8 @@ class Trainer:
                 self.test_ibs_metric.update_test_pred(logits)
                 self.test_inbll_metric.update_test_state(y_test)
                 self.test_inbll_metric.update_test_pred(logits)
-                self.test_ece_metric.update_test_state(y_test)
-                self.test_ece_metric.update_test_pred(logits)
+                self.test_ici_metric.update_test_state(y_test)
+                self.test_ici_metric.update_test_pred(logits)
                 self.test_e50_metric.update_test_state(y_test)
                 self.test_e50_metric.update_test_pred(logits)
          
@@ -307,14 +307,14 @@ class Trainer:
         epoch_ctd = self.test_ctd_metric.result()
         epoch_ibs = self.test_ibs_metric.result()
         epoch_inbll = self.test_inbll_metric.result()
-        epoch_ece = self.test_ece_metric.result()
+        epoch_ici = self.test_ici_metric.result()
         epoch_e50 = self.test_e50_metric.result()
 
         self.test_loss_scores.append(float(epoch_loss))
         self.test_ctd_scores.append(float(epoch_ctd))
         self.test_ibs_scores.append(float(epoch_ibs))
         self.test_inbll_scores.append(float(epoch_inbll))
-        self.test_ece_scores.append(float(epoch_ece))
+        self.test_ici_scores.append(float(epoch_ici))
         self.test_e50_scores.append(float(epoch_e50))
         self.test_times.append(float(total_test_time))
     
@@ -323,17 +323,17 @@ class Trainer:
         self.train_ctd_metric.reset_states()
         self.train_ibs_metric.reset_states()
         self.train_inbll_metric.reset_states()
-        self.train_ece_metric.reset_states()
+        self.train_ici_metric.reset_states()
         self.train_e50_metric.reset_states()
         self.valid_loss_metric.reset_states()
         self.valid_ctd_metric.reset_states()
         self.valid_ibs_metric.reset_states()
         self.valid_inbll_metric.reset_states()
-        self.valid_ece_metric.reset_states()
+        self.valid_ici_metric.reset_states()
         self.valid_e50_metric.reset_states()
         self.test_loss_metric.reset_states()
         self.test_ctd_metric.reset_states()
         self.test_ibs_metric.reset_states()
         self.test_inbll_metric.reset_states()
-        self.test_ece_metric.reset_states()
+        self.test_ici_metric.reset_states()
         self.test_e50_metric.reset_states()

@@ -216,7 +216,7 @@ class InbllMetric:
             inbll = ev.integrated_nbll(self._event_times)
         return inbll
 
-class EceMetric:
+class IciMetric:
     """Computes ECE across one epoch."""
     def __init__(self, event_times, event_times_pct) -> None:
         self._event_times = event_times
@@ -250,7 +250,7 @@ class EceMetric:
         self._data["pred_test"].append(tf.squeeze(y_pred).numpy())
 
     def result(self) -> Dict[str, float]:
-        """Computes the integrated negative binomial log-likelihood across collected values.
+        """Computes the ICI across collected values.
 
         Returns
         ----------

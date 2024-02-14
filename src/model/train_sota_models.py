@@ -5,8 +5,8 @@ import random
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from utility.survival import make_time_bins, make_event_times, calculate_percentiles
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.survival import make_time_bins, calculate_event_times, calculate_percentiles
+from utility.training import get_data_loader, scale_data, split_time_event
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
@@ -77,13 +77,13 @@ if __name__ == "__main__":
         X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
 
         # Make time/event split
-        t_train, e_train = make_time_event_split(y_train)
-        t_valid, e_valid = make_time_event_split(y_valid)
-        t_test, e_test = make_time_event_split(y_test)
+        t_train, e_train = split_time_event(y_train)
+        t_valid, e_valid = split_time_event(y_valid)
+        t_test, e_test = split_time_event(y_test)
         
         # Make event times
         mtlr_times = make_time_bins(t_train, event=e_train)
-        event_times = make_event_times(t_train, e_train)
+        event_times = calculate_event_times(t_train, e_train)
         
         # Calculate quantiles
         event_times_pct = calculate_percentiles(event_times)
