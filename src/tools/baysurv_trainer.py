@@ -82,7 +82,7 @@ class Trainer:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
                 if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                    runs = 1
+                    runs = 1 #TODO: Set as hyperparam
                     logits_cpd = tf.zeros((runs, y_event.shape[0]), dtype=np.float32)
                     output_list = []
                     tensor_shape = logits_cpd.get_shape()
