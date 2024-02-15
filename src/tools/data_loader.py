@@ -35,12 +35,13 @@ class BaseDataLoader(ABC):
         e_test = np.array(y_test['Event'])
         return t_train, t_valid, t_test, e_train, e_valid, e_test
 
-    def get_data(self) -> Tuple[pd.DataFrame, np.ndarray]:
+    def get_data(self) -> pd.DataFrame:
         """
         This method returns the features and targets
-        :return: X and y
+        :return: df
         """
-        return self.X, self.y
+        merged_df = pd.concat([self.X, pd.DataFrame(self.y)], axis=1)
+        return merged_df
 
     def get_features(self) -> List[str]:
         """
@@ -82,6 +83,38 @@ class BaseDataLoader(ABC):
         X_test = np.array(X_test, dtype=np.float32)
 
         return X_train, X_valid, X_test, y_train, y_valid, y_test
+
+class MimicDataLoader(BaseDataLoader):
+    """
+    Data loader for MIMIC dataset
+    """
+    def load_data(self):
+        #skip_cols = ['event', 'is_male', 'time', 'is_white', 'renal', 'cns', 'coagulation', 'cardiovascular']
+        #cols_standardize = list(set(data.columns.to_list()).symmetric_difference(skip_cols))
+        #data[cols_standardize] = data[cols_standardize].apply(lambda x: (x - x.mean()) / x.std())
+        
+        path = Path.joinpath(pt.DATA_DIR, "mimic.csv")
+        data = pd.read_csv(path)
+        
+        outcomes = data.copy()
+        outcomes['event'] =  data['event']
+        outcomes['time'] = data['time']
+        outcomes = outcomes[['event', 'time']]
+
+        data = data.drop(['event', "time"], axis=1)
+
+        obj_cols = data.select_dtypes(['bool']).columns.tolist() \
+                + data.select_dtypes(['object']).columns.tolist()
+        for col in obj_cols:
+            data[col] = data[col].astype('category')
+
+        self.X = pd.DataFrame(data)
+
+        self.num_features = self._get_num_features(self.X)
+        self.cat_features = self._get_cat_features(self.X)
+        self.y = convert_to_structured(outcomes['time'], outcomes['event'])
+
+        return self
 
 class SeerDataLoader(BaseDataLoader):
     """

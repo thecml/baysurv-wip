@@ -379,7 +379,7 @@ def compute_survival_times_with_censoring(risk_scores, t_train, e_train):
 
 def convert_to_structured(T, E):
     # dtypes for conversion
-    default_dtypes = {"names": ("event", "time"), "formats": ("bool", "f8")}
+    default_dtypes = {"names": ("event", "time"), "formats": ("bool", "i4")}
 
     # concat of events and times
     concat = list(zip(E, T))

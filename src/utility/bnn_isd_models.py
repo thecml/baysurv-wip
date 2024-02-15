@@ -35,6 +35,123 @@ class dotdict(dict):
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
 
+class CoxPH(nn.Module):
+    """Cox proportional hazard model for individualised survival prediction."""
+
+    def __init__(self, in_features: int, config: argparse.Namespace):
+        super().__init__()
+        if in_features < 1:
+            raise ValueError("The number of input features must be at least 1")
+        self.config = config
+        self.in_features = in_features
+        self.time_bins = None
+        self.cum_baseline_hazard = None
+        self.baseline_survival = None
+        self.l1 = nn.Linear(self.in_features, 1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        outputs = self.l1(x)
+        return outputs
+
+    def calculate_baseline_survival(self, x, t, e):
+        outputs = self.forward(x)
+        self.time_bins, self.cum_baseline_hazard, self.baseline_survival = baseline_hazard(outputs, t, e)
+
+    def reset_parameters(self):
+        self.l1.reset_parameters()
+        return self
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(in_features={self.in_features}"
+
+    def get_name(self):
+        return self._get_name()
+
+class mtlr(nn.Module):
+    """Multi-task logistic regression for individualised
+    survival prediction.
+
+    The MTLR time-logits are computed as:
+    `z = sum_k x^T w_k + b_k`,
+    where `w_k` and `b_k` are learnable weights and biases for each time
+    interval.
+
+    Note that a slightly more efficient reformulation is used here, first
+    proposed in [2]_.
+
+    References
+    ----------
+    ..[1] C.-N. Yu et al., ‘Learning patient-specific cancer survival
+    distributions as a sequence of dependent regressors’, in Advances in neural
+    information processing systems 24, 2011, pp. 1845–1853.
+    ..[2] P. Jin, ‘Using Survival Prediction Techniques to Learn
+    Consumer-Specific Reservation Price Distributions’, Master's thesis,
+    University of Alberta, Edmonton, AB, 2015.
+    """
+
+    def __init__(self, in_features: int, num_time_bins: int, config: argparse.Namespace):
+        """Initialises the module.
+
+        Parameters
+        ----------
+        in_features
+            Number of input features.
+        num_time_bins
+            The number of bins to divide the time axis into.
+        """
+        super().__init__()
+        if num_time_bins < 1:
+            raise ValueError("The number of time bins must be at least 1")
+        if in_features < 1:
+            raise ValueError("The number of input features must be at least 1")
+        self.config = config
+        self.in_features = in_features
+        self.num_time_bins = num_time_bins + 1  # + extra time bin [max_time, inf)
+
+        self.mtlr_weight = nn.Parameter(torch.Tensor(self.in_features,
+                                                     self.num_time_bins - 1))
+        self.mtlr_bias = nn.Parameter(torch.Tensor(self.num_time_bins - 1))
+
+        # `G` is the coding matrix from [2]_ used for fast summation.
+        # When registered as buffer, it will be automatically
+        # moved to the correct device and stored in saved
+        # model state.
+        self.register_buffer(
+            "G",
+            torch.tril(
+                torch.ones(self.num_time_bins - 1,
+                           self.num_time_bins,
+                           requires_grad=True)))
+        self.reset_parameters()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Performs a forward pass on a batch of examples.
+
+        Parameters
+        ----------
+        x : torch.Tensor, shape (num_samples, num_features)
+            The input data.
+
+        Returns
+        -------
+        torch.Tensor, shape (num_samples, num_time_bins - 1)
+            The predicted time logits.
+        """
+        out = torch.matmul(x, self.mtlr_weight) + self.mtlr_bias
+        return torch.matmul(out, self.G)
+
+    def reset_parameters(self):
+        """Resets the model parameters."""
+        nn.init.xavier_normal_(self.mtlr_weight)
+        nn.init.constant_(self.mtlr_bias, 0.)
+
+    def __repr__(self):
+        return (f"{self.__class__.__name__}(in_features={self.in_features},"
+                f" num_time_bins={self.num_time_bins})")
+
+    def get_name(self):
+        return self._get_name()
+
 class BayesianBaseModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -128,123 +245,6 @@ def make_ensemble_mtlr_prediction(
 
     time_bins = time_bins.to(survival_outputs.device)
     return mean_survival_outputs, time_bins, survival_outputs
-
-class mtlr(nn.Module):
-    """Multi-task logistic regression for individualised
-    survival prediction.
-
-    The MTLR time-logits are computed as:
-    `z = sum_k x^T w_k + b_k`,
-    where `w_k` and `b_k` are learnable weights and biases for each time
-    interval.
-
-    Note that a slightly more efficient reformulation is used here, first
-    proposed in [2]_.
-
-    References
-    ----------
-    ..[1] C.-N. Yu et al., ‘Learning patient-specific cancer survival
-    distributions as a sequence of dependent regressors’, in Advances in neural
-    information processing systems 24, 2011, pp. 1845–1853.
-    ..[2] P. Jin, ‘Using Survival Prediction Techniques to Learn
-    Consumer-Specific Reservation Price Distributions’, Master's thesis,
-    University of Alberta, Edmonton, AB, 2015.
-    """
-
-    def __init__(self, in_features: int, num_time_bins: int, config: argparse.Namespace):
-        """Initialises the module.
-
-        Parameters
-        ----------
-        in_features
-            Number of input features.
-        num_time_bins
-            The number of bins to divide the time axis into.
-        """
-        super().__init__()
-        if num_time_bins < 1:
-            raise ValueError("The number of time bins must be at least 1")
-        if in_features < 1:
-            raise ValueError("The number of input features must be at least 1")
-        self.config = config
-        self.in_features = in_features
-        self.num_time_bins = num_time_bins + 1  # + extra time bin [max_time, inf)
-
-        self.mtlr_weight = nn.Parameter(torch.Tensor(self.in_features,
-                                                     self.num_time_bins - 1))
-        self.mtlr_bias = nn.Parameter(torch.Tensor(self.num_time_bins - 1))
-
-        # `G` is the coding matrix from [2]_ used for fast summation.
-        # When registered as buffer, it will be automatically
-        # moved to the correct device and stored in saved
-        # model state.
-        self.register_buffer(
-            "G",
-            torch.tril(
-                torch.ones(self.num_time_bins - 1,
-                           self.num_time_bins,
-                           requires_grad=True)))
-        self.reset_parameters()
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Performs a forward pass on a batch of examples.
-
-        Parameters
-        ----------
-        x : torch.Tensor, shape (num_samples, num_features)
-            The input data.
-
-        Returns
-        -------
-        torch.Tensor, shape (num_samples, num_time_bins - 1)
-            The predicted time logits.
-        """
-        out = torch.matmul(x, self.mtlr_weight) + self.mtlr_bias
-        return torch.matmul(out, self.G)
-
-    def reset_parameters(self):
-        """Resets the model parameters."""
-        nn.init.xavier_normal_(self.mtlr_weight)
-        nn.init.constant_(self.mtlr_bias, 0.)
-
-    def __repr__(self):
-        return (f"{self.__class__.__name__}(in_features={self.in_features},"
-                f" num_time_bins={self.num_time_bins})")
-
-    def get_name(self):
-        return self._get_name()
-
-class CoxPH(nn.Module):
-    """Cox proportional hazard model for individualised survival prediction."""
-
-    def __init__(self, in_features: int, config: argparse.Namespace):
-        super().__init__()
-        if in_features < 1:
-            raise ValueError("The number of input features must be at least 1")
-        self.config = config
-        self.in_features = in_features
-        self.time_bins = None
-        self.cum_baseline_hazard = None
-        self.baseline_survival = None
-        self.l1 = nn.Linear(self.in_features, 1)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        outputs = self.l1(x)
-        return outputs
-
-    def calculate_baseline_survival(self, x, t, e):
-        outputs = self.forward(x)
-        self.time_bins, self.cum_baseline_hazard, self.baseline_survival = baseline_hazard(outputs, t, e)
-
-    def reset_parameters(self):
-        self.l1.reset_parameters()
-        return self
-
-    def __repr__(self):
-        return f"{self.__class__.__name__}(in_features={self.in_features}"
-
-    def get_name(self):
-        return self._get_name()
 
 class BayesEleMtlr(BayesianBaseModel):
     def __init__(self, in_features: int, num_time_bins: int, config: argparse.Namespace):

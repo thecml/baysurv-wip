@@ -1,22 +1,20 @@
-import tensorflow as tf
-import tensorflow_probability as tfp
-import numpy as np
-from utility.loss import CoxPHLoss
-from utility.metrics import CindexMetric
 from sksurv.linear_model import CoxPHSurvivalAnalysis, CoxnetSurvivalAnalysis
 from sksurv.ensemble import GradientBoostingSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
 from auton_survival.estimators import SurvivalModel
 from auton_survival import DeepCoxPH
-import math
 from utility.bnn_isd_models import BayesCox
 from utility.bnn_isd_models import BayesMtlr
+from pycox.models import DeepHitSingle
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
+
+#def make_deephit_model(config):
+#    return DeepHitSingle()
 
 def make_baycox_model(num_features, config):
     return BayesCox(in_features=num_features, config=config)

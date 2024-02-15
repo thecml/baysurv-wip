@@ -1,5 +1,5 @@
 from tools.data_loader import (BaseDataLoader, FlchainDataLoader, GbsgDataLoader, MetabricDataLoader,
-                               SupportDataLoader, WhasDataLoader, AidsDataLoader, SeerDataLoader)
+                               SupportDataLoader, WhasDataLoader, AidsDataLoader, SeerDataLoader, MimicDataLoader)
 from tools.preprocessor import Preprocessor
 from typing import Tuple
 import numpy as np
@@ -7,6 +7,7 @@ import torch
 import pandas as pd
 from sklearn.utils import shuffle
 from skmultilearn.model_selection import iterative_train_test_split
+from sklearn.model_selection import train_test_split
 
 def multilabel_train_test_split(X, y, test_size, random_state=None):
     """Iteratively stratified train/test split
@@ -17,18 +18,19 @@ def multilabel_train_test_split(X, y, test_size, random_state=None):
     X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=test_size)
     return X_train, y_train, X_test, y_test
 
-def train_val_test_stratified_split(
+def make_stratified_split(
         df: pd.DataFrame,
         stratify_colname: str = 'event',
         frac_train: float = 0.5,
-        frac_val: float = 0.0,
+        frac_valid: float = 0.0,
         frac_test: float = 0.5,
         random_state: int = None
 ) -> (pd.DataFrame, pd.DataFrame, pd.DataFrame):
-    assert frac_train >= 0 and frac_val >= 0 and frac_test >= 0, "Check train validation test fraction."
-    frac_sum = frac_train + frac_val + frac_test
+    '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
+    assert frac_train >= 0 and frac_valid >= 0 and frac_test >= 0, "Check train validation test fraction."
+    frac_sum = frac_train + frac_valid + frac_test
     frac_train = frac_train / frac_sum
-    frac_val = frac_val / frac_sum
+    frac_valid = frac_valid / frac_sum
     frac_test = frac_test / frac_sum
 
     X = df.values  # Contains all columns.
@@ -50,11 +52,11 @@ def train_val_test_stratified_split(
 
     x_train, _, x_temp, y_temp = multilabel_train_test_split(X, y=stra_lab, test_size=(1.0 - frac_train),
                                                              random_state=random_state)
-    if frac_val == 0:
+    if frac_valid == 0:
         x_val, x_test = [], x_temp
     else:
         x_val, _, x_test, _ = multilabel_train_test_split(x_temp, y=y_temp,
-                                                          test_size=frac_test / (frac_val + frac_test),
+                                                          test_size=frac_test / (frac_valid + frac_test),
                                                           random_state=random_state)
     df_train = pd.DataFrame(data=x_train, columns=columns)
     df_val = pd.DataFrame(data=x_val, columns=columns)
@@ -79,6 +81,8 @@ def get_data_loader(dataset_name:str) -> BaseDataLoader:
         return WhasDataLoader()
     elif dataset_name == "AIDS":
         return AidsDataLoader()
+    elif dataset_name == "MIMIC":
+        return MimicDataLoader()
     else:
         raise ValueError("Data loader not found")
 
