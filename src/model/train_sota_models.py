@@ -49,8 +49,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["SEER"]
-MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "dcph", "baycox", "baymtlr"]
+DATASETS = ["SEER"] #"SUPPORT" "SEER" "METABRIC" "MIMIC"
+MODEL_NAMES = ["dsm"] #"dcm"
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -230,19 +230,19 @@ if __name__ == "__main__":
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
             inbll = ev.integrated_nbll(event_times)
-        
+            
             # Calculate C-cal for BNN models
             if model_name in ['baycox', 'baymtlr']:
-                n_post_samples = config['n_samples_test']
+                n_samples_test = config['n_samples_test']
                 credible_region_sizes = np.arange(0.1, 1, 0.1)
                 coverage_stats = {}
                 for percentage in credible_region_sizes:
-                    drop_num = math.floor(0.5 * n_post_samples * (1 - percentage))
+                    drop_num = math.floor(0.5 * n_samples_test * (1 - percentage))
                     lower_outputs = torch.kthvalue(ensemble_outputs, k=1 + drop_num, dim=0)[0]
-                    upper_outputs = torch.kthvalue(ensemble_outputs, k=n_post_samples - drop_num, dim=0)[0]
+                    upper_outputs = torch.kthvalue(ensemble_outputs, k=n_samples_test - drop_num, dim=0)[0]
                     if model_name == 'baycox':
                         coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs,
-                                                            data_test.time.values, data_test.event.values)
+                                                              data_test.time.values, data_test.event.values)
                     else:
                         coverage_stats[percentage] = coverage(mtlr_times, upper_outputs, lower_outputs,
                                     data_test.time.values, data_test.event.values)

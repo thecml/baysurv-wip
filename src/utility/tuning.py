@@ -4,7 +4,7 @@ def get_baymtlr_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -33,7 +33,7 @@ def get_baycox_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -62,7 +62,7 @@ def get_coxboost_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -93,12 +93,11 @@ def get_coxboost_sweep_config():
         }
     }
 
-
 def get_mlp_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "early_terminate": {
@@ -152,7 +151,7 @@ def get_rsf_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
             },
         "parameters": {
@@ -178,7 +177,7 @@ def get_cox_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -195,7 +194,7 @@ def get_coxnet_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -225,7 +224,7 @@ def get_dcm_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -244,7 +243,7 @@ def get_dsm_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {
@@ -263,7 +262,7 @@ def get_dcph_sweep_config():
     return {
         "method": "bayes",
         "metric": {
-            "name": "val_ctd",
+            "name": "val_ci",
             "goal": "maximize"
         },
         "parameters": {

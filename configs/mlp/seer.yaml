@@ -6,6 +6,8 @@ l2_reg: 0.01
 batch_size: 32
 early_stop: True
 patience: 5
+n_samples_train: 10
+n_samples_test: 100
 
 optimizer:
   class_name: SGD

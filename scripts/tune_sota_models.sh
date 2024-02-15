@@ -8,7 +8,7 @@ fi
 echo "$base_path"
 
 models=("baycox" "baymtlr" "cox" "coxboost" "coxnet" "dcm" "dcph" "dsm" "mlp" "rsf")
-datasets=("SUPPORT" "SEER" "GBSG2" "WHAS500" "FLCHAIN" "METABRIC")
+datasets=("SUPPORT" "SEER" "METABRIC" "MIMIC")
 echo "=============================================================================================="
 echo "Starting datasets tuning"
 echo "=============================================================================================="

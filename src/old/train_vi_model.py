@@ -96,7 +96,7 @@ if __name__ == "__main__":
     
     # Train
     train_loss = trainer.train_loss_scores
-    train_ctd = trainer.train_ctd_scores
+    train_ctd = trainer.train_ci_scores
     train_ibs = trainer.train_ibs_scores
     train_inbll = trainer.train_inbll_scores
     train_ece = trainer.train_ici_scores

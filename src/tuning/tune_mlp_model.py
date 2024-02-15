@@ -148,7 +148,7 @@ def train_model():
     surv_preds = pd.DataFrame(np.mean(compute_survival_function(
         model, X_train, X_valid, e_train, t_train, event_times, runs=1), axis=0), columns=event_times)
     
-    # Compute CTD
+    # Compute CI
     lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
     ci = lifelines_eval.concordance()[0]
     print(ci)

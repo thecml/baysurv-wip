@@ -16,7 +16,16 @@ from utility.risk import InputFunction
 from utility.loss import CoxPHLoss, CoxPHLossLLA
 from pathlib import Path
 import paths as pt
-from utility.survival import calculate_event_times, calculate_percentiles
+from utility.survival import calculate_event_times, calculate_percentiles, convert_to_structured, compute_survival_function
+from utility.training import make_stratified_split
+from time import time
+from tools.evaluator import LifelinesEvaluator
+from pycox.evaluation import EvalSurv
+import math
+from utility.survival import coverage
+from scipy.stats import chisquare
+import torch
+from utility.survival import survival_probability_calibration
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -28,14 +37,17 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-DATASETS = ["WHAS500"]
-N_EPOCHS = 1
+loss_fn = CoxPHLoss()
+training_results, test_results = pd.DataFrame(), pd.DataFrame()
+
+DATASETS = ["SEER"] #"SUPPORT" "SEER" "METABRIC" "MIMIC"
+MODELS = ["MLP", "VI", "MCD"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
+N_EPOCHS = 25
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
-        results = pd.DataFrame()
-        print(f"Now training {dataset_name}")
+        test_results = pd.DataFrame()
         
         # Load training parameters
         config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -47,19 +59,31 @@ if __name__ == "__main__":
         batch_size = config['batch_size']
         early_stop = config['early_stop']
         patience = config['patience']
+        n_samples_train = config['n_samples_train']
+        n_samples_test = config['n_samples_test']
 
         # Load data
         dl = get_data_loader(dataset_name).load_data()
-        X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
+        df = dl.get_data()
         
-        # Split data in train, valid and test set
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
-        X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
+        # Split data
+        df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
+                                                            frac_valid=0.1, frac_test=0.2, random_state=0)
+        X_train = df_train[cat_features+num_features]
+        X_valid = df_valid[cat_features+num_features]
+        X_test = df_test[cat_features+num_features]
+        y_train = convert_to_structured(df_train["time"], df_train["event"])
+        y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
+        y_test = convert_to_structured(df_test["time"], df_test["event"])
         
         # Scale data
         X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
-        X_train, X_valid, X_test = np.array(X_train), np.array(X_valid), np.array(X_test)
+        
+        # Convert to array
+        X_train = np.array(X_train)
+        X_valid = np.array(X_valid)
+        X_test = np.array(X_test)
 
         # Make time/event split
         t_train, e_train = split_time_event(y_train)
@@ -78,130 +102,123 @@ if __name__ == "__main__":
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
         # Make models
-        mlp_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
-                                   layers=layers, activation_fn=activation_fn,
-                                   dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        mlp_alea_model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
-                                        layers=layers, activation_fn=activation_fn,
-                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        vi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
-                                output_dim=2, layers=layers, activation_fn=activation_fn,
-                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        vi_epi_model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
-                                     output_dim=1, layers=layers, activation_fn=activation_fn,
-                                     dropout_rate=dropout_rate, regularization_pen=l2_reg)
-        mcd_model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
-                                   layers=layers, activation_fn=activation_fn,
-                                   dropout_rate=dropout_rate, regularization_pen=l2_reg)
-
-        # Make trainers
-        mlp_trainer = Trainer(model=mlp_model, model_name="MLP",
+        for model_name in MODELS:
+            if model_name == "MLP":
+                model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
+                                       layers=layers, activation_fn=activation_fn,
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                loss_function = CoxPHLoss()
+            elif model_name == "VI":
+                model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
+                                      output_dim=2, layers=layers, activation_fn=activation_fn,
+                                      dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                loss_function = CoxPHLossLLA()
+            else:
+                model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
+                                       layers=layers, activation_fn=activation_fn,
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                loss_function=CoxPHLossLLA()
+            
+            # Train model
+            train_start_time = time()
+            trainer = Trainer(model=model, model_name=model_name,
                               train_dataset=train_ds, valid_dataset=valid_ds,
                               test_dataset=test_ds, optimizer=optimizer,
-                              loss_function=CoxPHLoss(), num_epochs=N_EPOCHS,
-                              event_times=event_times, early_stop=early_stop,
-                              patience=patience, event_times_pct=event_times_pct)
-        mlp_alea_trainer = Trainer(model=mlp_alea_model, model_name="MLP-ALEA",
-                                train_dataset=train_ds, valid_dataset=valid_ds,
-                                test_dataset=test_ds, optimizer=optimizer,
-                                loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
-                                event_times=event_times, early_stop=early_stop,
-                                patience=patience, event_times_pct=event_times_pct)
-        vi_trainer = Trainer(model=vi_model, model_name="VI",
-                            train_dataset=train_ds, valid_dataset=valid_ds,
-                            test_dataset=test_ds, optimizer=optimizer,
-                            loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
-                            event_times=event_times, early_stop=early_stop,
-                            patience=patience, event_times_pct=event_times_pct)
-        vi_epi_trainer = Trainer(model=vi_epi_model, model_name="VI-EPI",
-                                train_dataset=train_ds, valid_dataset=valid_ds,
-                                test_dataset=test_ds, optimizer=optimizer,
-                                loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
-                                event_times=event_times, early_stop=early_stop,
-                                patience=patience, event_times_pct=event_times_pct)
-        mcd_trainer = Trainer(model=mcd_model, model_name="MCD",
-                            train_dataset=train_ds, valid_dataset=valid_ds,
-                            test_dataset=test_ds, optimizer=optimizer,
-                            loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
-                            event_times=event_times, early_stop=early_stop,
-                            patience=patience, event_times_pct=event_times_pct)
-
-        # Train models
-        print(f"Started training models for {dataset_name}")
-        trainers, model_names = [], []
-        mlp_trainer.train_and_evaluate()
-        trainers.append(mlp_trainer)
-        model_names.append("MLP")
-        mlp_alea_trainer.train_and_evaluate()
-        trainers.append(mlp_alea_trainer)
-        model_names.append("MLP-ALEA")
-        vi_trainer.train_and_evaluate()
-        trainers.append(vi_trainer)
-        model_names.append("VI")
-        vi_epi_trainer.train_and_evaluate()
-        trainers.append(vi_epi_trainer)
-        model_names.append("VI-EPI")
-        mcd_trainer.train_and_evaluate()
-        trainers.append(mcd_trainer)
-        model_names.append("MCD")
-        
-        print(f"Finished training all models for {dataset_name}")
-        # Save results per dataset
-        for model_name, trainer in zip(model_names, trainers):
-            # Train
-            train_loss = trainer.train_loss_scores
-            train_ctd = trainer.train_ctd_scores
-            train_ibs = trainer.train_ibs_scores
-            train_inbll = trainer.train_inbll_scores
-            train_ece = trainer.train_ece_scores
-            train_e50 = trainer.train_e50_scores
-            train_times = trainer.train_times
-            best_ep = trainer.best_ep
+                              loss_function=loss_function, num_epochs=N_EPOCHS,
+                              early_stop=early_stop, patience=patience,
+                              n_samples_train=n_samples_train, n_samples_test=n_samples_test)
+            trainer.train_and_evaluate()
+            train_time = time() - train_start_time
+            model = trainer.model        
             
-            # Valid
-            valid_loss = trainer.valid_loss_scores
-            valid_ctd = trainer.valid_ctd_scores
-            valid_ibs = trainer.valid_ibs_scores
-            valid_inbll = trainer.valid_inbll_scores
-            valid_ece = trainer.valid_ece_scores
-            valid_e50 = trainer.valid_e50_scores
+            # Compute loss
+            test_start_time = time()
+            total_loss = list()
+            for x, y in test_ds:
+                y_event = tf.expand_dims(y["label_event"], axis=1)
+                runs = n_samples_test
+                logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                for i in range(0, runs):
+                    logits_cpd[i,:] = model.predict(x, verbose=False).flatten()
+                logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                preds_tn = tf.convert_to_tensor(logits_mean)
+                loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
+                total_loss.append(loss)
+            loss_avg = np.mean(total_loss)
             
-            # Test
-            test_loss = trainer.test_loss_scores
-            test_ctd = trainer.test_ctd_scores
-            test_ibs = trainer.test_ibs_scores
-            test_inbll = trainer.test_inbll_scores
-            test_ece = trainer.test_ece_scores
-            test_e50 = trainer.test_e50_scores
-            test_times = trainer.test_times
+            # Compute survival function
+            surv_preds = np.mean(compute_survival_function(model, np.array(X_train), np.array(X_test),
+                                                           e_train, t_train, event_times, runs=n_samples_test), axis=0)
+            surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
             
-            if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                test_variance = trainer.test_variance
+            # Compute metrics
+            lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
+            ci = lifelines_eval.concordance()[0]
+            ibs = lifelines_eval.integrated_brier_score()
+            mae = lifelines_eval.mae(method="Hinge")
+            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            km_mse = lifelines_eval.km_calibration()
+            ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
+            inbll = ev.integrated_nbll(event_times)
+            
+            # Calculate C-cal for BNN models
+            if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:
+                surv_probs = compute_survival_function(model, np.array(X_train), np.array(X_test),
+                                                       e_train, t_train, event_times, runs=n_samples_test)
+                credible_region_sizes = np.arange(0.1, 1, 0.1)
+                surv_times = torch.from_numpy(surv_probs)
+                coverage_stats = {}
+                for percentage in credible_region_sizes:
+                    drop_num = math.floor(0.5 * n_samples_test * (1 - percentage))
+                    lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
+                    upper_outputs = torch.kthvalue(surv_times, k=n_samples_test - drop_num, dim=0)[0]
+                    coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs, t_test, e_test)
+                data = [list(coverage_stats.keys()), list(coverage_stats.values())]
+                _, pvalue = chisquare(data)
+                alpha = 0.05
+                if pvalue[0] <= alpha:
+                    c_calib = 0
+                else:
+                    c_calib = 1
             else:
-                test_variance = [0] * len(train_loss)
-
+                c_calib = 0
+            
+            # Compute calibration curves
+            deltas = dict()
+            for t0 in event_times_pct.values():
+                _, _, _, deltas_t0 = survival_probability_calibration(surv_preds,
+                                                                      y_test["time"],
+                                                                      y_test["event"],
+                                                                      t0)
+                deltas[t0] = deltas_t0
+            ici = deltas[t0].mean()
+            e50 = np.percentile(deltas[t0], 50)
+            test_time = time() - test_start_time
+            
             # Save to df
-            print(f"Creating dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
-            res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, train_ece, train_e50, # train
-                                                   valid_loss, valid_ctd, valid_ibs, valid_inbll, valid_ece, valid_e50, # valid
-                                                   test_loss, test_ctd, test_ibs, test_inbll, test_ece, test_e50, test_variance, # test
-                                                   train_times, test_times]), # times
-                                columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL", "TrainECE", "TrainE50",
-                                         "ValidLoss", "ValidCTD", "ValidIBS", "ValidINBLL", "ValidECE", "ValidE50", 
-                                         "TestLoss", "TestCTD", "TestIBS", "TestINBLL", "TestECE", "TestE50", "TestVar",
-                                         "TrainTime", "TestTime"])
+            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, e50, train_time, test_time]
+            res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
+                                                                     "INBLL", "CCalib", "ICI", "E50", "TrainTime",
+                                                                     "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
-            res_df['BestEpoch'] = best_ep
-            results = pd.concat([results, res_df], axis=0)
-            print(f"Completed dataframe for model {model_name} for dataset {dataset_name} with trainer {trainer.model_name}")
-
-            # Save model weights
-            model = trainer.model
+            test_results = pd.concat([test_results, res_df], axis=0)
+            
+            # Save loss from training
+            train_loss = trainer.train_loss_scores
+            valid_loss = trainer.valid_loss_scores
+            test_loss = trainer.test_loss_scores
+            res_df = pd.DataFrame(np.column_stack([train_loss, valid_loss, test_loss]),
+                                  columns=["TrainLoss", "ValidLoss", "TestLoss"])
+            res_df['ModelName'] = model_name
+            res_df['DatasetName'] = dataset_name
+            training_results = pd.concat([training_results, res_df], axis=0)
+            
+            # Save model
             path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}/")
             model.save_weights(path)
-
-        # Save results
-        print(results)
-        results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_{dataset_name.lower()}_results.csv"), index=False)
+            
+    # Save results
+    training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
+    test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
         

@@ -40,8 +40,10 @@ class BaseDataLoader(ABC):
         This method returns the features and targets
         :return: df
         """
-        merged_df = pd.concat([self.X, pd.DataFrame(self.y)], axis=1)
-        return merged_df
+        df = pd.DataFrame(self.X)
+        df['time'] = self.y['time']
+        df['event'] = self.y['event']
+        return df
 
     def get_features(self) -> List[str]:
         """
@@ -268,7 +270,7 @@ class MetabricDataLoader(BaseDataLoader):
         data['duration'] = data['duration'].apply(round)
 
         data = data.loc[data['duration'] > 0]
-
+        
         outcomes = data.copy()
         outcomes['event'] =  data['event']
         outcomes['time'] = data['duration']
@@ -279,6 +281,7 @@ class MetabricDataLoader(BaseDataLoader):
 
         self.num_features = num_feats
         self.cat_features = []
+                    
         self.X = pd.DataFrame(data[num_feats], dtype=np.float64)
         self.y = convert_to_structured(outcomes['time'], outcomes['event'])
 

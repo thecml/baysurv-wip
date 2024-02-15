@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from utility.metrics import CtdMetric, IbsMetric, InbllMetric, IciMetric, E50Metric
+from utility.metrics import CiMetric, IbsMetric, InbllMetric, IciMetric, E50Metric
 from utility.survival import convert_to_structured
 from time import time
 from utility.loss import CoxPHLoss, CoxPHLossLLA
@@ -8,7 +8,7 @@ from utility.loss import CoxPHLoss, CoxPHLossLLA
 class Trainer:
     def __init__(self, model, model_name, train_dataset, valid_dataset,
                  test_dataset, optimizer, loss_function, num_epochs,
-                 event_times, early_stop, patience, event_times_pct):
+                 early_stop, patience, n_samples_train, n_samples_test):
         self.num_epochs = num_epochs
         self.model = model
         self.model_name = model_name
@@ -19,41 +19,15 @@ class Trainer:
 
         self.optimizer = optimizer
         self.loss_fn = loss_function
+        
+        self.n_samples_train = n_samples_train
+        self.n_samples_test = n_samples_test
 
-        # Train metrics
+        # Loss
         self.train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
-        self.train_ctd_metric = CtdMetric(event_times)
-        self.train_ibs_metric = IbsMetric(event_times)
-        self.train_inbll_metric = InbllMetric(event_times)
-        self.train_ici_metric = IciMetric(event_times, event_times_pct)
-        self.train_e50_metric = E50Metric(event_times, event_times_pct)
-        self.train_loss_scores, self.train_inbll_scores = list(), list()
-        self.train_ctd_scores, self.train_ibs_scores = list(), list()
-        self.train_ici_scores, self.train_e50_scores = list(), list()
-        
-        # Valid metrics
-        self.valid_loss_metric = tf.keras.metrics.Mean(name="val_loss")
-        self.valid_ctd_metric = CtdMetric(event_times)
-        self.valid_ibs_metric = IbsMetric(event_times)
-        self.valid_inbll_metric = InbllMetric(event_times)
-        self.valid_ici_metric = IciMetric(event_times, event_times_pct)
-        self.valid_e50_metric = E50Metric(event_times, event_times_pct)
-        self.valid_loss_scores, self.valid_inbll_scores = list(), list()
-        self.valid_ctd_scores, self.valid_ibs_scores = list(), list()
-        self.valid_ici_scores, self.valid_e50_scores = list(), list()
-        
-        # Test metrics
+        self.valid_loss_metric = tf.keras.metrics.Mean(name="valid_loss")
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
-        self.test_ctd_metric = CtdMetric(event_times)
-        self.test_ibs_metric = IbsMetric(event_times)
-        self.test_inbll_metric = InbllMetric(event_times)
-        self.test_ici_metric = IciMetric(event_times, event_times_pct)
-        self.test_e50_metric = E50Metric(event_times, event_times_pct)
-        self.test_loss_scores, self.test_inbll_scores = list(), list()
-        self.test_ctd_scores, self.test_ibs_scores = list(), list()
-        self.test_ici_scores, self.test_e50_scores = list(), list()
-
-        self.train_times, self.test_times = list(), list()
+        self.train_loss_scores, self.valid_loss_scores, self.test_loss_scores = list(), list(), list()
         
         self.test_variance = list()
         
@@ -77,12 +51,11 @@ class Trainer:
             self.cleanup()
 
     def train(self, epoch):
-        train_start_time = time()
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
-                if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                    runs = 1 #TODO: Set as hyperparam
+                if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD"]:
+                    runs = self.n_samples_train
                     logits_cpd = tf.zeros((runs, y_event.shape[0]), dtype=np.float32)
                     output_list = []
                     tensor_shape = logits_cpd.get_shape()
@@ -106,76 +79,18 @@ class Trainer:
                     logits = self.model(x, training=True)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
-                y_train = convert_to_structured(y["label_time"], y["label_event"])
-
-                # CTD
-                self.train_ctd_metric.update_train_state(y_train)
-                self.train_ctd_metric.update_train_pred(logits)
-                self.valid_ctd_metric.update_train_state(y_train)
-                self.valid_ctd_metric.update_train_pred(logits)
-                self.test_ctd_metric.update_train_state(y_train)
-                self.test_ctd_metric.update_train_pred(logits)
-                
-                # IBS
-                self.train_ibs_metric.update_train_state(y_train)
-                self.train_ibs_metric.update_train_pred(logits)
-                self.valid_ibs_metric.update_train_state(y_train)
-                self.valid_ibs_metric.update_train_pred(logits)
-                self.test_ibs_metric.update_train_state(y_train)
-                self.test_ibs_metric.update_train_pred(logits)
-                
-                # INBLL
-                self.train_inbll_metric.update_train_state(y_train)
-                self.train_inbll_metric.update_train_pred(logits)
-                self.valid_inbll_metric.update_train_state(y_train)
-                self.valid_inbll_metric.update_train_pred(logits)
-                self.test_inbll_metric.update_train_state(y_train)
-                self.test_inbll_metric.update_train_pred(logits)
-                
-                # ICI
-                self.train_ici_metric.update_train_state(y_train)
-                self.train_ici_metric.update_train_pred(logits)
-                self.valid_ici_metric.update_train_state(y_train)
-                self.valid_ici_metric.update_train_pred(logits)
-                self.test_ici_metric.update_train_state(y_train)
-                self.test_ici_metric.update_train_pred(logits)
-                
-                # E50
-                self.train_e50_metric.update_train_state(y_train)
-                self.train_e50_metric.update_train_pred(logits)
-                self.valid_e50_metric.update_train_state(y_train)
-                self.valid_e50_metric.update_train_pred(logits)  
-                self.test_e50_metric.update_train_state(y_train)
-                self.test_e50_metric.update_train_pred(logits)
-                
             with tf.name_scope("gradients"):
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-
         print(f"Completed {self.model_name} epoch {epoch}/{self.num_epochs}")
-        total_train_time = time() - train_start_time
-
         epoch_loss = self.train_loss_metric.result()
-        epoch_ctd = self.train_ctd_metric.result()
-        epoch_ibs = self.train_ibs_metric.result()
-        epoch_inbll = self.train_inbll_metric.result()
-        epoch_ici = self.train_ici_metric.result()
-        epoch_e50 = self.train_e50_metric.result()
-
         self.train_loss_scores.append(float(epoch_loss))
-        self.train_ctd_scores.append(float(epoch_ctd))
-        self.train_ibs_scores.append(float(epoch_ibs))
-        self.train_inbll_scores.append(float(epoch_inbll))
-        self.train_ici_scores.append(float(epoch_ici))
-        self.train_e50_scores.append(float(epoch_e50))
-
-        self.train_times.append(float(total_train_time))
 
     def validate(self, epoch):
         stop_training = False
         for x, y in self.valid_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
-            if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
+            if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD"]:
                 runs = 1
                 logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
@@ -190,47 +105,13 @@ class Trainer:
                     logits = self.model(x, training=False)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 self.valid_loss_metric.update_state(loss)
-                y_valid = convert_to_structured(y["label_time"], y["label_event"])
-                self.valid_ctd_metric.update_test_state(y_valid)
-                self.valid_ctd_metric.update_test_pred(logits_mean)
-                self.valid_ibs_metric.update_test_state(y_valid)
-                self.valid_ibs_metric.update_test_pred(logits_mean)
-                self.valid_inbll_metric.update_test_state(y_valid)
-                self.valid_inbll_metric.update_test_pred(logits_mean)
-                self.valid_ici_metric.update_test_state(y_valid)
-                self.valid_ici_metric.update_test_pred(logits_mean)
-                self.valid_e50_metric.update_test_state(y_valid)
-                self.valid_e50_metric.update_test_pred(logits_mean)
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 self.valid_loss_metric.update_state(loss)
-                y_valid = convert_to_structured(y["label_time"], y["label_event"])
-                self.valid_ctd_metric.update_test_state(y_valid)
-                self.valid_ctd_metric.update_test_pred(logits)
-                self.valid_ibs_metric.update_test_state(y_valid)
-                self.valid_ibs_metric.update_test_pred(logits)
-                self.valid_inbll_metric.update_test_state(y_valid)
-                self.valid_inbll_metric.update_test_pred(logits)
-                self.valid_ici_metric.update_test_state(y_valid)
-                self.valid_ici_metric.update_test_pred(logits)
-                self.valid_e50_metric.update_test_state(y_valid)
-                self.valid_e50_metric.update_test_pred(logits)
-                
         epoch_loss = self.valid_loss_metric.result()
-        epoch_ctd = self.valid_ctd_metric.result()
-        epoch_ibs = self.valid_ibs_metric.result()
-        epoch_inbll = self.valid_inbll_metric.result()
-        epoch_ici = self.valid_ici_metric.result()
-        epoch_e50 = self.valid_e50_metric.result()
-        
         self.valid_loss_scores.append(float(epoch_loss))
-        self.valid_ctd_scores.append(float(epoch_ctd))
-        self.valid_ibs_scores.append(float(epoch_ibs))
-        self.valid_inbll_scores.append(float(epoch_inbll))
-        self.valid_ici_scores.append(float(epoch_ici))
-        self.valid_e50_scores.append(float(epoch_e50))
-        
+
         # Early stopping
         if self.early_stop:
             print(f'Best Val NLL: {self.best_val_nll}, epoch Val NNL: {epoch_loss}')
@@ -246,12 +127,11 @@ class Trainer:
         return stop_training
 
     def test(self):
-        test_start_time = time()
         batch_stds = list()
         for x, y in self.test_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
-            if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD"]:
-                runs = 1
+            if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD"]:
+                runs = self.n_samples_test
                 logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
                 for i in range(0, runs):
                     if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
@@ -267,73 +147,21 @@ class Trainer:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 else:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                
                 self.test_loss_metric.update_state(loss)
-                y_test = convert_to_structured(y["label_time"], y["label_event"])
-                self.test_ctd_metric.update_test_state(y_test)
-                self.test_ctd_metric.update_test_pred(logits_mean)
-                self.test_ibs_metric.update_test_state(y_test)
-                self.test_ibs_metric.update_test_pred(logits_mean)
-                self.test_inbll_metric.update_test_state(y_test)
-                self.test_inbll_metric.update_test_pred(logits_mean)
-                self.test_ici_metric.update_test_state(y_test)
-                self.test_ici_metric.update_test_pred(logits_mean)
-                self.test_e50_metric.update_test_state(y_test)
-                self.test_e50_metric.update_test_pred(logits_mean)
             else:
                 logits = self.model(x, training=False)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 self.test_loss_metric.update_state(loss)
-                y_test = convert_to_structured(y["label_time"], y["label_event"])
-                self.test_ctd_metric.update_test_state(y_test)
-                self.test_ctd_metric.update_test_pred(logits)
-                self.test_ibs_metric.update_test_state(y_test)
-                self.test_ibs_metric.update_test_pred(logits)
-                self.test_inbll_metric.update_test_state(y_test)
-                self.test_inbll_metric.update_test_pred(logits)
-                self.test_ici_metric.update_test_state(y_test)
-                self.test_ici_metric.update_test_pred(logits)
-                self.test_e50_metric.update_test_state(y_test)
-                self.test_e50_metric.update_test_pred(logits)
          
-        total_test_time = time() - test_start_time
-        
         # Std
         if len(batch_stds) > 0:
             model_var = float(np.mean(batch_stds) ** 2)
             self.test_variance.append(model_var)
 
         epoch_loss = self.test_loss_metric.result()
-        epoch_ctd = self.test_ctd_metric.result()
-        epoch_ibs = self.test_ibs_metric.result()
-        epoch_inbll = self.test_inbll_metric.result()
-        epoch_ici = self.test_ici_metric.result()
-        epoch_e50 = self.test_e50_metric.result()
-
         self.test_loss_scores.append(float(epoch_loss))
-        self.test_ctd_scores.append(float(epoch_ctd))
-        self.test_ibs_scores.append(float(epoch_ibs))
-        self.test_inbll_scores.append(float(epoch_inbll))
-        self.test_ici_scores.append(float(epoch_ici))
-        self.test_e50_scores.append(float(epoch_e50))
-        self.test_times.append(float(total_test_time))
-    
+
     def cleanup(self):
         self.train_loss_metric.reset_states()
-        self.train_ctd_metric.reset_states()
-        self.train_ibs_metric.reset_states()
-        self.train_inbll_metric.reset_states()
-        self.train_ici_metric.reset_states()
-        self.train_e50_metric.reset_states()
         self.valid_loss_metric.reset_states()
-        self.valid_ctd_metric.reset_states()
-        self.valid_ibs_metric.reset_states()
-        self.valid_inbll_metric.reset_states()
-        self.valid_ici_metric.reset_states()
-        self.valid_e50_metric.reset_states()
         self.test_loss_metric.reset_states()
-        self.test_ctd_metric.reset_states()
-        self.test_ibs_metric.reset_states()
-        self.test_inbll_metric.reset_states()
-        self.test_ici_metric.reset_states()
-        self.test_e50_metric.reset_states()

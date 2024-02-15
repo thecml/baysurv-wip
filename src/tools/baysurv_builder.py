@@ -133,7 +133,12 @@ def make_mcd_model(input_shape, output_dim, layers,
                 hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
-    params = tf.keras.layers.Dense(output_dim)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
-    model = tf.keras.Model(inputs=inputs, outputs=dist)
+    
+    if output_dim == 2: # If 2, then model both aleatoric and epistemic uncertain.
+        params = tf.keras.layers.Dense(output_dim)(hidden)
+        dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+        model = tf.keras.Model(inputs=inputs, outputs=dist)
+    else: # model only epistemic uncertain.
+        output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+        model = tf.keras.Model(inputs=inputs, outputs=output)
     return model

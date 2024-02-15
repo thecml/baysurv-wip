@@ -78,7 +78,7 @@ class IbsMetric:
             ibs = ev.integrated_brier_score(self._event_times)
         return ibs
 
-class CtdMetric:
+class CiMetric:
     """Computes time-dependent concordance index across one epoch."""
     def __init__(self, event_times) -> None:
         self._event_times = event_times
