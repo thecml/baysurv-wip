@@ -40,7 +40,7 @@ random.seed(0)
 loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SEER"] #"SUPPORT" "SEER" "METABRIC" "MIMIC"
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "VI", "MCD"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
 N_EPOCHS = 25
 

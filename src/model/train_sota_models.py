@@ -27,6 +27,7 @@ from scipy.stats import chisquare
 from utility.risk import InputFunction
 from utility.training import make_stratified_split
 from utility.survival import convert_to_structured
+from tools.Evaluations.util import make_monotonic
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -49,8 +50,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["SEER"] #"SUPPORT" "SEER" "METABRIC" "MIMIC"
-MODEL_NAMES = ["dsm"] #"dcm"
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -215,12 +216,18 @@ if __name__ == "__main__":
                 surv_preds = np.mean(compute_survival_function(model, np.array(X_train), np.array(X_test),
                                                                e_train, t_train, event_times, runs=1,
                                                                model_type=type(model).__name__), axis=0)
+            
+            # Make DCM monotonic
+            if model_name == "dcm":
+                surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
+            
+            # Convert to DataFrame
             if model_name == "baymtlr":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
                 surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
-            
+
             # Compute metrics
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
             ci = lifelines_eval.concordance()[0]
