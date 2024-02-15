@@ -7,19 +7,17 @@ import argparse
 from tools import data_loader
 from sklearn.model_selection import train_test_split
 import pandas as pd
-from pycox.evaluation import EvalSurv
-from utility.training import scale_data, make_time_event_split
-from utility.survival import make_event_times
+from utility.training import split_time_event
 import config as cfg
-from utility.survival import make_time_bins, make_event_times
-from utility.training import scale_data, make_time_event_split
+from utility.survival import make_time_bins, calculate_event_times, compute_survival_function
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
 from tools.bnn_isd_trainer import train_bnn_model
 from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
-from sksurv.linear_model.coxph import BreslowEstimator
 import torch
+from tools.evaluator import LifelinesEvaluator
+from tools.preprocessor import Preprocessor
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -123,18 +121,22 @@ def train_model():
     X, y = dl.get_data()
 
     # Split data
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=0)
     X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
     
     # Scale data
-    X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
+    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
+    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
+                                   one_hot=True, fill_value=-1)
+    X_train = np.array(transformer.transform(X_train))
+    X_valid = np.array(transformer.transform(X_valid))
     
     # Make time/event split
-    t_train, e_train = make_time_event_split(y_train)
-    t_valid, e_valid = make_time_event_split(y_valid)
+    t_train, e_train = split_time_event(y_train)
+    t_valid, e_valid = split_time_event(y_valid)
 
     # Make event times
-    event_times = make_event_times(t_train, e_train)
+    event_times = calculate_event_times(t_train, e_train)
     mtlr_times = make_time_bins(t_train, event=e_train)
     
     # Make and train mdoel
@@ -213,24 +215,19 @@ def train_model():
         survival_outputs, _, _ = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config=config)
         surv_preds = survival_outputs.numpy()
     else:
-        train_predictions = model.predict(X_train).reshape(-1)
-        test_predictions = model.predict(X_valid).reshape(-1)
-        breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-        test_surv_fn = breslow.get_survival_function(test_predictions)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
-    
-    # Compute CTD, IBS and INBLL
+        surv_preds = np.mean(compute_survival_function(model, X_train, X_valid, e_train, t_train, event_times, runs=1), axis=0)    
+        
     if model_name == "baymtlr":
         mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
-        surv_test = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
+        surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
     else:
-        surv_test = pd.DataFrame(surv_preds, columns=event_times)
+        surv_preds = pd.DataFrame(surv_preds, columns=event_times)
     
-    ev = EvalSurv(surv_test.T, y_valid["time"], y_valid["event"], censor_surv="km")
-    ctd = ev.concordance_td()
+    lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
+    ci = lifelines_eval.concordance()[0]
     
     # Log to wandb
-    wandb.log({"val_ctd": ctd})
+    wandb.log({"val_ctd": ci})
 
 if __name__ == "__main__":
     main()

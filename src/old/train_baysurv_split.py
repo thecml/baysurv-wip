@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 
 from tools.baysurv_trainer import Trainer
 from utility.config import load_config
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 from utility.plot import plot_training_curves
 from tools.baysurv_builder import make_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
@@ -60,8 +60,8 @@ if __name__ == "__main__":
             X_test = np.array(X_test)
 
             # Make time/event split
-            t_train, e_train = make_time_event_split(y_train)
-            t_test, e_test = make_time_event_split(y_test)
+            t_train, e_train = split_time_event(y_train)
+            t_test, e_test = split_time_event(y_test)
 
             # Make event times
             lower, upper = np.percentile(t_test[t_test.dtype.names], [10, 90])

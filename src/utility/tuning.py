@@ -136,7 +136,8 @@ def get_mlp_sweep_config():
                 "values": [32]
             },
             "num_epochs": {
-                "values": [10, 25, 50]
+                #"values": [10, 25, 50]
+                "values": [1]
             },
             "early_stop": {
                 "values": [False]

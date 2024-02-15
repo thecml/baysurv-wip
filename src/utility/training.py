@@ -91,7 +91,7 @@ def scale_data(X_train, X_valid, X_test, cat_features, num_features) -> Tuple[np
     X_test = transformer.transform(X_test)
     return (X_train, X_valid, X_test)
 
-def make_time_event_split(y):
+def split_time_event(y):
     y_t = np.array(y['time'])
     y_e = np.array(y['event'])
     return (y_t, y_e)

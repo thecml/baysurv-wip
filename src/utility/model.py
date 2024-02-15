@@ -9,7 +9,7 @@ from sksurv.linear_model.coxph import BreslowEstimator
 matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from sklearn.model_selection import train_test_split
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 from tools.baysurv_builder import make_mcd_model, make_mlp_model, make_vi_model
 from utility.config import load_config
 from utility.loss import CoxPHLoss
@@ -19,7 +19,7 @@ import joblib
 import numpy as np
 
 curr_dir = os.getcwd()
-root_dir = Path(curr_dir).absolute()
+root_dir = Path(curr_dir).absolute().parent # TODO: Fix this to properly set path
 
 def load_sota_model(dataset_name, model_name):
     return joblib.load(Path.joinpath(pt.MODELS_DIR,

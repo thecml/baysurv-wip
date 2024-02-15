@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.training import get_data_loader, scale_data, split_time_event
 from utility.survival import survival_probability_calibration
 from utility.model import load_mlp_model, load_sota_model, load_vi_model, load_mcd_model
 from utility.survival import compute_survival_function
@@ -10,7 +10,8 @@ from utility.plot import plot_calibration_curves
 from collections import defaultdict
 from pathlib import Path
 import paths as pt
-from utility.survival import make_time_bins, make_event_times
+from utility.survival import make_time_bins, calculate_event_times
+from tools.preprocessor import Preprocessor
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -27,22 +28,22 @@ if __name__ == "__main__":
         X, y = dl.get_data()
         num_features, cat_features = dl.get_features()
 
-        # Split data in train, valid and test set
-        X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                            train_size=0.7,
-                                                            random_state=0)
-
+        # Split data in train and test
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        
         # Scale data
-        X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
-        X_train = np.array(X_train)
-        X_test = np.array(X_test)
-
+        preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
+        transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
+                                       one_hot=True, fill_value=-1)
+        X_train = np.array(transformer.transform(X_train))
+        X_test = np.array(transformer.transform(X_test))
+        
         # Make time/event split
-        t_train, e_train = make_time_event_split(y_train)
-        t_test, e_test = make_time_event_split(y_test)
+        t_train, e_train = split_time_event(y_train)
+        t_test, e_test = split_time_event(y_test)
 
         # Fit Breslow to get unique event times
-        event_times = make_event_times(t_train, e_train)
+        event_times = calculate_event_times(t_train, e_train)
             
         # Calculate quantiles
         percentiles = dict()

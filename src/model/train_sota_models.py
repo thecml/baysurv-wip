@@ -5,13 +5,13 @@ import random
 import pandas as pd
 
 from sklearn.model_selection import train_test_split
-from utility.survival import make_time_bins, make_event_times, calculate_percentiles
-from utility.training import get_data_loader, scale_data, make_time_event_split
+from utility.survival import make_time_bins, calculate_event_times, calculate_percentiles, compute_survival_function
+from utility.training import get_data_loader, scale_data, split_time_event
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
 from tools.bnn_isd_trainer import train_bnn_model
-from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
+from utility.bnn_isd_models import make_ensemble_cox_prediction, make_cox_prediction, make_ensemble_mtlr_prediction, make_mtlr_prediction
 from pathlib import Path
 import paths as pt
 import joblib
@@ -24,6 +24,7 @@ from pycox.evaluation import EvalSurv
 import torch
 from collections import defaultdict
 from utility.survival import survival_probability_calibration
+from tools.evaluator import LifelinesEvaluator
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -77,13 +78,13 @@ if __name__ == "__main__":
         X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
 
         # Make time/event split
-        t_train, e_train = make_time_event_split(y_train)
-        t_valid, e_valid = make_time_event_split(y_valid)
-        t_test, e_test = make_time_event_split(y_test)
+        t_train, e_train = split_time_event(y_train)
+        t_valid, e_valid = split_time_event(y_valid)
+        t_test, e_test = split_time_event(y_test)
         
         # Make event times
         mtlr_times = make_time_bins(t_train, event=e_train)
-        event_times = make_event_times(t_train, e_train)
+        event_times = calculate_event_times(t_train, e_train)
         
         # Calculate quantiles
         event_times_pct = calculate_percentiles(event_times)
@@ -171,15 +172,15 @@ if __name__ == "__main__":
         print("Now training baycox")
         baycox_train_start_time = time()
         baycox_model = train_bnn_model(baycox_model, data_train, data_valid, mtlr_times,
-                                   config=baycox_config, random_state=0, reset_model=True, device=device)
+                                       config=baycox_config, random_state=0, reset_model=True, device=device)
         baycox_train_time = time() - baycox_train_start_time
         print(f"Finished training baycox in {baycox_train_time}")
         
         print("Now training baymtlr")
         baymtlr_train_start_time = time()
         baymtlr_model = train_bnn_model(baymtlr_model, data_train, data_valid,
-                                    mtlr_times, config=baymtlr_config,
-                                    random_state=0, reset_model=True, device=device)
+                                        mtlr_times, config=baymtlr_config,
+                                        random_state=0, reset_model=True, device=device)
         baymtlr_train_time = time() - baymtlr_train_start_time
         print(f"Finished training baymtlr in {baymtlr_train_time}")
         
@@ -223,35 +224,55 @@ if __name__ == "__main__":
             elif model_name == "baycox":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
-                survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data,
-                                                                                     config=baycox_config)
+                survival_outputs, time_bins, ensemble_outputs = make_cox_prediction(model, baycox_test_data, config=baycox_config)
                 surv_preds = survival_outputs.numpy()
             elif model_name == "baymtlr":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
-                survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model,
-                                                                                      baycox_test_data,
-                                                                                      mtlr_times,
-                                                                                      config=baymtlr_config)
+                survival_outputs, time_bins, ensemble_outputs = make_mtlr_prediction(model, baycox_test_data, mtlr_times, config=baymtlr_config)
                 surv_preds = survival_outputs.numpy()
             else:
-                train_predictions = model.predict(X_train).reshape(-1)
-                test_predictions = model.predict(X_test).reshape(-1)
-                breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-                test_surv_fn = breslow.get_survival_function(test_predictions)
-                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+                surv_preds = np.mean(compute_survival_function(model, X_train, X_test, e_train, t_train, event_times, runs=1), axis=0)
             
-            # Compute CTD, IBS and INBLL
             if model_name == "baymtlr":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_test = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
                 surv_test = pd.DataFrame(surv_preds, columns=event_times)
             
+            # Compute metrics
+            lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
+            ci = lifelines_eval.concordance()[0]
+            ibs = lifelines_eval.integrated_brier_score()
+            mae = lifelines_eval.mae(method="Hinge")
+            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(surv_test.T, y_test["time"], y_test["event"], censor_surv="km")
-            ctd = ev.concordance_td()
-            ibs = ev.integrated_brier_score(event_times)
             inbll = ev.integrated_nbll(event_times)
+        
+            # Calculate C-cal for BNN models
+            if model_name in ['baycox', 'baymtlr']:
+                if model_name == 'baycox':
+                    n_post_samples = baycox_config['n_samples_test']
+                else:
+                    n_post_samples = baymtlr_config['n_samples_test']
+                credible_region_sizes = np.arange(0.1, 1, 0.1)
+                coverage_stats = {}
+                for percentage in credible_region_sizes:
+                    drop_num = math.floor(0.5 * N_POST_SAMPLES * (1 - percentage))
+                    lower_outputs = torch.kthvalue(survival_outputs, k=1 + drop_num, dim=0)[0]
+                    upper_outputs = torch.kthvalue(survival_outputs, k=N_POST_SAMPLES - drop_num, dim=0)[0]
+                    coverage_stats[percentage] = coverage(times, upper_outputs, lower_outputs,
+                                                            cvi_new[1]["Survival_time"], cvi_new[1]["Event"])
+                data = [list(coverage_stats.keys()), list(coverage_stats.values())]
+                _, pvalue = chisquare(data)
+                alpha = 0.05
+                if pvalue[0] <= alpha:
+                    c_calib = 0
+                else:
+                    c_calib = 1
+            else:
+                c_calib = 0
         
             # Compute calibration curves
             deltas = dict()
