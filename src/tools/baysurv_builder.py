@@ -1,5 +1,6 @@
 import tensorflow as tf
 import tensorflow_probability as tfp
+import official.nlp.modeling.layers as nlp_layers
 
 class MonteCarloDropout(tf.keras.layers.Dropout):
   def call(self, inputs):
@@ -34,24 +35,16 @@ def get_horseshoe_prior(dtype, shape, name, trainable, add_variable_fn):
                                       reinterpreted_batch_ndims = 1)
   return horseshoe_prior
 
-def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
+def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
@@ -65,38 +58,24 @@ def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate,
         model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
-def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
+def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_fn, dropout_rate):
     kernel_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
     bias_divergence_fn = lambda q, p, _: tfp.distributions.kl_divergence(q, p) / (n_train_samples * 1.0)
     inputs = tf.keras.layers.Input(shape=input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
-                                                 bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
-                                                 activity_regularizer=tf.keras.regularizers.L2(regularization_pen),
-                                                 kernel_divergence_fn=kernel_divergence_fn,
-                                                 bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(inputs)
-            else:
-                hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
-                                                 bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
-                                                 kernel_divergence_fn=kernel_divergence_fn,
-                                                 bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(inputs)
+            hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                            bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                            kernel_divergence_fn=kernel_divergence_fn,
+                                            bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(inputs)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
         else:
-            if regularization_pen is not None:
-                hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
-                                                 bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
-                                                 activity_regularizer=tf.keras.regularizers.L2(regularization_pen),
-                                                 kernel_divergence_fn=kernel_divergence_fn,
-                                                 bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(hidden)
-            else:
-                hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
-                                                 bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
-                                                 kernel_divergence_fn=kernel_divergence_fn,
-                                                 bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(hidden)
+            hidden = tfp.layers.DenseFlipout(units,bias_posterior_fn=tfp.layers.util.default_mean_field_normal_fn(),
+                                            bias_prior_fn=tfp.layers.default_multivariate_normal_fn,
+                                            kernel_divergence_fn=kernel_divergence_fn,
+                                            bias_divergence_fn=bias_divergence_fn,activation=activation_fn)(hidden)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
@@ -113,24 +92,15 @@ def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_f
         model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
-def make_mcd_model(input_shape, output_dim, layers,
-                   activation_fn, dropout_rate, regularization_pen):
+def make_mcd_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
     inputs = tf.keras.layers.Input(shape=input_shape)
     for i, units in enumerate(layers):
         if i == 0:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(inputs)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(inputs)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
         else:
-            if regularization_pen is not None:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn,
-                                               activity_regularizer=tf.keras.regularizers.L2(regularization_pen))(hidden)
-            else:
-                hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
+            hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
     
@@ -142,3 +112,33 @@ def make_mcd_model(input_shape, output_dim, layers,
         output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
         model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
+
+def make_sngp_model(input_shape, output_dim, layers, activation_fn, dropout_rate):
+    inputs = tf.keras.layers.Input(shape=input_shape)
+    spec_norm_bound = 0.9
+    for i, units in enumerate(layers):
+        if i == 0:
+            dense = tf.keras.layers.Dense(units, activation=activation_fn)
+            dense = nlp_layers.SpectralNormalization(dense, norm_multiplier=spec_norm_bound)
+            hidden = dense(inputs)
+            if dropout_rate is not None:
+                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
+        else:
+            dense = tf.keras.layers.Dense(units, activation=activation_fn)
+            dense = nlp_layers.SpectralNormalization(dense, norm_multiplier=spec_norm_bound)
+            hidden = dense(hidden)
+            if dropout_rate is not None:
+                hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
+            
+    output = nlp_layers.RandomFeatureGaussianProcess(units=output_dim,
+                                                     num_inducing=1024,
+                                                     normalize_input=False,
+                                                     scale_random_features=True,
+                                                     gp_cov_momentum=-1)(hidden)
+    model = tf.keras.Model(inputs=inputs, outputs=output)
+    return model
+    
+    
+    
+        
+                        

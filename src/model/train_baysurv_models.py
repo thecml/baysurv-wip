@@ -10,13 +10,13 @@ import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from tools.baysurv_trainer import Trainer
 from utility.config import load_config
 from utility.training import get_data_loader, scale_data, split_time_event
-from utility.plot import plot_training_curves
-from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model
+from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model, make_sngp_model
 from utility.risk import InputFunction
 from utility.loss import CoxPHLoss, CoxPHLossLLA
 from pathlib import Path
 import paths as pt
-from utility.survival import calculate_event_times, calculate_percentiles, convert_to_structured, compute_survival_function
+from utility.survival import (calculate_event_times, calculate_percentiles, convert_to_structured,
+                              compute_deterministic_survival_curve, compute_nondeterministic_survival_curve)
 from utility.training import make_stratified_split
 from time import time
 from tools.evaluator import LifelinesEvaluator
@@ -40,9 +40,9 @@ random.seed(0)
 loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "VI", "MCD"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
-N_EPOCHS = 25
+DATASETS = ["SEER"] # "SUPPORT", "SEER", "METABRIC", "MIMIC"
+MODELS = ["MLP", "VI", "MCD", "SNGP"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
+N_EPOCHS = 10
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -55,11 +55,11 @@ if __name__ == "__main__":
         activation_fn = config['activiation_fn']
         layers = config['network_layers']
         dropout_rate = config['dropout_rate']
-        l2_reg = config['l2_reg']
         batch_size = config['batch_size']
         early_stop = config['early_stop']
         patience = config['patience']
         n_samples_train = config['n_samples_train']
+        n_samples_valid = config['n_samples_valid']
         n_samples_test = config['n_samples_test']
 
         # Load data
@@ -106,17 +106,22 @@ if __name__ == "__main__":
             if model_name == "MLP":
                 model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
                                        layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                                       dropout_rate=dropout_rate)
                 loss_function = CoxPHLoss()
             elif model_name == "VI":
                 model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
                                       output_dim=2, layers=layers, activation_fn=activation_fn,
-                                      dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                                      dropout_rate=dropout_rate)
                 loss_function = CoxPHLossLLA()
+            elif model_name == "SNGP":
+                model = make_sngp_model(input_shape=X_train.shape[1:],
+                                        output_dim=1, layers=layers, activation_fn=activation_fn,
+                                        dropout_rate=dropout_rate)
+                loss_function = CoxPHLoss()
             else:
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                                       dropout_rate=dropout_rate)
                 loss_function=CoxPHLossLLA()
             
             # Train model
@@ -126,29 +131,54 @@ if __name__ == "__main__":
                               test_dataset=test_ds, optimizer=optimizer,
                               loss_function=loss_function, num_epochs=N_EPOCHS,
                               early_stop=early_stop, patience=patience,
-                              n_samples_train=n_samples_train, n_samples_test=n_samples_test)
+                              n_samples_train=n_samples_train,
+                              n_samples_valid=n_samples_valid,
+                              n_samples_test=n_samples_test)
             trainer.train_and_evaluate()
             train_time = time() - train_start_time
-            model = trainer.model        
             
+            # Get model for best epoch
+            best_ep = trainer.best_ep
+            status = trainer.checkpoint.restore(f"{pt.MODELS_DIR}\\ckpt-{best_ep}")
+            model = trainer.model
+
             # Compute loss
             test_start_time = time()
             total_loss = list()
             for x, y in test_ds:
                 y_event = tf.expand_dims(y["label_event"], axis=1)
-                runs = n_samples_test
-                logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
-                for i in range(0, runs):
-                    logits_cpd[i,:] = model.predict(x, verbose=False).flatten()
-                logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
-                preds_tn = tf.convert_to_tensor(logits_mean)
-                loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
-                total_loss.append(loss)
+                if model_name == "MLP":
+                    logits = model.predict(x, verbose=False)
+                    preds_tn = tf.convert_to_tensor(logits)
+                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
+                    total_loss.append(loss)
+                elif model_name == "SNGP":
+                    logits, covmat = model.predict(x, verbose=False)
+                    preds_tn = tf.convert_to_tensor(logits)
+                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
+                    total_loss.append(loss)
+                else:
+                    runs = n_samples_test
+                    logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
+                    for i in range(0, runs):
+                        logits_cpd[i,:] = model.predict(x, verbose=False).flatten()
+                    logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                    preds_tn = tf.convert_to_tensor(logits_mean)
+                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
+                    total_loss.append(loss)
             loss_avg = np.mean(total_loss)
             
+            # Get test variance for last epoch
+            variance = trainer.test_variance[-1]
+            
             # Compute survival function
-            surv_preds = np.mean(compute_survival_function(model, np.array(X_train), np.array(X_test),
-                                                           e_train, t_train, event_times, runs=n_samples_test), axis=0)
+            if model_name in ["MLP", "SNGP"]:
+                surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                                                                  e_train, t_train, event_times, model_name)
+            else:
+                surv_preds = np.mean(compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                                                                             e_train, t_train, event_times,
+                                                                             n_samples_train, n_samples_test), axis=0)
             surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
             
             # Compute metrics
@@ -163,8 +193,9 @@ if __name__ == "__main__":
             
             # Calculate C-cal for BNN models
             if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:
-                surv_probs = compute_survival_function(model, np.array(X_train), np.array(X_test),
-                                                       e_train, t_train, event_times, runs=n_samples_test)
+                surv_probs = compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                                                                     e_train, t_train, event_times,
+                                                                     n_samples_train, n_samples_test)
                 credible_region_sizes = np.arange(0.1, 1, 0.1)
                 surv_times = torch.from_numpy(surv_probs)
                 coverage_stats = {}
@@ -196,10 +227,10 @@ if __name__ == "__main__":
             test_time = time() - test_start_time
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, e50, train_time, test_time]
+            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, e50, variance, train_time, test_time]
             res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
-                                                                     "INBLL", "CCalib", "ICI", "E50", "TrainTime",
-                                                                     "TestTime"])
+                                                                     "INBLL", "CCalib", "ICI", "E50", "Variance",
+                                                                     "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             test_results = pd.concat([test_results, res_df], axis=0)

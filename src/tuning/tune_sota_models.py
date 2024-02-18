@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 import pandas as pd
 from utility.training import split_time_event
 import config as cfg
-from utility.survival import make_time_bins, calculate_event_times, compute_survival_function
+from utility.survival import make_time_bins, calculate_event_times, compute_deterministic_survival_curve
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
@@ -18,6 +18,9 @@ from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_m
 import torch
 from tools.evaluator import LifelinesEvaluator
 from tools.preprocessor import Preprocessor
+from utility.training import make_stratified_split
+from utility.survival import convert_to_structured
+from tools.Evaluations.util import make_monotonic
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -25,8 +28,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 10
-PROJECT_NAME = "baysurv_bo"
+N_RUNS = 1
+PROJECT_NAME = "baysurv_bo_sota"
 
 # Setup device
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -58,8 +61,6 @@ def main():
         sweep_config = get_coxnet_sweep_config()
     elif model_name == "dcm":
         sweep_config = get_dcm_sweep_config()
-    elif model_name == "dcph":
-        sweep_config = get_dcph_sweep_config()
     elif model_name == "dsm":
         sweep_config = get_dsm_sweep_config()
     elif model_name == "rsf":
@@ -84,8 +85,6 @@ def train_model():
         config_defaults = cfg.COXNET_DEFAULT_PARAMS
     elif model_name == "dcm":
         config_defaults = cfg.DCM_DEFAULT_PARAMS
-    elif model_name == "dcph":
-        config_defaults = cfg.DCPH_DEFAULT_PARAMS
     elif model_name == "dsm":
         config_defaults = cfg.DSM_DEFAULT_PARAMS
     elif model_name == "rsf":
@@ -114,15 +113,21 @@ def train_model():
         dl = data_loader.MetabricDataLoader().load_data()
     elif dataset_name == "SEER":
         dl = data_loader.SeerDataLoader().load_data()
+    elif dataset_name == "MIMIC":
+        dl = data_loader.MimicDataLoader().load_data()
     else:
         raise ValueError("Dataset not found")
 
     num_features, cat_features = dl.get_features()
-    X, y = dl.get_data()
-
+    df = dl.get_data()
+    
     # Split data
-    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=0)
-    X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
+    df_train, df_valid, _ = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
+                                                  frac_valid=0.1, frac_test=0.2, random_state=0)
+    X_train = df_train[cat_features+num_features]
+    X_valid = df_valid[cat_features+num_features]
+    y_train = convert_to_structured(df_train["time"], df_train["event"])
+    y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
     
     # Scale data
     preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
@@ -153,11 +158,6 @@ def train_model():
         model = make_dcm_model(config)
         model.fit(X_train, pd.DataFrame(y_train),
                   val_data=(X_valid, pd.DataFrame(y_valid)))
-    elif model_name == "dcph":
-        model = make_dcph_model(config)
-        model.fit(np.array(X_train), t_train, e_train, batch_size=config['batch_size'],
-                  iters=config['iters'], val_data=(X_valid, t_valid, e_valid),
-                  learning_rate=config['learning_rate'], optimizer=config['optimizer'])
     elif model_name == "dsm":
         model = make_dsm_model(config)
         model.fit(X_train, pd.DataFrame(y_train),
@@ -192,18 +192,8 @@ def train_model():
         raise ValueError("Model not found")
     
     # Compute survival function
-    if model_name == "dsm":
+    if model_name in ["dsm", "dcm"]:
         surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
-    elif model_name == "dcph":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, t=list(event_times)), columns=event_times)
-    elif model_name == "dcm":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
-    elif model_name == "rsf":
-        test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
-    elif model_name == "coxboost":
-        test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
     elif model_name == "baycox":
         baycox_test_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
                                         dtype=torch.float, device=device)
@@ -215,7 +205,12 @@ def train_model():
         survival_outputs, _, _ = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config=config)
         surv_preds = survival_outputs.numpy()
     else:
-        surv_preds = np.mean(compute_survival_function(model, X_train, X_valid, e_train, t_train, event_times, runs=1), axis=0)    
+        surv_preds = compute_deterministic_survival_curve(model, X_train, X_valid, e_train, t_train,
+                                                          event_times, model_name)
+        
+    # Make DCM monotonic
+    if model_name == "dcm":
+        surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
         
     if model_name == "baymtlr":
         mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
@@ -227,7 +222,8 @@ def train_model():
     ci = lifelines_eval.concordance()[0]
     
     # Log to wandb
-    wandb.log({"val_ctd": ci})
+    print(ci)
+    wandb.log({"val_ci": ci})
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,7 @@ import tensorflow as tf
 import random
 import pandas as pd
 
-from utility.survival import make_time_bins, calculate_event_times, calculate_percentiles, compute_survival_function
+from utility.survival import make_time_bins, calculate_event_times, calculate_percentiles, compute_deterministic_survival_curve
 from utility.training import get_data_loader, scale_data, split_time_event
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
 from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcph_model, make_dcm_model
@@ -213,9 +213,8 @@ if __name__ == "__main__":
                 survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
                 surv_preds = survival_outputs.numpy()
             else:
-                surv_preds = np.mean(compute_survival_function(model, np.array(X_train), np.array(X_test),
-                                                               e_train, t_train, event_times, runs=1,
-                                                               model_type=type(model).__name__), axis=0)
+                surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                                                                  e_train, t_train, event_times, model_name)
             
             # Make DCM monotonic
             if model_name == "dcm":

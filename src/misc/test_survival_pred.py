@@ -16,7 +16,7 @@ from utility.survival import calculate_event_times, predict_median_survival_time
 from utility.config import load_config
 import paths as pt
 from utility.model import load_mlp_model
-from utility.survival import compute_survival_function
+from utility.survival import compute_nondeterministic_survival_curve
 
 DATASET_NAME = "SEER"
 
@@ -50,5 +50,5 @@ if __name__ == "__main__":
     y_test = y_test[test_idx]
     
     # Compute surv func
-    surv_preds = compute_survival_function(model, X_train, X_test, e_train, t_train, event_times)
+    surv_preds = compute_nondeterministic_survival_curve(model, X_train, X_test, e_train, t_train, event_times)
     print(surv_preds)

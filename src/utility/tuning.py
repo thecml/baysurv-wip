@@ -128,15 +128,11 @@ def get_mlp_sweep_config():
             "dropout": {
                 "values": [0.25]
             },
-            "l2_reg": {
-                "values": [None, 0.001, 0.01, 0.1]
-            },
             "batch_size": {
                 "values": [32]
             },
             "num_epochs": {
-                #"values": [10, 25, 50]
-                "values": [1]
+                "values": [10, 25, 50, 100]
             },
             "early_stop": {
                 "values": [False]

@@ -16,7 +16,7 @@ import paths as pt
 from utility.survival import compute_survival_times
 from utility.model import load_mlp_model, load_mlp_alea_model, load_vi_model, load_vi_epi_model, load_mcd_model
 import math
-from utility.survival import coverage, calculate_event_times, compute_survival_function
+from utility.survival import coverage, calculate_event_times, compute_nondeterministic_survival_curve
 import torch
 from utility.model import load_sota_model
 from sksurv.linear_model.coxph import BreslowEstimator

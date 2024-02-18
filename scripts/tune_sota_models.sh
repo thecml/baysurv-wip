@@ -7,7 +7,7 @@ if [[ -z "$base_path" ]] ; then  # error; for some reason, the path is not acces
 fi
 echo "$base_path"
 
-models=("baycox" "baymtlr" "cox" "coxboost" "coxnet" "dcm" "dcph" "dsm" "mlp" "rsf")
+models=("cox" "coxboost" "coxnet" "rsf" "dcm" "dsm" "baycox" "baymtlr")
 datasets=("SUPPORT" "SEER" "METABRIC" "MIMIC")
 echo "=============================================================================================="
 echo "Starting datasets tuning"

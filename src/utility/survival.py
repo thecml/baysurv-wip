@@ -387,21 +387,33 @@ def convert_to_structured(T, E):
     # return structured array
     return np.array(concat, dtype=default_dtypes)
 
-def compute_survival_function(model, X_train, X_test, e_train, t_train,
-                              event_times, runs=1, model_type="TF"):
-    if model_type == "TF":
-        train_predictions = model.predict(X_train, verbose=False).reshape(-1)
+def compute_deterministic_survival_curve(model, X_train, X_test, e_train, t_train,
+                                         event_times, model_name):
+    if model_name == "SNGP":
+        train_logits = model.predict(X_train, verbose=False)[0].reshape(-1)
+        test_logits = model.predict(X_test, verbose=False)[0].reshape(-1)
+    elif model_name == "MLP":
+        train_logits = model.predict(X_train, verbose=False).reshape(-1)
+        test_logits = model.predict(X_test, verbose=False).reshape(-1)
     else:
-        train_predictions = model.predict(X_train).reshape(-1)
-    breslow = BreslowEstimator().fit(train_predictions, e_train, t_train)
-    model_cpd = np.zeros((runs, len(X_test)))
-    breslow_surv_times = np.zeros((runs, len(X_test), len(event_times)))
-    for i in range(0, runs):
-        if model_type == "TF":
-            model_cpd[i,:] = np.reshape(model.predict(X_test, verbose=False), len(X_test))
-        else:
-            model_cpd[i,:] = np.reshape(model.predict(X_test), len(X_test))
-        surv_fn = breslow.get_survival_function(model_cpd[i,:])
+        train_logits = model.predict(X_train).reshape(-1)
+        test_logits = model.predict(X_test).reshape(-1)
+    breslow = BreslowEstimator().fit(train_logits, e_train, t_train)
+    surv_fn = breslow.get_survival_function(test_logits)
+    breslow_surv_times = np.row_stack([fn(event_times) for fn in surv_fn])
+    return breslow_surv_times
+
+def compute_nondeterministic_survival_curve(model, X_train, X_test, e_train, t_train,
+                                            event_times, n_samples_train, n_samples_test):
+    train_cpd = np.zeros((n_samples_train, len(X_train)))
+    for i in range(0, n_samples_train):
+        train_logits = model.predict(X_train, verbose=False)
+        train_cpd[i,:] = np.reshape(train_logits, len(X_train))
+    breslow = BreslowEstimator().fit(np.mean(train_cpd, axis=0), e_train, t_train)
+    breslow_surv_times = np.zeros((n_samples_test, len(X_test), len(event_times)))
+    for i in range(0, n_samples_test):
+        test_logits = model.predict(X_test, verbose=False)
+        surv_fn = breslow.get_survival_function(np.reshape(test_logits, len(X_test)))
         breslow_surv_times[i] = np.row_stack([fn(event_times) for fn in surv_fn])
     return breslow_surv_times
 

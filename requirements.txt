@@ -18,7 +18,7 @@ scipy~=1.10.1
 scikit-multilearn~=0.2.0
 sklearn_pandas~=2.2.0
 tqdm~=4.66.2
-rpy2~=3.5.1
+rpy2==3.5.1
 setuptools~=52.0.0
 tzlocal~=5.1
 auton-survival~=0.1.0

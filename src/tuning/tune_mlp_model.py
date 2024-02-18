@@ -23,10 +23,12 @@ from tools import data_loader
 from sklearn.model_selection import train_test_split
 import pandas as pd
 from utility.training import split_time_event
-from utility.survival import calculate_event_times, compute_survival_function, calculate_percentiles
+from utility.survival import calculate_event_times, compute_deterministic_survival_curve, calculate_percentiles
 import config as cfg
 from tools.evaluator import LifelinesEvaluator
 from tools.preprocessor import Preprocessor
+from utility.training import make_stratified_split
+from utility.survival import convert_to_structured
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -43,9 +45,9 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
-    global dataset
+    global dataset_name
     if args.dataset:
-        dataset = args.dataset
+        dataset_name = args.dataset
     
     sweep_config = get_mlp_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
@@ -55,35 +57,44 @@ def train_model():
     config_defaults = cfg.MLP_DEFAULT_PARAMS
 
     # Initialize a new wandb run
-    wandb.init(config=config_defaults, group=dataset)
+    wandb.init(config=config_defaults, group=dataset_name)
     config = wandb.config
-    num_epochs = config['num_epochs']
+    num_epochs = 1 #config['num_epochs']
     batch_size = config['batch_size']
     early_stop = config['early_stop']
     patience = config['patience']
+    n_samples_train = config['n_samples_train']
+    n_samples_valid = config['n_samples_valid']
+    n_samples_test = config['n_samples_test']
 
     # Load data
-    if dataset == "SUPPORT":
+    if dataset_name == "SUPPORT":
         dl = data_loader.SupportDataLoader().load_data()
-    elif dataset == "GBSG2":
+    elif dataset_name == "GBSG2":
         dl = data_loader.GbsgDataLoader().load_data()
-    elif dataset == "WHAS500":
+    elif dataset_name == "WHAS500":
         dl = data_loader.WhasDataLoader().load_data()
-    elif dataset == "FLCHAIN":
+    elif dataset_name == "FLCHAIN":
         dl = data_loader.FlchainDataLoader().load_data()
-    elif dataset == "METABRIC":
+    elif dataset_name == "METABRIC":
         dl = data_loader.MetabricDataLoader().load_data()
-    elif dataset == "SEER":
+    elif dataset_name == "SEER":
         dl = data_loader.SeerDataLoader().load_data()
+    elif dataset_name == "MIMIC":
+        dl = data_loader.MimicDataLoader().load_data()
     else:
         raise ValueError("Dataset not found")
 
     num_features, cat_features = dl.get_features()
-    X, y = dl.get_data()
+    df = dl.get_data()
     
     # Split data
-    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=0)
-    X_train, X_valid, y_train, y_valid  = train_test_split(X_train, y_train, test_size=0.25, random_state=0)
+    df_train, df_valid, _ = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
+                                                  frac_valid=0.1, frac_test=0.2, random_state=0)
+    X_train = df_train[cat_features+num_features]
+    X_valid = df_valid[cat_features+num_features]
+    y_train = convert_to_structured(df_train["time"], df_train["event"])
+    y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
     
     # Scale data
     preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
@@ -99,20 +110,17 @@ def train_model():
     # Calculate event times
     event_times = calculate_event_times(t_train, e_train)
     
-    # Calculate percentiles
-    event_times_pct = calculate_percentiles(event_times)
-
     # Make datasets
     train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
                              drop_last=True, shuffle=True)()
     valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)()
     
+    model_name = "MLP"
     model = make_mlp_model(input_shape=X_train.shape[1:],
                            output_dim=1,
                            layers=config['network_layers'],
                            activation_fn=config['activation_fn'],
-                           dropout_rate=config['dropout'],
-                           regularization_pen=config['l2_reg'])
+                           dropout_rate=config['dropout'])
     
     # Define optimizer
     if config['optimizer'] == "Adam":
@@ -131,22 +139,23 @@ def train_model():
     
     # Train model
     trainer = baysurv_trainer.Trainer(model=model,
-                                      model_name="MLP",
+                                      model_name=model_name,
                                       train_dataset=train_ds,
                                       valid_dataset=valid_ds,
                                       test_dataset=None,
                                       optimizer=optimizer,
                                       loss_function=CoxPHLoss(),
                                       num_epochs=num_epochs,
-                                      event_times=event_times,
                                       early_stop=early_stop,
                                       patience=patience,
-                                      event_times_pct=event_times_pct)
+                                      n_samples_train=n_samples_train,
+                                      n_samples_valid=n_samples_valid,
+                                      n_samples_test=n_samples_test)
     trainer.train_and_evaluate()
 
     # Compute survival function
-    surv_preds = pd.DataFrame(np.mean(compute_survival_function(
-        model, X_train, X_valid, e_train, t_train, event_times, runs=1), axis=0), columns=event_times)
+    surv_preds = pd.DataFrame(compute_deterministic_survival_curve(
+        model, X_train, X_valid, e_train, t_train, event_times, model_name), columns=event_times)
     
     # Compute CI
     lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
