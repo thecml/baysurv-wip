@@ -29,7 +29,7 @@ os.environ["WANDB_SILENT"] = "true"
 import wandb
 
 N_RUNS = 1
-PROJECT_NAME = "baysurv_bo_sota"
+PROJECT_NAME = "baysurv_bo"
 
 # Setup device
 device = "cuda" if torch.cuda.is_available() else "cpu"
