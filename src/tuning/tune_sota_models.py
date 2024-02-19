@@ -18,12 +18,20 @@ from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_m
 import torch
 from tools.evaluator import LifelinesEvaluator
 from tools.preprocessor import Preprocessor
-from utility.training import make_stratified_split
+from utility.training import make_stratified_split, scale_data
 from utility.survival import convert_to_structured
 from tools.Evaluations.util import make_monotonic
+import paths as pt
+from utility.config import load_config
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
+
+class dotdict(dict):
+    """dot.notation access to dictionary attributes"""
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
 
 os.environ["WANDB_SILENT"] = "true"
 import wandb
@@ -36,6 +44,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
 
 def main():
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -44,14 +53,20 @@ def main():
                         required=True,
                         default=None)
     args = parser.parse_args()
+    """
     
     global model_name
     global dataset_name
     
+    """
     if args.dataset:
         dataset_name = args.dataset
     if args.model:
         model_name = args.model
+    """
+    
+    model_name = "rsf"
+    dataset_name = "SUPPORT"
     
     if model_name == "cox":
         sweep_config = get_cox_sweep_config()
@@ -122,19 +137,17 @@ def train_model():
     df = dl.get_data()
     
     # Split data
-    df_train, df_valid, _ = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
-                                                  frac_valid=0.1, frac_test=0.2, random_state=0)
+    df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
+                                                        frac_valid=0.1, frac_test=0.2, random_state=0)
     X_train = df_train[cat_features+num_features]
     X_valid = df_valid[cat_features+num_features]
+    X_test = df_test[cat_features+num_features]
     y_train = convert_to_structured(df_train["time"], df_train["event"])
     y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
+    y_test = convert_to_structured(df_test["time"], df_test["event"])
     
     # Scale data
-    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
-    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
-                                   one_hot=True, fill_value=-1)
-    X_train = np.array(transformer.transform(X_train))
-    X_valid = np.array(transformer.transform(X_valid))
+    X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
     
     # Make time/event split
     t_train, e_train = split_time_event(y_train)
@@ -192,34 +205,54 @@ def train_model():
         raise ValueError("Model not found")
     
     # Compute survival function
-    if model_name in ["dsm", "dcm"]:
+    if model_name == "dsm":
         surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
+    elif model_name == "dcph":
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, t=list(event_times)), columns=event_times)
+    elif model_name == "dcm":
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
+    elif model_name == "cox":
+        test_surv_fn = model.predict_survival_function(X_valid)
+        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+    elif model_name == "coxnet":
+        test_surv_fn = model.predict_survival_function(X_valid)
+        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+    elif model_name == "rsf":
+        test_surv_fn = model.predict_survival_function(X_valid)
+        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+    elif model_name == "coxboost":
+        test_surv_fn = model.predict_survival_function(X_valid)
+        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
     elif model_name == "baycox":
-        baycox_test_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
+        baycox_valid_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
                                         dtype=torch.float, device=device)
-        survival_outputs, _, _ = make_ensemble_cox_prediction(model, baycox_test_data, config=config)
+        survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_valid_data, config)
         surv_preds = survival_outputs.numpy()
     elif model_name == "baymtlr":
-        baycox_test_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
+        baycox_valid_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
                                         dtype=torch.float, device=device)
-        survival_outputs, _, _ = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config=config)
+        survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_valid_data, mtlr_times, config)
         surv_preds = survival_outputs.numpy()
     else:
-        surv_preds = compute_deterministic_survival_curve(model, X_train, X_valid, e_train, t_train,
-                                                          event_times, model_name)
+        surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_valid),
+                                                          e_train, t_train, event_times, model_name)
         
     # Make DCM monotonic
     if model_name == "dcm":
         surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
         
+    # Convert to DataFrame
     if model_name == "baymtlr":
         mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
         surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
     else:
-        surv_preds = pd.DataFrame(surv_preds, columns=event_times)
+        surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
     
-    lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
-    ci = lifelines_eval.concordance()[0]
+    try:
+        lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
+        ci = lifelines_eval.concordance()[0]
+    except:
+        ci = np.nan
     
     # Log to wandb
     print(ci)

@@ -39,19 +39,18 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return array[idx]
-
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
     __getattr__ = dict.get
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
+#DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+#MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
+
+DATASETS = ["SEER"]
+MODEL_NAMES = ["dsm"]
+
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
@@ -59,8 +58,8 @@ if __name__ == "__main__":
     # Setup device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     device = torch.device(device)
-    
-    # For each dataset, train three models (Cox, CoxNet, RSF)
+
+    # For each dataset
     for dataset_name in DATASETS:
         # Load data
         dl = get_data_loader(dataset_name).load_data()
