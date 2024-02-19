@@ -9,13 +9,13 @@ def get_baymtlr_sweep_config():
         },
         "parameters": {
             "hidden_size": {
-                "values": [16, 32, 64, 128]
+                "values": [32, 64, 128]
             },
             "dropout": {
                 "values": [0, 0.25, 0.5]
             },
             "num_epochs": {
-                "values": [100, 500, 1000, 5000]
+                "values": [100, 500, 1000]
             },
             "early_stop": {
                 "values": [False]
@@ -38,13 +38,13 @@ def get_baycox_sweep_config():
         },
         "parameters": {
             "hidden_size": {
-                "values": [16, 32, 64, 128]
+                "values": [32, 64, 128]
             },
             "dropout": {
                 "values": [0, 0.25, 0.5]
             },
             "num_epochs": {
-                "values": [100, 500, 1000, 5000]
+                "values": [100, 500, 1000]
             },
             "early_stop": {
                 "values": [False]
@@ -67,22 +67,22 @@ def get_coxboost_sweep_config():
         },
         "parameters": {
             "n_estimators": {
-                "values": [50, 100, 200, 400, 600, 800, 1000]
+                "values": [100, 200, 400]
             },
             "learning_rate": {
                 "values": [0.1, 0.5, 1.0]
             },
             "max_depth": {
-                "values": [int(x) for x in np.linspace(1, 18, 15, endpoint=True)]
+                "values": [3, 5, 7]
             },
             "loss": {
                 "values": ['coxph']
             },
             "min_samples_split": {
-                "values": [int(x) for x in np.linspace(2, 10, 10, endpoint=True)]
+                "values": [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)]
             },
             "min_samples_leaf": {
-                "values": [int(x) for x in np.linspace(1, 10, 10, endpoint=True)]
+                "values": [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)]
             },
             "max_features": {
                 "values": [None, "auto", "sqrt", "log2"]
@@ -109,12 +109,12 @@ def get_mlp_sweep_config():
         },
         "parameters": {
             "network_layers": {
-                "values": [[16], [16, 16], [16, 16, 16],
-                           [32], [32, 32], [32, 32, 32],
-                           [64], [64, 64], [64, 64, 64]]
+                "values": [[32], [32, 32], [32, 32, 32],
+                           [64], [32, 64], [32, 64, 64],
+                           [128], [64, 128], [32, 64, 128]]
             },
             "learning_rate": {
-                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
+                "values": [0.001, 0.01, 0.05]
             },
             "weight_decay": {
                 "values": [1e-3, 1e-4, 1e-5, None]
@@ -155,13 +155,13 @@ def get_rsf_sweep_config():
             },
         "parameters": {
             "n_estimators": {
-                "values": [50, 100, 200, 400, 600, 800, 1000]
+                "values": [100, 200, 400]
             },
             "max_depth": {
                 "values": [3, 5, 7]
             },
             "min_samples_split": {
-                "values": [float(x) for x in np.linspace(0.1, 0.9, 10, endpoint=True)]
+                "values": [float(x) for x in np.linspace(0.1, 0.9, 5, endpoint=True)]
             },
             "min_samples_leaf": {
                 "values": [float(x) for x in np.linspace(0.1, 0.5, 5, endpoint=True)]
@@ -181,7 +181,7 @@ def get_cox_sweep_config():
         },
         "parameters": {
             "n_iter": {
-                "values": [50, 100]
+                "values": [10, 50, 100]
             },
             "tol": {
                 "values": [1e-1, 1e-5, 1e-9]
@@ -228,12 +228,12 @@ def get_dcm_sweep_config():
         },
         "parameters": {
             "network_layers": {
-                "values": [[16], [16, 16], [16, 16, 16],
-                           [32], [32, 32], [32, 32, 32],
-                           [64], [64, 64], [64, 64, 64]]
+                "values": [[32], [32, 32], [32, 32, 32],
+                           [64], [32, 64], [32, 64, 64],
+                           [128], [64, 128], [32, 64, 128]]
             },
             "n_iter": {
-                "values": [50, 100, 200, 500, 1000, 5000, 10000]
+                "values": [50, 100, 200, 500, 1000]
             }
         }
     }
@@ -247,37 +247,12 @@ def get_dsm_sweep_config():
         },
         "parameters": {
             "network_layers": {
-                "values": [[16], [16, 16], [16, 16, 16],
-                           [32], [32, 32], [32, 32, 32],
-                           [64], [64, 64], [64, 64, 64]]
+                "values": [[32], [32, 32], [32, 32, 32],
+                           [64], [32, 64], [32, 64, 64],
+                           [128], [64, 128], [32, 64, 128]]
             },
             "n_iter": {
-                "values": [50, 100, 200, 500, 1000, 5000, 10000]
+                "values": [50, 100, 200, 500, 1000]
             }
-        }
-    }
-
-def get_dcph_sweep_config():
-    return {
-        "method": "bayes",
-        "metric": {
-            "name": "val_ci",
-            "goal": "maximize"
-        },
-        "parameters": {
-            "network_layers": {
-                "values": [[16], [16, 16], [16, 16, 16],
-                           [32], [32, 32], [32, 32, 32],
-                           [64], [64, 64], [64, 64, 64]]
-            },
-            "iters": {
-                "values": [50, 100, 200, 500, 1000, 5000, 10000]
-            },
-            "optimizer": {
-                "values": ["Adam", "SGD", "RMSProp"]
-            },
-            "learning_rate": {
-                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
-            },
         }
     }
