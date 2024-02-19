@@ -81,6 +81,9 @@ def get_coxboost_sweep_config():
             "min_samples_split": {
                 "values": [int(x) for x in np.linspace(2, 10, 10, endpoint=True)]
             },
+            "min_samples_leaf": {
+                "values": [int(x) for x in np.linspace(1, 10, 10, endpoint=True)]
+            },
             "max_features": {
                 "values": [None, "auto", "sqrt", "log2"]
             },

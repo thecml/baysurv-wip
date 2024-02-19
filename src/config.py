@@ -28,6 +28,7 @@ COXBOOST_DEFAULT_PARAMS = {
     'max_depth': 3,
     'loss': 'coxph',
     'min_samples_split': 2,
+    'min_samples_leaf': 1,
     'max_features': None,
     'dropout_rate': 0.0,
     'subsample': 1.0,
