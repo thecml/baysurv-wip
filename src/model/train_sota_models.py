@@ -228,13 +228,13 @@ if __name__ == "__main__":
 
             # Compute metrics
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
-            ci = lifelines_eval.concordance()[0]
             ibs = lifelines_eval.integrated_brier_score()
             mae = lifelines_eval.mae(method="Hinge")
             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
             inbll = ev.integrated_nbll(event_times)
+            ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ['baycox', 'baymtlr']:

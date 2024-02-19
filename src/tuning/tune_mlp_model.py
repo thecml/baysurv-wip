@@ -29,6 +29,8 @@ from tools.evaluator import LifelinesEvaluator
 from tools.preprocessor import Preprocessor
 from utility.training import make_stratified_split
 from utility.survival import convert_to_structured
+from utility.training import make_stratified_split, scale_data
+from pycox.evaluation import EvalSurv
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -36,7 +38,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 1
+N_RUNS = 10
 PROJECT_NAME = "baysurv_bo_mlp"
 
 def main():
@@ -89,19 +91,17 @@ def train_model():
     df = dl.get_data()
     
     # Split data
-    df_train, df_valid, _ = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
-                                                  frac_valid=0.1, frac_test=0.2, random_state=0)
+    df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
+                                                        frac_valid=0.1, frac_test=0.2, random_state=0)
     X_train = df_train[cat_features+num_features]
     X_valid = df_valid[cat_features+num_features]
+    X_test = df_test[cat_features+num_features]
     y_train = convert_to_structured(df_train["time"], df_train["event"])
     y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
+    y_test = convert_to_structured(df_test["time"], df_test["event"])
     
     # Scale data
-    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean')
-    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
-                                   one_hot=True, fill_value=-1)
-    X_train = np.array(transformer.transform(X_train))
-    X_valid = np.array(transformer.transform(X_valid))
+    X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
     
     # Make time/event split
     t_train, e_train = split_time_event(y_train)
@@ -158,10 +158,12 @@ def train_model():
         model, X_train, X_valid, e_train, t_train, event_times, model_name), columns=event_times)
     
     # Compute CI
-    lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
-    ci = lifelines_eval.concordance()[0]
-    print(ci)
-    
+    try:
+        ev = EvalSurv(surv_preds.T, t_valid, e_valid, censor_surv="km")
+        ci = ev.concordance_td()
+    except:
+        ci = np.nan
+
     # Log to wandb
     wandb.log({"val_ci": ci})
 

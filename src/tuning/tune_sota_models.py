@@ -23,6 +23,7 @@ from utility.survival import convert_to_structured
 from tools.Evaluations.util import make_monotonic
 import paths as pt
 from utility.config import load_config
+from pycox.evaluation import EvalSurv
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -36,7 +37,7 @@ class dotdict(dict):
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 1
+N_RUNS = 10
 PROJECT_NAME = "baysurv_bo"
 
 # Setup device
@@ -242,13 +243,12 @@ def train_model():
         surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
     
     try:
-        lifelines_eval = LifelinesEvaluator(surv_preds.T, t_valid, e_valid, t_train, e_train)
-        ci = lifelines_eval.concordance()[0]
+        ev = EvalSurv(surv_preds.T, t_valid, e_valid, censor_surv="km")
+        ci = ev.concordance_td()
     except:
         ci = np.nan
     
     # Log to wandb
-    print(ci)
     wandb.log({"val_ci": ci})
 
 if __name__ == "__main__":
