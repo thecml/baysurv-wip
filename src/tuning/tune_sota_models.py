@@ -40,6 +40,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 device = torch.device(device)
 
 def main():
+    global model_name
+    global dataset_name
+    
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -49,14 +53,15 @@ def main():
                         default=None)
     args = parser.parse_args()
     
-    global model_name
-    global dataset_name
-    
     if args.dataset:
         dataset_name = args.dataset
     if args.model:
         model_name = args.model
-        
+    """
+    
+    model_name = "baycox"
+    dataset_name = "SEER"
+    
     if model_name == "cox":
         sweep_config = get_cox_sweep_config()
     elif model_name == "coxboost":
