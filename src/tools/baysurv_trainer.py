@@ -70,7 +70,11 @@ class Trainer:
                         else:
                             output_list.append(tf.reshape(y_pred, y_pred.shape[0]))
                     logits_cpd = tf.stack(output_list)
-                    if self.model_name in ["VI", "VI-EPI"]:
+                    if isinstance(self.loss_fn, CoxPHLoss):
+                        logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                        loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                        self.train_loss_metric.update_state(loss)
+                    elif self.model_name in ["VI", "VI-EPI"]:
                         cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                         logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                         loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
