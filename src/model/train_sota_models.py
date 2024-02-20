@@ -49,7 +49,7 @@ class dotdict(dict):
 #MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
 
 DATASETS = ["SEER"]
-MODEL_NAMES = ["dsm"]
+MODEL_NAMES = ["baycox"]
 
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
