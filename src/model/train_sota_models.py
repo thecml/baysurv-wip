@@ -54,11 +54,12 @@ MODEL_NAMES = ["baycox"]
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
 
-if __name__ == "__main__":
-    # Setup device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    device = torch.device(device)
+# Setup device
+#device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cpu" # use CPU
+device = torch.device(device)
 
+if __name__ == "__main__":
     # For each dataset
     for dataset_name in DATASETS:
         # Load data
