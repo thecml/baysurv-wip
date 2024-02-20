@@ -143,7 +143,6 @@ if __name__ == "__main__":
             model = trainer.model
 
             # Compute loss
-            test_start_time = time()
             total_loss = list()
             for x, y in test_ds:
                 y_event = tf.expand_dims(y["label_event"], axis=1)
@@ -172,6 +171,7 @@ if __name__ == "__main__":
             variance = trainer.test_variance[-1]
             
             # Compute survival function
+            test_start_time = time()            
             if model_name in ["MLP", "SNGP"]:
                 surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                   e_train, t_train, event_times, model_name)
@@ -180,6 +180,7 @@ if __name__ == "__main__":
                                                                              e_train, t_train, event_times,
                                                                              n_samples_train, n_samples_test), axis=0)
             surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+            test_time = time() - test_start_time
             
             # Compute metrics
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
@@ -223,13 +224,11 @@ if __name__ == "__main__":
                                                                       t0)
                 deltas[t0] = deltas_t0
             ici = deltas[t0].mean()
-            e50 = np.percentile(deltas[t0], 50)
-            test_time = time() - test_start_time
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, e50, variance, train_time, test_time]
+            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, variance, train_time, test_time]
             res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
-                                                                     "INBLL", "CCalib", "ICI", "E50", "Variance",
+                                                                     "INBLL", "CCalib", "ICI", "Variance",
                                                                      "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name

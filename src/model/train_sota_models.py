@@ -173,7 +173,6 @@ if __name__ == "__main__":
                 train_time = time() - train_start_time
                 
             # Compute loss
-            test_start_time = time()
             if model_name in ["cox", "coxnet", "coxboost"]:
                 total_loss = list()
                 X_test_arr = np.array(X_test)
@@ -189,6 +188,7 @@ if __name__ == "__main__":
                 loss_avg = np.nan
 
             # Compute survival function
+            test_start_time = time()
             if model_name == "dsm":
                 surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(event_times)), columns=event_times)
             elif model_name == "dcph":
@@ -214,6 +214,7 @@ if __name__ == "__main__":
             else:
                 surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                   e_train, t_train, event_times, model_name)
+            test_time = time() - test_start_time
             
             # Make DCM monotonic
             if model_name == "dcm":
@@ -278,14 +279,11 @@ if __name__ == "__main__":
                                                                           t0)
                     deltas[t0] = deltas_t0
             ici = deltas[t0].mean()
-            e50 = np.percentile(deltas[t0], 50)
-            test_time = time() - test_start_time
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, e50, train_time, test_time]
+            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
             res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
-                                                                     "INBLL", "CCalib", "ICI", "E50", "TrainTime",
-                                                                     "TestTime"])
+                                                                     "INBLL", "CCalib", "ICI", "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             results = pd.concat([results, res_df], axis=0)
