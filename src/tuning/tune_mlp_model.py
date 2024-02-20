@@ -57,7 +57,7 @@ def train_model():
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=dataset_name)
     config = wandb.config
-    num_epochs = 1 #config['num_epochs']
+    num_epochs = config['num_epochs']
     batch_size = config['batch_size']
     early_stop = config['early_stop']
     patience = config['patience']

@@ -44,7 +44,6 @@ def main():
     global model_name
     global dataset_name
     
-    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset', type=str,
                         required=True,
@@ -58,11 +57,7 @@ def main():
         dataset_name = args.dataset
     if args.model:
         model_name = args.model
-    """
-    
-    model_name = "baycox"
-    dataset_name = "SEER"
-    
+        
     if model_name == "cox":
         sweep_config = get_cox_sweep_config()
     elif model_name == "coxboost":
