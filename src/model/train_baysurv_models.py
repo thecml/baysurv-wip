@@ -42,7 +42,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SEER"] # "SUPPORT", "SEER", "METABRIC", "MIMIC"
 MODELS = ["MCD"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
-N_EPOCHS = 5
+N_EPOCHS = 25
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         dropout_rate = config['dropout_rate']
         batch_size = config['batch_size']
         early_stop = config['early_stop']
-        patience = config['patience']
+        patience = 10
         n_samples_train = config['n_samples_train']
         n_samples_valid = config['n_samples_valid']
         n_samples_test = config['n_samples_test']
@@ -125,15 +125,15 @@ if __name__ == "__main__":
                 loss_function=CoxPHLossLLA()
             
             # Train model
-            train_start_time = time()
             trainer = Trainer(model=model, model_name=model_name,
                               train_dataset=train_ds, valid_dataset=valid_ds,
-                              test_dataset=test_ds, optimizer=optimizer,
+                              test_dataset=None, optimizer=optimizer,
                               loss_function=loss_function, num_epochs=N_EPOCHS,
                               early_stop=early_stop, patience=patience,
                               n_samples_train=n_samples_train,
                               n_samples_valid=n_samples_valid,
                               n_samples_test=n_samples_test)
+            train_start_time = time()
             trainer.train_and_evaluate()
             train_time = time() - train_start_time
             
@@ -142,7 +142,7 @@ if __name__ == "__main__":
             status = trainer.checkpoint.restore(f"{pt.MODELS_DIR}\\ckpt-{best_ep}")
             model = trainer.model
 
-            # Compute loss
+            # Compute loss on test set
             total_loss = list()
             for x, y in test_ds:
                 y_event = tf.expand_dims(y["label_event"], axis=1)
@@ -166,9 +166,6 @@ if __name__ == "__main__":
                     loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
                     total_loss.append(loss)
             loss_avg = np.mean(total_loss)
-            
-            # Get test variance for last epoch
-            variance = trainer.test_variance[-1]
             
             # Compute survival function
             test_start_time = time()            
@@ -226,20 +223,20 @@ if __name__ == "__main__":
             ici = deltas[t0].mean()
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, variance, train_time, test_time]
+            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
             res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
-                                                                     "INBLL", "CCalib", "ICI", "Variance",
-                                                                     "TrainTime", "TestTime"])
+                                                                     "INBLL", "CCalib", "ICI", "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             test_results = pd.concat([test_results, res_df], axis=0)
             
-            # Save loss from training
-            train_loss = trainer.train_loss_scores
-            valid_loss = trainer.valid_loss_scores
-            test_loss = trainer.test_loss_scores
-            res_df = pd.DataFrame(np.column_stack([train_loss, valid_loss, test_loss]),
-                                  columns=["TrainLoss", "ValidLoss", "TestLoss"])
+            # Save loss and variance from training
+            train_loss = trainer.train_loss
+            train_variance = trainer.train_variance
+            valid_loss = trainer.valid_loss
+            valid_variance = trainer.valid_variance
+            res_df = pd.DataFrame(np.column_stack([train_loss, train_variance, valid_loss, valid_variance]),
+                                  columns=["TrainLoss", "TrainVariance", "ValidLoss", "ValidVariance"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
             training_results = pd.concat([training_results, res_df], axis=0)

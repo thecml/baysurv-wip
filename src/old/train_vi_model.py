@@ -95,7 +95,7 @@ if __name__ == "__main__":
     model_names.append("VI")
     
     # Train
-    train_loss = trainer.train_loss_scores
+    train_loss = trainer.train_loss
     train_ctd = trainer.train_ci_scores
     train_ibs = trainer.train_ibs_scores
     train_inbll = trainer.train_inbll_scores
@@ -105,7 +105,7 @@ if __name__ == "__main__":
     best_ep = trainer.best_ep
 
     # Valid
-    valid_loss = trainer.valid_loss_scores
+    valid_loss = trainer.valid_loss
     res_df = pd.DataFrame(np.column_stack([train_loss, train_ctd, train_ibs, train_inbll, train_ece, train_e50, valid_loss]), # valid
                           columns=["TrainLoss", "TrainCTD", "TrainIBS", "TrainINBLL", "TrainECE", "TrainE50", "ValidLoss"])
     print(res_df)

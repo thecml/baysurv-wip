@@ -66,8 +66,7 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         rr = logsumexp_masked(pred_t, riskset, axis=1, keepdims=True)
         assert rr.shape.as_list() == predictions.shape.as_list()
         
-        expminuslog = 0.5*np.exp(-np.log(variances))
-        losses = tf.math.multiply(event, expminuslog*(rr - predictions))
+        losses = (tf.math.multiply(event, (rr - predictions)))
         variances = tf.math.multiply(event, 0.5*np.log(variances))
         
         return losses + variances
