@@ -41,7 +41,7 @@ loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
+MODELS = ["MLP", "VI", "MCD", "SNGP"]
 N_EPOCHS = 25
 
 if __name__ == "__main__":
