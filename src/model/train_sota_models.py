@@ -204,18 +204,17 @@ if __name__ == "__main__":
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
                 surv_preds = survival_outputs.numpy()
+                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             elif model_name == "baymtlr":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
                 surv_preds = survival_outputs.numpy()
+                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             else:
                 surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                   e_train, t_train, event_times, model_name)
             test_time = time() - test_start_time
-            
-            # Make monotonic
-            surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
             
             # Convert to DataFrame
             if model_name == "baymtlr":
