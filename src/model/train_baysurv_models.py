@@ -41,7 +41,7 @@ loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
+MODELS = ["MLP"] #["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
 N_EPOCHS = 25
 
 if __name__ == "__main__":
@@ -139,7 +139,7 @@ if __name__ == "__main__":
             
             # Get model for best epoch
             best_ep = trainer.best_ep
-            status = trainer.checkpoint.restore(f"{pt.MODELS_DIR}\\ckpt-{best_ep}")
+            status = trainer.checkpoint.restore(Path.joinpath(pt.MODELS_DIR, f"ckpt-{best_ep}"))
             model = trainer.model
 
             # Compute loss on test set
