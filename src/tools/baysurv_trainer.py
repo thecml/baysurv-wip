@@ -91,7 +91,7 @@ class Trainer:
         print(f"Completed {self.model_name} epoch {epoch}/{self.num_epochs}")
         epoch_loss = self.train_loss_metric.result()
         self.train_loss.append(float(epoch_loss))
-        
+                
         # Track variance
         if len(batch_variances) > 0:
             self.train_variance.append(float(np.mean(batch_variances)))
@@ -118,9 +118,10 @@ class Trainer:
             else:
                 logits_cpd = np.zeros((runs, n_samples), dtype=np.float32)
                 for i in range(0, runs):
-                    logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), len(x))
+                    logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), n_samples)
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
         self.valid_loss.append(float(epoch_loss))
 
