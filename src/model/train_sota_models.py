@@ -46,7 +46,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "baycox", "baymtlr"]
+MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         event_times_pct = calculate_percentiles(event_times)
         mtlr_times_pct = calculate_percentiles(mtlr_times)
         
-        for model_name in MODEL_NAMES:
+        for model_name in MODELS:
             print(f"Training {model_name}")
             # Get batch size for MLP to use for loss calculation
             mlp_config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -169,30 +169,15 @@ if __name__ == "__main__":
                                         mtlr_times, config=config,
                                         random_state=0, reset_model=True, device=device)
                 train_time = time() - train_start_time
-                
-            # Compute loss
-            if model_name in ["cox", "coxnet", "coxboost"]:
-                total_loss = list()
-                X_test_arr = np.array(X_test)
-                test_ds = InputFunction(X_test_arr, t_test, e_test, batch_size=batch_size)()
-                for x, y in test_ds:
-                    y_event = tf.expand_dims(y["label_event"], axis=1)
-                    batch_preds = model.predict(x)
-                    preds_tn = tf.convert_to_tensor(batch_preds.reshape(len(batch_preds), 1).astype(np.float32))
-                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
-                    total_loss.append(loss)
-                loss_avg = np.mean(total_loss)
-            else:
-                loss_avg = np.nan
-
+            
             # Compute survival function
             test_start_time = time()
             if model_name == "dsm":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(event_times)), columns=event_times)
+                surv_preds = model.predict_survival(X_test, times=list(event_times))
             elif model_name == "dcph":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, t=list(event_times)), columns=event_times)
+                surv_preds = model.predict_survival(X_test, t=list(event_times))
             elif model_name == "dcm":
-                surv_preds = pd.DataFrame(model.predict_survival(X_test, times=list(event_times)), columns=event_times)
+                surv_preds = model.predict_survival(X_test, times=list(event_times))
             elif model_name == "rsf": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(np.array(X_test))
                 surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
@@ -204,21 +189,21 @@ if __name__ == "__main__":
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
                 surv_preds = survival_outputs.numpy()
-                if not check_monotonicity(surv_preds):
-                    surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             elif model_name == "baymtlr":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
                 surv_preds = survival_outputs.numpy()
-                if not check_monotonicity(surv_preds):
-                    surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             else:
                 surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                   e_train, t_train, event_times, model_name)
             test_time = time() - test_start_time
             
-            # Convert to DataFrame
+            # Check monotonicity
+            if not check_monotonicity(surv_preds):
+                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
+                
+            # Convert to dataframe
             if model_name == "baymtlr":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
@@ -226,9 +211,11 @@ if __name__ == "__main__":
                 surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
 
             # Compute metrics
+            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
             ibs = lifelines_eval.integrated_brier_score()
-            mae = lifelines_eval.mae(method="Hinge")
+            mae_hinge = lifelines_eval.mae(method="Hinge")
+            mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
@@ -279,8 +266,8 @@ if __name__ == "__main__":
             ici = deltas[t0].mean()
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
-            res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
+            metrics = [ci, ibs, mae_hinge, mae_pseudo, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
+            res_df = pd.DataFrame(np.column_stack(metrics), columns=["CI", "IBS", "MAEHinge", "MAEPseudo", "DCalib", "KM",
                                                                      "INBLL", "CCalib", "ICI", "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
