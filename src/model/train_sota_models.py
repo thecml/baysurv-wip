@@ -27,7 +27,7 @@ from scipy.stats import chisquare
 from utility.risk import InputFunction
 from utility.training import make_stratified_split
 from utility.survival import convert_to_structured
-from tools.Evaluations.util import make_monotonic
+from tools.Evaluations.util import make_monotonic, check_monotonicity
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -45,11 +45,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-#DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-#MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
-
-DATASETS = ["SEER"]
-MODEL_NAMES = ["baycox"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
@@ -124,7 +121,7 @@ if __name__ == "__main__":
                 model = make_coxnet_model(config)
                 train_start_time = time()
                 model.fit(np.array(X_train), y_train)
-                train_time = time() - train_start_time    
+                train_time = time() - train_start_time
             elif model_name == "dsm":
                 config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
                 train_start_time = time()
@@ -207,19 +204,19 @@ if __name__ == "__main__":
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
                 surv_preds = survival_outputs.numpy()
+                if not check_monotonicity(surv_preds):
+                    surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             elif model_name == "baymtlr":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
                 survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
                 surv_preds = survival_outputs.numpy()
+                if not check_monotonicity(surv_preds):
+                    surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             else:
                 surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                   e_train, t_train, event_times, model_name)
             test_time = time() - test_start_time
-            
-            # Make DCM monotonic
-            if model_name == "dcm":
-                surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
             
             # Convert to DataFrame
             if model_name == "baymtlr":

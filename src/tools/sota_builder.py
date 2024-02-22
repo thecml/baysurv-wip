@@ -81,7 +81,8 @@ def make_dsm_model(config):
     layers = config['network_layers']
     n_iter = config['n_iter']
     return SurvivalModel('dsm', random_seed=0, iters=n_iter,
-                         layers=layers, distribution='Weibull', max_features='sqrt')
+                         layers=layers, distribution='Weibull',
+                         max_features='sqrt', batch_size=32)
 
 def make_dcph_model(config):
     layers = config['network_layers']
