@@ -22,18 +22,17 @@ class Trainer:
         self.n_samples_valid = n_samples_valid
         self.n_samples_test = n_samples_test
 
-        # Loss
+        # Metrics
         self.train_loss_metric = tf.keras.metrics.Mean(name="train_loss")
         self.valid_loss_metric = tf.keras.metrics.Mean(name="valid_loss")
         self.test_loss_metric = tf.keras.metrics.Mean(name="test_loss")
-        self.train_loss_scores, self.valid_loss_scores, self.test_loss_scores = list(), list(), list()
-        
-        self.test_variance = list()
-        
+        self.train_loss, self.valid_loss = list(), list()
+        self.train_variance, self.valid_variance = list(), list()
+                
         self.early_stop = early_stop
         self.patience = patience
         
-        self.best_val_nll = np.inf
+        self.best_valid_nll = np.inf
         self.best_ep = -1
         
         self.checkpoint = tf.train.Checkpoint(optimizer=self.optimizer, model=self.model)
@@ -55,6 +54,7 @@ class Trainer:
             self.cleanup()
 
     def train(self, epoch):
+        batch_variances = list()
         for x, y in self.train_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             with tf.GradientTape() as tape:
@@ -70,6 +70,7 @@ class Trainer:
                         else:
                             output_list.append(tf.reshape(y_pred, y_pred.shape[0]))
                     logits_cpd = tf.stack(output_list)
+                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     if isinstance(self.loss_fn, CoxPHLoss):
                         logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                         loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
@@ -84,11 +85,13 @@ class Trainer:
                         logits = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
                         self.train_loss_metric.update_state(loss)
                 elif self.model_name == "SNGP":
-                    logits = self.model(x, training=True)[0]
+                    logits, covmat = self.model(x, training=True)
+                    batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
                 else:
                     logits = self.model(x, training=True)
+                    batch_variances.append(0) # zero variance for MLP
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
             with tf.name_scope("gradients"):
@@ -96,11 +99,17 @@ class Trainer:
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         print(f"Completed {self.model_name} epoch {epoch}/{self.num_epochs}")
         epoch_loss = self.train_loss_metric.result()
-        self.train_loss_scores.append(float(epoch_loss))
+        self.train_loss.append(float(epoch_loss))
+        
+        # Track variance
+        if len(batch_variances) > 0:
+            self.train_variance.append(float(np.mean(batch_variances)))
+        
         self.manager.save()
 
     def validate(self, epoch):
         stop_training = False
+        batch_variances = list()
         for x, y in self.valid_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             if self.model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD"]:
@@ -112,6 +121,7 @@ class Trainer:
                     else:
                         logits_cpd[i,:] = np.reshape(self.model(x, training=False), len(x))
                 logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
+                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 if isinstance(self.loss_fn, CoxPHLoss):
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 else:
@@ -119,21 +129,27 @@ class Trainer:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 self.valid_loss_metric.update_state(loss)
             elif self.model_name == "SNGP":
-                logits = self.model(x, training=False)[0]
+                logits, covmat = self.model(x, training=False)
+                batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 self.valid_loss_metric.update_state(loss)
             else:
                 logits = self.model(x, training=False)
+                batch_variances.append(0) # zero variance for MLP
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
-        self.valid_loss_scores.append(float(epoch_loss))
+        self.valid_loss.append(float(epoch_loss))
+
+        # Track variance
+        if len(batch_variances) > 0:
+            self.valid_variance.append(float(np.mean(batch_variances)))
 
         # Early stopping
         if self.early_stop:
-            print(f'Best Val NLL: {self.best_val_nll}, epoch Val NNL: {epoch_loss}')
-            if self.best_val_nll > epoch_loss:
-                self.best_val_nll = epoch_loss
+            print(f'Best Val NLL: {self.best_valid_nll}, epoch Val NNL: {epoch_loss}')
+            if self.best_valid_nll > epoch_loss:
+                self.best_valid_nll = epoch_loss
                 self.best_ep = epoch
             if (epoch - self.best_ep) > self.patience:
                 print(f"Validation loss converges at {self.best_ep}th epoch.")

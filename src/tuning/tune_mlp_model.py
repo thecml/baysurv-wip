@@ -57,7 +57,7 @@ def train_model():
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=dataset_name)
     config = wandb.config
-    num_epochs = config['num_epochs']
+    num_epochs = 25
     batch_size = config['batch_size']
     early_stop = config['early_stop']
     patience = config['patience']
@@ -99,6 +99,10 @@ def train_model():
     # Scale data
     X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
     
+    # Convert to array
+    X_train = np.array(X_train)
+    X_valid = np.array(X_valid)
+
     # Make time/event split
     t_train, e_train = split_time_event(y_train)
     t_valid, e_valid = split_time_event(y_valid)
