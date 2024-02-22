@@ -1,9 +1,5 @@
 # Network
-<<<<<<< HEAD
 network_layers: [32]
-=======
-network_layers: [32, 32]
->>>>>>> 4249561de2057d7f2cc66ec8209b460c936f0f85
 activiation_fn: "selu"
 dropout_rate: 0.25
 batch_size: 32
@@ -16,11 +12,6 @@ n_samples_test: 100
 optimizer:
   class_name: Adam
   config:
-<<<<<<< HEAD
     learning_rate: 0.01
     momentum: 0
     decay: 0.0001
-=======
-    learning_rate: 0.001
-    decay: 0
->>>>>>> 4249561de2057d7f2cc66ec8209b460c936f0f85

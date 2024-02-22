@@ -214,9 +214,8 @@ if __name__ == "__main__":
                                                                   e_train, t_train, event_times, model_name)
             test_time = time() - test_start_time
             
-            # Make DCM monotonic
-            if model_name == "dcm":
-                surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
+            # Make monotonic
+            surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
             
             # Convert to DataFrame
             if model_name == "baymtlr":
