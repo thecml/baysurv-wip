@@ -41,7 +41,7 @@ loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP"] #["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
+MODELS = ["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
 N_EPOCHS = 25
 
 if __name__ == "__main__":
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         dropout_rate = config['dropout_rate']
         batch_size = config['batch_size']
         early_stop = config['early_stop']
-        patience = 10
+        patience = config['patience']
         n_samples_train = config['n_samples_train']
         n_samples_valid = config['n_samples_valid']
         n_samples_test = config['n_samples_test']
@@ -138,7 +138,7 @@ if __name__ == "__main__":
             train_time = time() - train_start_time
             
             # Get model for best epoch
-            best_ep = trainer.best_ep
+            best_ep = trainer.best_ep            
             status = trainer.checkpoint.restore(Path.joinpath(pt.MODELS_DIR, f"ckpt-{best_ep}"))
             model = trainer.model
 

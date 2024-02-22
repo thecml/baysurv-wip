@@ -44,11 +44,10 @@ if __name__ == "__main__":
             inbll = float(res['INBLL'])
             c_calib = float(res['CCalib'])
             ici = float(res['ICI'])
-            e50 = float(res['E50'])
             if loss != loss:
                 loss = "NA"
             model_name = map_model_name(model_name)
             text += f"{model_name} {model_citation} & "
-            text += f"{mae} & {ci} & {ibs} & {inbll} & {loss} & {ici} & {e50} & {d_calib} & {c_calib} & {km} \\\\"
+            text += f"{ci} & {mae} & {ibs} & {inbll} & {loss} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
             print(text)
         print()

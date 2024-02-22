@@ -13,5 +13,4 @@ optimizer:
   class_name: Adam
   config:
     learning_rate: 0.01
-    momentum: 0
     decay: 0.0001
