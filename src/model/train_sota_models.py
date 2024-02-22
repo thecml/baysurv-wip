@@ -45,11 +45,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-#DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-#MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcph", "dcm", "baycox", "baymtlr"]
-
-DATASETS = ["SEER"]
-MODEL_NAMES = ["baycox"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODEL_NAMES = ["cox", "coxnet", "coxboost", "rsf", "dsm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
@@ -124,7 +121,7 @@ if __name__ == "__main__":
                 model = make_coxnet_model(config)
                 train_start_time = time()
                 model.fit(np.array(X_train), y_train)
-                train_time = time() - train_start_time    
+                train_time = time() - train_start_time
             elif model_name == "dsm":
                 config = load_config(pt.DSM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
                 train_start_time = time()

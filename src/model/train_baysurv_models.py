@@ -40,9 +40,9 @@ random.seed(0)
 loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SEER"] # "SUPPORT", "SEER", "METABRIC", "MIMIC"
-MODELS = ["MCD"] #"MLP", "MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"
-N_EPOCHS = 5
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODELS = ["MLP", "MLP-ALEA", "VI", "MCD", "SNGP"]
+N_EPOCHS = 25
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores

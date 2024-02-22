@@ -1,8 +1,7 @@
 # Network
-network_layers: [16]
+network_layers: [32]
 activiation_fn: "selu"
 dropout_rate: 0.25
-l2_reg: 0.01
 batch_size: 32
 early_stop: True
 patience: 5
@@ -13,6 +12,6 @@ n_samples_test: 100
 optimizer:
   class_name: SGD
   config:
-    learning_rate: 0.005
-    momentum: 0.95
+    learning_rate: 0.01
+    momentum: 0
     decay: 0.0001

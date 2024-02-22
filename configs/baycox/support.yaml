@@ -1,4 +1,4 @@
-hidden_size: 32
+hidden_size: 64
 mu_scale: Null
 rho_scale: -5
 sigma1: 1
