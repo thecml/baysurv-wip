@@ -43,7 +43,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "VI", "MCD", "SNGP"]
-N_EPOCHS = 25
+N_EPOCHS = 1
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -139,7 +139,7 @@ if __name__ == "__main__":
             train_time = time() - train_start_time
             
             # Get model for best epoch
-            best_ep = trainer.best_ep            
+            best_ep = trainer.best_ep
             status = trainer.checkpoint.restore(Path.joinpath(pt.MODELS_DIR, f"ckpt-{best_ep}"))
             model = trainer.model
 
@@ -158,9 +158,16 @@ if __name__ == "__main__":
             if not check_monotonicity(surv_preds):
                 surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             
-            # Compute metrics
+            # Make dataframe
             surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+            
+            # Sanitize
             surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
+            bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we are above 0.5
+            surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+            y_test = np.delete(y_test, bad_idx)
+            
+            # Compute metrics
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
             ibs = lifelines_eval.integrated_brier_score()
             mae_hinge = lifelines_eval.mae(method="Hinge")
