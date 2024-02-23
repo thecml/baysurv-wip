@@ -43,7 +43,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "MCD", "SNGP"]
-N_EPOCHS = 5
+N_EPOCHS = 100
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
