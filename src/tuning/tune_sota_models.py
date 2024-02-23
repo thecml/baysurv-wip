@@ -1,8 +1,6 @@
 import numpy as np
 import os
-from utility.tuning import (get_cox_sweep_config, get_baycox_sweep_config, get_baymtlr_sweep_config,
-                            get_coxboost_sweep_config, get_dcm_sweep_config, get_dsm_sweep_config,
-                            get_rsf_sweep_config, get_coxnet_sweep_config)
+from utility.tuning import *
 import argparse
 from tools import data_loader
 import pandas as pd
@@ -10,7 +8,7 @@ from utility.training import split_time_event
 import config as cfg
 from utility.survival import make_time_bins, calculate_event_times, compute_deterministic_survival_curve
 from tools.sota_builder import make_cox_model, make_coxnet_model, make_coxboost_model
-from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcm_model
+from tools.sota_builder import make_rsf_model, make_dsm_model, make_dcm_model, make_dcph_model
 from tools.sota_builder import make_baycox_model, make_baymtlr_model
 from tools.bnn_isd_trainer import train_bnn_model
 from utility.bnn_isd_models import make_ensemble_cox_prediction, make_ensemble_mtlr_prediction
@@ -64,6 +62,8 @@ def main():
         sweep_config = get_coxboost_sweep_config()
     elif model_name == "coxnet":
         sweep_config = get_coxnet_sweep_config()
+    elif model_name == "dcph":
+        sweep_config = get_dcph_sweep_config()
     elif model_name == "dcm":
         sweep_config = get_dcm_sweep_config()
     elif model_name == "dsm":
@@ -90,6 +90,8 @@ def train_model():
         config_defaults = cfg.COXNET_DEFAULT_PARAMS
     elif model_name == "dcm":
         config_defaults = cfg.DCM_DEFAULT_PARAMS
+    elif model_name == "dcph":
+        config_defaults = cfg.DCPH_DEFAULT_PARAMS
     elif model_name == "dsm":
         config_defaults = cfg.DSM_DEFAULT_PARAMS
     elif model_name == "rsf":
@@ -157,6 +159,10 @@ def train_model():
     elif model_name == "coxnet":
         model = make_coxnet_model(config)
         model.fit(X_train, y_train)
+    elif model_name == "dcph":
+        model = make_dcph_model(config)
+        model.fit(X_train, pd.DataFrame(y_train),
+                  val_data=(X_valid, pd.DataFrame(y_valid)))
     elif model_name == "dcm":
         model = make_dcm_model(config)
         model.fit(X_train, pd.DataFrame(y_train),

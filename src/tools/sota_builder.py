@@ -86,9 +86,10 @@ def make_dsm_model(config):
 
 def make_dcph_model(config):
     layers = config['network_layers']
-    return DeepCoxPH(layers=layers)
+    n_iter = config['n_iter']
+    return SurvivalModel('dcph', random_seed=0, iters=n_iter, layers=layers, batch_size=32)
 
 def make_dcm_model(config):
     layers = config['network_layers']
     n_iter = config['n_iter']
-    return SurvivalModel('dcm', random_seed=0, iters=n_iter, layers=layers)
+    return SurvivalModel('dcm', random_seed=0, iters=n_iter, layers=layers, batch_size=32)

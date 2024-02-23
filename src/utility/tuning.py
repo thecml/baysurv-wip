@@ -256,3 +256,28 @@ def get_dsm_sweep_config():
             }
         }
     }
+    
+def get_dcph_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "parameters": {
+            "network_layers": {
+                "values": [[32], [32, 32], [32, 32, 32],
+                           [64], [32, 64], [32, 64, 64],
+                           [128], [64, 128], [32, 64, 128]]
+            },
+            "iters": {
+                "values": [50, 100, 200, 500, 1000]
+            },
+            "optimizer": {
+                "values": ["Adam", "SGD", "RMSProp"]
+            },
+            "learning_rate": {
+                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
+            },
+        }
+    }
