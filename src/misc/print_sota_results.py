@@ -27,7 +27,7 @@ if __name__ == "__main__":
     
     results = results.round(3)
 
-    model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
+    model_names = ["cox", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
     dataset_names = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
     model_citations = ['\cite{cox_regression_1972}', '\cite{simon_regularization_2011}',
                        '\cite{hothorn_survival_2005}', '\cite{ishwaran_random_2008}',

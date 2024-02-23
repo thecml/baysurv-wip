@@ -1,7 +1,7 @@
 # Network
 network_layers: [32, 32, 32]
 activiation_fn: "selu"
-dropout_rate: 0.25
+dropout_rate: 0.2
 l2_reg: 0.001
 batch_size: 32
 early_stop: True
@@ -11,8 +11,7 @@ n_samples_valid: 10
 n_samples_test: 100
 
 optimizer:
-  class_name: SGD
+  class_name: Adam
   config:
-    learning_rate: 0.05
-    momentum: 0.9
-    decay: 0.001
+    learning_rate: 0.001
+    decay: 0.0001
