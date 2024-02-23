@@ -26,6 +26,7 @@ from utility.survival import coverage
 from scipy.stats import chisquare
 import torch
 from utility.survival import survival_probability_calibration
+from tools.Evaluations.util import make_monotonic, check_monotonicity
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -142,47 +143,28 @@ if __name__ == "__main__":
             status = trainer.checkpoint.restore(Path.joinpath(pt.MODELS_DIR, f"ckpt-{best_ep}"))
             model = trainer.model
 
-            # Compute loss on test set
-            total_loss = list()
-            for x, y in test_ds:
-                y_event = tf.expand_dims(y["label_event"], axis=1)
-                if model_name == "MLP":
-                    logits = model.predict(x, verbose=False)
-                    preds_tn = tf.convert_to_tensor(logits)
-                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
-                    total_loss.append(loss)
-                elif model_name == "SNGP":
-                    logits, covmat = model.predict(x, verbose=False)
-                    preds_tn = tf.convert_to_tensor(logits)
-                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
-                    total_loss.append(loss)
-                else:
-                    runs = n_samples_test
-                    logits_cpd = np.zeros((runs, len(x)), dtype=np.float32)
-                    for i in range(0, runs):
-                        logits_cpd[i,:] = model.predict(x, verbose=False).flatten()
-                    logits_mean = tf.transpose(tf.reduce_mean(logits_cpd, axis=0, keepdims=True))
-                    preds_tn = tf.convert_to_tensor(logits_mean)
-                    loss = loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=preds_tn).numpy()
-                    total_loss.append(loss)
-            loss_avg = np.mean(total_loss)
-            
             # Compute survival function
             test_start_time = time()            
             if model_name in ["MLP", "SNGP"]:
-                surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                surv_preds = compute_deterministic_survival_curve(model, X_train, X_test,
                                                                   e_train, t_train, event_times, model_name)
             else:
                 surv_preds = np.mean(compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
                                                                              e_train, t_train, event_times,
                                                                              n_samples_train, n_samples_test), axis=0)
-            surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
             test_time = time() - test_start_time
             
+            # Check monotonicity
+            if not check_monotonicity(surv_preds):
+                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
+            
             # Compute metrics
+            surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
             ibs = lifelines_eval.integrated_brier_score()
-            mae = lifelines_eval.mae(method="Hinge")
+            mae_hinge = lifelines_eval.mae(method="Hinge")
+            mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
@@ -191,7 +173,7 @@ if __name__ == "__main__":
             
             # Calculate C-cal for BNN models
             if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:
-                surv_probs = compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                surv_probs = compute_nondeterministic_survival_curve(model, X_train, X_test,
                                                                      e_train, t_train, event_times,
                                                                      n_samples_train, n_samples_test)
                 credible_region_sizes = np.arange(0.1, 1, 0.1)
@@ -223,8 +205,8 @@ if __name__ == "__main__":
             ici = deltas[t0].mean()
             
             # Save to df
-            metrics = [loss_avg, ci, ibs, mae, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
-            res_df = pd.DataFrame(np.column_stack(metrics), columns=["Loss", "CI", "IBS", "MAE", "DCalib", "KM",
+            metrics = [ci, ibs, mae_hinge, mae_pseudo, d_calib, km_mse, inbll, c_calib, ici, train_time, test_time]
+            res_df = pd.DataFrame(np.column_stack(metrics), columns=["CI", "IBS", "MAEHinge", "MAEPseudo", "DCalib", "KM",
                                                                      "INBLL", "CCalib", "ICI", "TrainTime", "TestTime"])
             res_df['ModelName'] = model_name
             res_df['DatasetName'] = dataset_name
