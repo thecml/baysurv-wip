@@ -58,5 +58,7 @@ if __name__ == "__main__":
             model_name = map_model_name(model_name)
             text += f"{model_name} {model_citation} & "
             text += f"{ci} & {mae_hinge} & {mae_pseudo} & {ibs} & {inbll} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
+            if model_name == "BayesianMTLR":
+                text += " \midrule"
             print(text)
         print()

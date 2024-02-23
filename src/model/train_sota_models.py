@@ -203,15 +203,20 @@ if __name__ == "__main__":
             if not check_monotonicity(surv_preds):
                 surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
                 
-            # Convert to dataframe
+            # Make dataframe
             if model_name == "baymtlr":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
                 surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+                
+            # Sanitize
+            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
+            bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we are above 0.5
+            surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+            y_test = np.delete(y_test, bad_idx)
 
             # Compute metrics
-            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
             lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
             ibs = lifelines_eval.integrated_brier_score()
             mae_hinge = lifelines_eval.mae(method="Hinge")
