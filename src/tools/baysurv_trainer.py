@@ -88,7 +88,6 @@ class Trainer:
             with tf.name_scope("gradients"):
                 grads = tape.gradient(loss, self.model.trainable_weights)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
-        print(f"Completed {self.model_name} epoch {epoch}/{self.num_epochs}")
         epoch_loss = self.train_loss_metric.result()
         self.train_loss.append(float(epoch_loss))
                 
@@ -131,7 +130,7 @@ class Trainer:
 
         # Early stopping
         if self.early_stop:
-            print(f'Best Val NLL: {self.best_valid_nll}, epoch Val NNL: {epoch_loss}')
+            print(f"{self.model_name} - {epoch_loss} - {self.best_valid_nll}")
             if self.best_valid_nll > epoch_loss:
                 self.best_valid_nll = epoch_loss
                 self.best_ep = epoch

@@ -43,7 +43,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "MCD", "SNGP"]
-N_EPOCHS = 25
+N_EPOCHS = 1
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -56,6 +56,7 @@ if __name__ == "__main__":
         activation_fn = config['activiation_fn']
         layers = config['network_layers']
         dropout_rate = config['dropout_rate']
+        l2_reg = config['l2_reg']
         batch_size = config['batch_size']
         early_stop = config['early_stop']
         patience = config['patience']
@@ -107,7 +108,7 @@ if __name__ == "__main__":
             if model_name == "MLP":
                 model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
                                        layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate)
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLoss()
             elif model_name == "VI":
                 model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
@@ -117,12 +118,12 @@ if __name__ == "__main__":
             elif model_name == "SNGP":
                 model = make_sngp_model(input_shape=X_train.shape[1:],
                                         output_dim=1, layers=layers, activation_fn=activation_fn,
-                                        dropout_rate=dropout_rate)
+                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLoss()
             else:
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate)
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function=CoxPHLossLLA()
             
             # Train model
