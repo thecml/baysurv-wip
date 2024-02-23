@@ -39,11 +39,19 @@ if __name__ == "__main__":
             ci = float(res['CI'])
             ibs = float(res['IBS'])
             mae = float(res['MAE'])
-            d_calib = float(res['DCalib'])
             km = float(res['KM'])
             inbll = float(res['INBLL'])
+            d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
             ici = float(res['ICI'])
+            if d_calib == 1.0:
+                d_calib = "Yes"
+            else:
+                d_calib = "No"
+            if c_calib == 1.0:
+                c_calib = "Yes"
+            else:
+                c_calib = "No"
             if loss != loss:
                 loss = "NA"
             model_name = map_model_name(model_name)
