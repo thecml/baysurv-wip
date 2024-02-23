@@ -13,6 +13,8 @@ def map_model_name(model_name):
         model_name = "Random Survival Forest"
     if model_name == "dsm":
         model_name = "Deep Survival Machines"
+    if model_name == "dcm":
+        model_name == "Deep Cox Mixtures"
     if model_name == "baycox":
         model_name = "BayesianCox"
     if model_name == "baymtlr":
@@ -25,11 +27,12 @@ if __name__ == "__main__":
     
     results = results.round(3)
 
-    model_names = results['ModelName'].unique()
+    model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
     dataset_names = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
     model_citations = ['\cite{cox_regression_1972}', '\cite{simon_regularization_2011}',
                        '\cite{hothorn_survival_2005}', '\cite{ishwaran_random_2008}',
-                       '\cite{nagpal_deep_2021}', '\cite{qi_using_2023}', '\cite{qi_using_2023}']
+                       '\cite{nagpal_deep_2021}', '\cite{nagpal_deep_cox_2021}',
+                       '\cite{qi_using_2023}', '\cite{qi_using_2023}']
 
     for dataset_name in dataset_names:
         for index, (model_name, model_citation) in enumerate(zip(model_names, model_citations)):
@@ -48,7 +51,7 @@ if __name__ == "__main__":
                 d_calib = "Yes"
             else:
                 d_calib = "No"
-            if model_name in ["cox", "coxnet", "coxboost", "rsf", "dsm"]:
+            if model_name in ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm"]:
                 c_calib = "-"
             else:
                 if c_calib == 1.0:

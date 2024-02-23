@@ -234,6 +234,9 @@ def get_dcm_sweep_config():
             },
             "n_iter": {
                 "values": [50, 100, 200, 500, 1000]
+            },
+            "learning_rate": {
+                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
             }
         }
     }
@@ -253,6 +256,9 @@ def get_dsm_sweep_config():
             },
             "n_iter": {
                 "values": [50, 100, 200, 500, 1000]
+            },
+            "learning_rate": {
+                "values": [0.001, 0.005, 0.01, 0.05, 0.1]
             }
         }
     }
@@ -270,14 +276,11 @@ def get_dcph_sweep_config():
                            [64], [32, 64], [32, 64, 64],
                            [128], [64, 128], [32, 64, 128]]
             },
-            "iters": {
+            "n_iter": {
                 "values": [50, 100, 200, 500, 1000]
-            },
-            "optimizer": {
-                "values": ["Adam", "SGD", "RMSProp"]
             },
             "learning_rate": {
                 "values": [0.001, 0.005, 0.01, 0.05, 0.1]
-            },
+            }
         }
     }

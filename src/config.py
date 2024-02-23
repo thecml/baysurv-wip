@@ -49,14 +49,14 @@ COXNET_DEFAULT_PARAMS = {
 
 DCM_DEFAULT_PARAMS = {
     'network_layers': [32, 32],
+     'learning_rate': 0.001,
     'n_iters' : 100
     }
 
 
 DCPH_DEFAULT_PARAMS = {
     'network_layers': [32, 32],
-    'iters' : 100,
-    'optimizer': "Adam",
+    'n_iters' : 100,
     'learning_rate': 0.001,
     'batch_size': 32
     }
@@ -64,6 +64,7 @@ DCPH_DEFAULT_PARAMS = {
 
 DSM_DEFAULT_PARAMS = {
     'network_layers': [32, 32],
+    'learning_rate': 0.001,
     'n_iters' : 100
     }
 

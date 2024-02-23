@@ -80,16 +80,19 @@ def make_coxboost_model(config):
 def make_dsm_model(config):
     layers = config['network_layers']
     n_iter = config['n_iter']
+    learning_rate = config['learning_rate']
     return SurvivalModel('dsm', random_seed=0, iters=n_iter,
                          layers=layers, distribution='Weibull',
-                         max_features='sqrt', batch_size=32)
+                         max_features='sqrt', learning_rate=learning_rate, batch_size=32)
 
 def make_dcph_model(config):
     layers = config['network_layers']
     n_iter = config['n_iter']
-    return SurvivalModel('dcph', random_seed=0, iters=n_iter, layers=layers, batch_size=32)
+    learning_rate = config['learning_rate']
+    return SurvivalModel('dcph', random_seed=0, iters=n_iter, layers=layers, learning_rate=learning_rate, batch_size=32)
 
 def make_dcm_model(config):
     layers = config['network_layers']
     n_iter = config['n_iter']
-    return SurvivalModel('dcm', random_seed=0, iters=n_iter, layers=layers, batch_size=32)
+    learning_rate = config['learning_rate']
+    return SurvivalModel('dcm', random_seed=0, iters=n_iter, layers=layers, learning_rate=learning_rate, batch_size=32)

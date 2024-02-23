@@ -130,7 +130,7 @@ class Trainer:
 
         # Early stopping
         if self.early_stop:
-            print(f"{self.model_name} - {epoch_loss} - {self.best_valid_nll}")
+            print(f"{self.model_name} - {epoch}/{self.num_epochs} - {epoch_loss} - {self.best_valid_nll}")
             if self.best_valid_nll > epoch_loss:
                 self.best_valid_nll = epoch_loss
                 self.best_ep = epoch

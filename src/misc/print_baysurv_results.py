@@ -15,7 +15,7 @@ if __name__ == "__main__":
     
     results = results.round(3)
     
-    model_names = ["MLP", "VI", "MCD", "SNGP"]
+    model_names = ["MLP", "MCD", "SNGP"]
     dataset_names = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
     
     for dataset_name in dataset_names:
