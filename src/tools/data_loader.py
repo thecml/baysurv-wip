@@ -127,6 +127,9 @@ class SeerDataLoader(BaseDataLoader):
         data = pd.read_csv(path)
 
         data = data.loc[data['Survival Months'] > 0]
+        
+        numeric_rows = pd.to_numeric(data["Grade"], errors='coerce').notna()
+        data = data[numeric_rows]
 
         outcomes = data.copy()
         outcomes['event'] =  data['Status']
