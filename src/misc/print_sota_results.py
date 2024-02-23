@@ -35,10 +35,10 @@ if __name__ == "__main__":
         for index, (model_name, model_citation) in enumerate(zip(model_names, model_citations)):
             text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
-            loss = float(res['Loss'])
             ci = float(res['CI'])
             ibs = float(res['IBS'])
-            mae = float(res['MAE'])
+            mae_hinge = float(res['MAEHinge'])
+            mae_pseudo = float(res['MAEPseudo'])
             km = float(res['KM'])
             inbll = float(res['INBLL'])
             d_calib = float(res['DCalib'])
@@ -48,14 +48,15 @@ if __name__ == "__main__":
                 d_calib = "Yes"
             else:
                 d_calib = "No"
-            if c_calib == 1.0:
-                c_calib = "Yes"
+            if model_name in ["cox", "coxnet", "coxboost", "rsf", "dsm"]:
+                c_calib = "-"
             else:
-                c_calib = "No"
-            if loss != loss:
-                loss = "NA"
+                if c_calib == 1.0:
+                    c_calib = "Yes"
+                else:
+                    c_calib = "No"
             model_name = map_model_name(model_name)
             text += f"{model_name} {model_citation} & "
-            text += f"{ci} & {mae} & {ibs} & {inbll} & {loss} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
+            text += f"{ci} & {mae_hinge} & {mae_pseudo} & {ibs} & {inbll} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
             print(text)
         print()
