@@ -75,6 +75,11 @@ if __name__ == "__main__":
     
         # Scale data
         X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
+        
+        # Convert to array
+        X_train = np.array(X_train)
+        X_valid = np.array(X_valid)
+        X_test = np.array(X_test)
 
         # Make time/event split
         t_train, e_train = split_time_event(y_train)
