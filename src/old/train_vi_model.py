@@ -13,7 +13,7 @@ from utility.training import get_data_loader, scale_data, split_time_event
 from utility.plot import plot_training_curves
 from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model
 from utility.risk import InputFunction
-from utility.loss import CoxPHLoss, CoxPHLossLLA
+from utility.loss import CoxPHLoss, CoxPHLossGaussian
 from pathlib import Path
 import paths as pt
 from utility.survival import calculate_event_times, calculate_percentiles
@@ -83,7 +83,7 @@ if __name__ == "__main__":
     trainer = Trainer(model=vi_model, model_name="VI",
                       train_dataset=train_ds, valid_dataset=valid_ds,
                       test_dataset=None, optimizer=optimizer,
-                      loss_function=CoxPHLossLLA(), num_epochs=N_EPOCHS,
+                      loss_function=CoxPHLossGaussian(), num_epochs=N_EPOCHS,
                       event_times=event_times, early_stop=early_stop,
                       patience=patience, event_times_pct=event_times_pct)
 

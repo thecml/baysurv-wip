@@ -30,11 +30,10 @@ class dotdict(dict):
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 10
+N_RUNS = 100
 PROJECT_NAME = "baysurv_bo"
 
 # Setup device
-#device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "cpu" # use CPU
 device = torch.device(device)
 

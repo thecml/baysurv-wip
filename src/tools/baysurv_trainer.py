@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import paths as pt
-from utility.loss import CoxPHLoss, CoxPHLossLLA
+from utility.loss import CoxPHLoss, CoxPHLossGaussian
 
 class Trainer:
     def __init__(self, model, model_name, train_dataset, valid_dataset,

@@ -4,7 +4,7 @@ import tensorflow_probability as tfp
 import numpy as np
 import torch
 
-class CoxPHLossLLA(tf.keras.losses.Loss):
+class CoxPHLossGaussian(tf.keras.losses.Loss):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         
@@ -21,13 +21,13 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
         #log_dist_var = -tf.math.log(tf.math.reduce_std(logits_cpd, axis=0, keepdims=True) ** 2)
         #return coxloss(y_true, y_pred) + tf.reduce_mean(log_dist_var)
         
-        variances = tf.transpose(tf.math.reduce_variance(y_pred, axis=0, keepdims=True))
-        predictions = tf.transpose(tf.reduce_mean(y_pred, axis=0, keepdims=True))
+        y_var = tf.transpose(tf.math.reduce_variance(y_pred, axis=0, keepdims=True))
+        y_pred = tf.transpose(tf.reduce_mean(y_pred, axis=0, keepdims=True))
         
         # Perform Cox loss
         event, riskset = y_true
         
-        pred_shape = predictions.shape
+        pred_shape = y_pred.shape
         if pred_shape.ndims != 2:
             raise ValueError("Rank mismatch: Rank of predictions (received %s) should "
                              "be 2." % pred_shape.ndims)
@@ -48,8 +48,8 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
             raise ValueError("Rank mismatch: Rank of riskset (received %s) should "
                              "be 2." % riskset.shape.ndims)
 
-        event = tf.cast(event, predictions.dtype)
-        predictions = safe_normalize(predictions)
+        event = tf.cast(event, y_pred.dtype)
+        y_pred = safe_normalize(y_pred)
         
         with tf.name_scope("assertions"):
             assertions = (
@@ -60,16 +60,16 @@ class CoxPHLossLLA(tf.keras.losses.Loss):
 
         # move batch dimension to the end so predictions get broadcast
         # row-wise when multiplying by riskset
-        pred_t = tf.transpose(predictions)
+        pred_t = tf.transpose(y_pred)
 
         # compute log of sum over risk set for each row
         rr = logsumexp_masked(pred_t, riskset, axis=1, keepdims=True)
-        assert rr.shape.as_list() == predictions.shape.as_list()
+        assert rr.shape.as_list() == y_pred.shape.as_list()
         
-        losses = (tf.math.multiply(event, (rr - predictions)))
-        variances = tf.math.multiply(event, 0.5*np.log(variances))
+        losses = (tf.math.multiply(event, (rr - y_pred)))
+        variances = tf.math.multiply(event, 0.5*np.log(y_var))
         
-        return losses + variances
+        return losses/(2*y_var) + variances
 
 class CoxPHLoss(tf.keras.losses.Loss):
     """Negative partial log-likelihood of Cox's proportional hazards model."""

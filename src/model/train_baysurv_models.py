@@ -12,7 +12,7 @@ from utility.config import load_config
 from utility.training import get_data_loader, scale_data, split_time_event
 from tools.baysurv_builder import make_mlp_model, make_vi_model, make_mcd_model, make_sngp_model
 from utility.risk import InputFunction
-from utility.loss import CoxPHLoss, CoxPHLossLLA
+from utility.loss import CoxPHLoss, CoxPHLossGaussian
 from pathlib import Path
 import paths as pt
 from utility.survival import (calculate_event_times, calculate_percentiles, convert_to_structured,
@@ -38,14 +38,11 @@ np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
 
-loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-#DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-DATASETS = ["SEER"]
-MODELS = ["MLP", "MCD"]
-N_EPOCHS = 1000
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
+N_EPOCHS = 100
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
@@ -118,17 +115,17 @@ if __name__ == "__main__":
                 model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLossLLA()
+                loss_function = CoxPHLossGaussian()
             elif model_name == "MCD-EPI":
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=1,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function=CoxPHLossLLA()
+                loss_function=CoxPHLossGaussian()
             else:
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function=CoxPHLossLLA()
+                loss_function=CoxPHLossGaussian()
             
             # Train model
             trainer = Trainer(model=model, model_name=model_name,
