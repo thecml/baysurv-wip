@@ -43,7 +43,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-N_EPOCHS = 1
+N_EPOCHS = 100
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
@@ -165,33 +165,24 @@ if __name__ == "__main__":
             surv_preds = pd.DataFrame(surv_preds, columns=event_times)
             
             # Sanitize
-            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
+            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
             bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
             sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
             sanitized_y_test = np.delete(y_test, bad_idx, axis=0)
             sanitized_x_test = np.delete(X_test, bad_idx, axis=0)
+            sanitized_t_test = np.delete(t_test, bad_idx, axis=0)
+            sanitized_e_test = np.delete(e_test, bad_idx, axis=0)
 
             # Compute metrics
-            try:
-                lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_y_test["time"], sanitized_y_test["event"], t_train, e_train)
-                ibs = lifelines_eval.integrated_brier_score()
-                mae_hinge = lifelines_eval.mae(method="Hinge")
-                mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
-                d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
-                km_mse = lifelines_eval.km_calibration()
-            except:
-                ibs = np.nan
-                mae_hinge = np.nan
-                mae_pseudo = np.nan
-                d_calib = np.nan
-                km_mse = np.nan
-            try:
-                ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"], sanitized_y_test["event"], censor_surv="km")
-                inbll = ev.integrated_nbll(event_times)
-                ci = ev.concordance_td()
-            except:
-                inbll = np.nan
-                ci = np.nan
+            lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_y_test["time"], sanitized_y_test["event"], t_train, e_train)
+            ibs = lifelines_eval.integrated_brier_score()
+            mae_hinge = lifelines_eval.mae(method="Hinge")
+            mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
+            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            km_mse = lifelines_eval.km_calibration()
+            ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"], sanitized_y_test["event"], censor_surv="km")
+            inbll = ev.integrated_nbll(event_times)
+            ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:
@@ -205,7 +196,8 @@ if __name__ == "__main__":
                     drop_num = math.floor(0.5 * n_samples_test * (1 - percentage))
                     lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                     upper_outputs = torch.kthvalue(surv_times, k=n_samples_test - drop_num, dim=0)[0]
-                    coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs, t_test, e_test)
+                    coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs,
+                                                          sanitized_t_test, sanitized_e_test)
                 data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                 _, pvalue = chisquare(data)
                 alpha = 0.05
