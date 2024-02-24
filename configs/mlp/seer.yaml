@@ -1,5 +1,5 @@
 # Network
-network_layers: [32]
+network_layers: [64]
 activiation_fn: "selu"
 dropout_rate: 0.2
 l2_reg: 0.001
@@ -13,5 +13,5 @@ n_samples_test: 100
 optimizer:
   class_name: Adam
   config:
-    learning_rate: 0.001
+    learning_rate: 0.05
     decay: 0.0001
