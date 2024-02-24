@@ -13,7 +13,7 @@ echo "Starting datasets tuning"
 echo "=============================================================================================="
 for dataset in ${datasets[@]}; do
     echo "Starting dataset run for MLP on <$dataset>"
-    python $base_path/../src/tuning/tune_sota_models.py --dataset $dataset
+    python $base_path/../src/tuning/tune_mlp_model.py --dataset $dataset
     echo "Tuning MLP <$dataset> done"
     echo -e "\n\n\n\n\n"
     echo "=============================================================================================="

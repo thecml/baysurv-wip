@@ -137,6 +137,9 @@ def get_mlp_sweep_config():
             "num_epochs": {
                 "values": [100]
             },
+            "l2_reg": {
+                "values": [0.001]
+            },
             "early_stop": {
                 "values": [False]
             },

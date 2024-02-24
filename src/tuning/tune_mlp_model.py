@@ -61,6 +61,7 @@ def train_model():
     batch_size = config['batch_size']
     early_stop = config['early_stop']
     patience = config['patience']
+    l2_reg = config['l2_reg']
     n_samples_train = config['n_samples_train']
     n_samples_valid = config['n_samples_valid']
     n_samples_test = config['n_samples_test']
@@ -120,7 +121,8 @@ def train_model():
                            output_dim=1,
                            layers=config['network_layers'],
                            activation_fn=config['activation_fn'],
-                           dropout_rate=config['dropout'])
+                           dropout_rate=config['dropout'],
+                           regularization_pen=l2_reg)
     
     # Define optimizer
     if config['optimizer'] == "Adam":

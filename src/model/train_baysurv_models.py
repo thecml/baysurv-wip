@@ -43,7 +43,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-N_EPOCHS = 100
+N_EPOCHS = 1
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
@@ -168,8 +168,8 @@ if __name__ == "__main__":
             surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
             bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
             sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
-            sanitized_y_test = np.delete(y_test, bad_idx)
-            sanitized_x_test = np.delete(X_test, bad_idx)
+            sanitized_y_test = np.delete(y_test, bad_idx, axis=0)
+            sanitized_x_test = np.delete(X_test, bad_idx, axis=0)
 
             # Compute metrics
             try:
