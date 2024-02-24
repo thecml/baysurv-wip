@@ -141,10 +141,10 @@ def get_mlp_sweep_config():
                 "values": [0.001]
             },
             "early_stop": {
-                "values": [False]
+                "values": [True]
             },
             "patience": {
-                "values": [0]
+                "values": [5]
             },
         }
     }
