@@ -300,6 +300,6 @@ if __name__ == "__main__":
                 path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}.joblib")
                 joblib.dump(model, path)
 
-    # Save results
-    results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
+            # Save results
+            results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
     
