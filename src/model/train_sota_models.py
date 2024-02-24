@@ -49,7 +49,6 @@ DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
-loss_fn = CoxPHLoss()
 
 # Setup device
 #device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -209,15 +208,24 @@ if __name__ == "__main__":
                 surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
                 surv_preds = pd.DataFrame(surv_preds, columns=event_times)
+                
+            # Sanitize
+            surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0).clip(lower=0.001)
+            bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index # check we have a median
+            sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
+            sanitized_y_test = np.delete(y_test, bad_idx, axis=0)
+            sanitized_x_test = np.delete(X_test, bad_idx, axis=0)
 
             # Compute metrics
-            lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
+            lifelines_eval = LifelinesEvaluator(sanitized_surv_preds.T, sanitized_y_test["time"],
+                                                sanitized_y_test["event"], t_train, e_train)
             ibs = lifelines_eval.integrated_brier_score()
             mae_hinge = lifelines_eval.mae(method="Hinge")
             mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
             d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
-            ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
+            ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"],
+                          sanitized_y_test["event"], censor_surv="km")
             inbll = ev.integrated_nbll(event_times)
             ci = ev.concordance_td()
             
@@ -250,16 +258,16 @@ if __name__ == "__main__":
             deltas = dict()
             if model_name != "baymtlr": # use event times for non-mtlr model
                 for t0 in event_times_pct.values():
-                    _, _, _, deltas_t0 = survival_probability_calibration(surv_preds,
-                                                                          y_test["time"],
-                                                                          y_test["event"],
+                    _, _, _, deltas_t0 = survival_probability_calibration(sanitized_surv_preds,
+                                                                          sanitized_y_test["time"],
+                                                                          sanitized_y_test["event"],
                                                                           t0)
                     deltas[t0] = deltas_t0
             else:
                 for t0 in mtlr_times_pct.values():
-                    _, _, _, deltas_t0 = survival_probability_calibration(surv_preds,
-                                                                          y_test["time"],
-                                                                          y_test["event"],
+                    _, _, _, deltas_t0 = survival_probability_calibration(sanitized_surv_preds,
+                                                                          sanitized_y_test["time"],
+                                                                          sanitized_y_test["event"],
                                                                           t0)
                     deltas[t0] = deltas_t0
             ici = deltas[t0].mean()
