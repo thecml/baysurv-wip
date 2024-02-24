@@ -132,7 +132,7 @@ def get_mlp_sweep_config():
                 "values": [32]
             },
             "num_epochs": {
-                "values": [1000]
+                "values": [100]
             },
             "l2_reg": {
                 "values": [0.001]
@@ -182,7 +182,7 @@ def get_mcd_sweep_config():
                 "values": [32]
             },
             "num_epochs": {
-                "values": [1000]
+                "values": [100]
             },
             "l2_reg": {
                 "values": [0.001]

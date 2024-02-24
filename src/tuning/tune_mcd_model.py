@@ -34,7 +34,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 1
+N_RUNS = 10
 PROJECT_NAME = "baysurv_bo_mcd"
 
 def main():
