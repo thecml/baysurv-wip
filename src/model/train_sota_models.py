@@ -46,7 +46,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["cox", "coxnet", "coxboost", "rsf", "dcph", "dsm", "dcm", "baycox", "baymtlr"]
+MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 loss_fn = CoxPHLoss()
