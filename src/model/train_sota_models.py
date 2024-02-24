@@ -210,23 +210,16 @@ if __name__ == "__main__":
             else:
                 surv_preds = pd.DataFrame(surv_preds, columns=event_times)
 
-            # Ensure first column of S(t) is 1
-            surv_preds.iloc[:,0] = 1.0
-
             # Compute metrics
-            try:
-                lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
-                ibs = lifelines_eval.integrated_brier_score()
-                mae_hinge = lifelines_eval.mae(method="Hinge")
-                mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
-                d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
-                km_mse = lifelines_eval.km_calibration()
-                ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
-                inbll = ev.integrated_nbll(event_times)
-                ci = ev.concordance_td()
-            except:
-                print("Failed computing metrics...")
-                break
+            lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
+            ibs = lifelines_eval.integrated_brier_score()
+            mae_hinge = lifelines_eval.mae(method="Hinge")
+            mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
+            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            km_mse = lifelines_eval.km_calibration()
+            ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
+            inbll = ev.integrated_nbll(event_times)
+            ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ['baycox', 'baymtlr']:
