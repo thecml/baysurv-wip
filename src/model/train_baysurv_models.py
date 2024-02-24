@@ -41,9 +41,11 @@ random.seed(0)
 loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-N_EPOCHS = 100
+#DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
+DATASETS = ["SEER"]
+MODELS = ["MLP", "MCD"]
+N_EPOCHS = 1000
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
@@ -237,7 +239,7 @@ if __name__ == "__main__":
             path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}/")
             model.save_weights(path)
             
-            # Save results
-            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
-            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
+    # Save results
+    training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
+    test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
         

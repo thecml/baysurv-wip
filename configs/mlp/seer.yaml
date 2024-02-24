@@ -1,11 +1,11 @@
 # Network
 network_layers: [64]
-activiation_fn: "selu"
+activiation_fn: "relu"
 dropout_rate: 0.2
 l2_reg: 0.001
 batch_size: 32
 early_stop: True
-patience: 5
+patience: 10
 n_samples_train: 10
 n_samples_valid: 10
 n_samples_test: 100

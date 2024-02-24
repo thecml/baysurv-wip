@@ -114,28 +114,25 @@ def get_mlp_sweep_config():
                            [128], [64, 128], [32, 64, 128]]
             },
             "learning_rate": {
-                "values": [0.001, 0.01, 0.05]
+                "values": [0.001, 0.005, 0.01]
             },
             "weight_decay": {
                 "values": [1e-3, 1e-4, 1e-5, None]
-            },
-            "momentum": {
-                "values": [0.99, 0.97, 0.95, 0.9, 0.0]
             },
             "optimizer": {
                 "values": ["Adam"]
             },
             "activation_fn": {
-                "values": ["relu", "selu"]
+                "values": ["relu"]
             },
             "dropout": {
-                "values": [0.1, 0.2]
+                "values": [0.1, 0.2, 0.25]
             },
             "batch_size": {
                 "values": [32]
             },
             "num_epochs": {
-                "values": [100]
+                "values": [1000]
             },
             "l2_reg": {
                 "values": [0.001]
@@ -144,7 +141,57 @@ def get_mlp_sweep_config():
                 "values": [True]
             },
             "patience": {
-                "values": [5]
+                "values": [10]
+            },
+        }
+    }
+
+def get_mcd_sweep_config():
+    return {
+        "method": "bayes",
+        "metric": {
+            "name": "val_ci",
+            "goal": "maximize"
+        },
+        "early_terminate": {
+            "type": "hyperband",
+            "min_iter": 3
+        },
+        "parameters": {
+            "network_layers": {
+                "values": [[32], [32, 32], [32, 32, 32],
+                           [64], [32, 64], [32, 64, 64],
+                           [128], [64, 128], [32, 64, 128]]
+            },
+            "learning_rate": {
+                "values": [0.001, 0.005, 0.01]
+            },
+            "weight_decay": {
+                "values": [1e-3, 1e-4, 1e-5, None]
+            },
+            "optimizer": {
+                "values": ["Adam"]
+            },
+            "activation_fn": {
+                "values": ["relu"]
+            },
+            "dropout": {
+                "values": [0.1, 0.2, 0.25]
+            },
+            "batch_size": {
+                "values": [32]
+            },
+            "num_epochs": {
+                "values": [1000]
+            },
+            "l2_reg": {
+                "values": [0.001]
+            },
+            "early_stop": {
+                "values": [True]
+            },
+            "patience": {
+                "values": [10]
             },
         }
     }

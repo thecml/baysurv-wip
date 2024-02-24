@@ -8,12 +8,12 @@ Tuning script for mlp model
 import numpy as np
 import os
 import tensorflow as tf
-from tools.baysurv_builder import make_mlp_model
+from tools.baysurv_builder import make_mlp_model, make_mcd_model
 from utility.risk import InputFunction
-from utility.loss import CoxPHLoss
+from utility.loss import CoxPHLossLLA
 from tools import baysurv_trainer, data_loader
 import os
-from utility.tuning import get_mlp_sweep_config
+from utility.tuning import get_mlp_sweep_config, get_mcd_sweep_config
 import argparse
 import numpy as np
 import os
@@ -21,7 +21,7 @@ import argparse
 from tools import data_loader
 import pandas as pd
 from utility.training import split_time_event
-from utility.survival import calculate_event_times, compute_deterministic_survival_curve
+from utility.survival import calculate_event_times, compute_nondeterministic_survival_curve
 import config as cfg
 from utility.training import make_stratified_split
 from utility.survival import convert_to_structured
@@ -34,8 +34,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 10
-PROJECT_NAME = "baysurv_bo_mlp"
+N_RUNS = 1
+PROJECT_NAME = "baysurv_bo_mcd"
 
 def main():
     parser = argparse.ArgumentParser()
@@ -47,12 +47,12 @@ def main():
     if args.dataset:
         dataset_name = args.dataset
     
-    sweep_config = get_mlp_sweep_config()
+    sweep_config = get_mcd_sweep_config()
     sweep_id = wandb.sweep(sweep_config, project=PROJECT_NAME)
     wandb.agent(sweep_id, train_model, count=N_RUNS)
 
 def train_model():
-    config_defaults = cfg.MLP_DEFAULT_PARAMS
+    config_defaults = cfg.MCD_DEFAULT_PARAMS
 
     # Initialize a new wandb run
     wandb.init(config=config_defaults, group=dataset_name)
@@ -69,12 +69,6 @@ def train_model():
     # Load data
     if dataset_name == "SUPPORT":
         dl = data_loader.SupportDataLoader().load_data()
-    elif dataset_name == "GBSG2":
-        dl = data_loader.GbsgDataLoader().load_data()
-    elif dataset_name == "WHAS500":
-        dl = data_loader.WhasDataLoader().load_data()
-    elif dataset_name == "FLCHAIN":
-        dl = data_loader.FlchainDataLoader().load_data()
     elif dataset_name == "METABRIC":
         dl = data_loader.MetabricDataLoader().load_data()
     elif dataset_name == "SEER":
@@ -116,9 +110,9 @@ def train_model():
                              drop_last=True, shuffle=True)()
     valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)()
     
-    model_name = "MLP"
-    model = make_mlp_model(input_shape=X_train.shape[1:],
-                           output_dim=1,
+    model_name = "MCD"
+    model = make_mcd_model(input_shape=X_train.shape[1:],
+                           output_dim=2,
                            layers=config['network_layers'],
                            activation_fn=config['activation_fn'],
                            dropout_rate=config['dropout'],
@@ -126,7 +120,7 @@ def train_model():
     
     # Define optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=wandb.config.learning_rate,
-                                            weight_decay=wandb.config.weight_decay)
+                                         weight_decay=wandb.config.weight_decay)
     
     # Train model
     trainer = baysurv_trainer.Trainer(model=model,
@@ -135,7 +129,7 @@ def train_model():
                                       valid_dataset=valid_ds,
                                       test_dataset=None,
                                       optimizer=optimizer,
-                                      loss_function=CoxPHLoss(),
+                                      loss_function=CoxPHLossLLA(),
                                       num_epochs=num_epochs,
                                       early_stop=early_stop,
                                       patience=patience,
@@ -145,8 +139,12 @@ def train_model():
     trainer.train_and_evaluate()
 
     # Compute survival function
-    surv_preds = pd.DataFrame(compute_deterministic_survival_curve(
-        model, X_train, X_valid, e_train, t_train, event_times, model_name), columns=event_times)
+    surv_preds = np.mean(compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
+                                                                 e_train, t_train, event_times,
+                                                                 n_samples_train, n_samples_test), axis=0)
+    
+    # Make dataframe
+    surv_preds = pd.DataFrame(surv_preds, columns=event_times)
     
     # Compute CI
     try:

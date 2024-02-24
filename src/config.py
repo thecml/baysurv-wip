@@ -7,7 +7,22 @@ MLP_DEFAULT_PARAMS = {
     'weight_decay': [None],
     'dropout': [None],
     'l2_reg': [None],
-    'patience': 5,
+    'patience': 10,
+    'n_samples_train': 10,
+    'n_samples_valid': 10,
+    'n_samples_test': 100
+    }
+
+MCD_DEFAULT_PARAMS = {
+    'network_layers': [32],
+    'learning_rate': [0.001],
+    'momentum': [0.0],
+    'optimizer': ["Adam"],
+    'activation_fn': ["relu"],
+    'weight_decay': [None],
+    'dropout': [None],
+    'l2_reg': [None],
+    'patience': 10,
     'n_samples_train': 10,
     'n_samples_valid': 10,
     'n_samples_test': 100
