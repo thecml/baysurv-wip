@@ -161,10 +161,7 @@ if __name__ == "__main__":
             
             # Make dataframe
             surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
-            
-            # Ensure first column of S(t) is 1
-            surv_preds.iloc[:,0] = 1.0
-            
+
             # Compute metrics
             try:
                 lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
