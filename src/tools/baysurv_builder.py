@@ -56,10 +56,13 @@ def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate,
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             if dropout_rate is not None:
                 hidden = tf.keras.layers.Dropout(dropout_rate)(hidden)
-                                
-    output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
-    model = tf.keras.Model(inputs=inputs, outputs=output)
-    
+    if output_dim == 2: # If 2, then model aleatoric uncertain.
+        params = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+        dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+        model = tf.keras.Model(inputs=inputs, outputs=dist)
+    else: # Do not model aleatoric uncertain
+        output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+        model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
 def make_vi_model(n_train_samples, input_shape, output_dim, layers, activation_fn, dropout_rate):
@@ -116,9 +119,13 @@ def make_mcd_model(input_shape, output_dim, layers,
                 hidden = tf.keras.layers.Dense(units, activation=activation_fn)(hidden)
             hidden = tf.keras.layers.BatchNormalization()(hidden)
             hidden = MonteCarloDropout(dropout_rate)(hidden)
-    params = tf.keras.layers.Dense(output_dim)(hidden)
-    dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
-    model = tf.keras.Model(inputs=inputs, outputs=dist)
+    if output_dim == 2: # If 2, then model both aleatoric and epistemic uncertain.
+        params = tf.keras.layers.Dense(output_dim)(hidden)
+        dist = tfp.layers.DistributionLambda(normal_loc_scale)(params)
+        model = tf.keras.Model(inputs=inputs, outputs=dist)        
+    else: # model only epistemic uncertain.
+        output = tf.keras.layers.Dense(output_dim, activation="linear")(hidden)
+        model = tf.keras.Model(inputs=inputs, outputs=output)
     return model
 
 def make_sngp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):

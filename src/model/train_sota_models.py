@@ -208,7 +208,7 @@ if __name__ == "__main__":
                 mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
                 surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
             else:
-                surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+                surv_preds = pd.DataFrame(surv_preds, columns=event_times)
 
             # Ensure first column of S(t) is 1
             surv_preds.iloc[:,0] = 1.0

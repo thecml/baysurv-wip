@@ -41,14 +41,16 @@ random.seed(0)
 loss_fn = CoxPHLoss()
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "MCD", "SNGP"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC"]
+MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
 N_EPOCHS = 100
+
+test_results = pd.DataFrame()
+training_results = pd.DataFrame()
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
     for dataset_name in DATASETS:
-        test_results = pd.DataFrame()
         
         # Load training parameters
         config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -110,16 +112,16 @@ if __name__ == "__main__":
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLoss()
-            elif model_name == "VI":
-                model = make_vi_model(n_train_samples=X_train.shape[0], input_shape=X_train.shape[1:],
-                                      output_dim=2, layers=layers, activation_fn=activation_fn,
-                                      dropout_rate=dropout_rate)
+            elif model_name == "MLP-ALEA":
+                model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
+                                       layers=layers, activation_fn=activation_fn,
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLossLLA()
-            elif model_name == "SNGP":
-                model = make_sngp_model(input_shape=X_train.shape[1:],
-                                        output_dim=1, layers=layers, activation_fn=activation_fn,
-                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
+            elif model_name == "MCD-EPI":
+                model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=1,
+                                       layers=layers, activation_fn=activation_fn,
+                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                loss_function=CoxPHLossLLA()
             else:
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
@@ -145,7 +147,7 @@ if __name__ == "__main__":
             model = trainer.model
 
             # Compute survival function
-            test_start_time = time()            
+            test_start_time = time()
             if model_name in ["MLP", "SNGP"]:
                 surv_preds = compute_deterministic_survival_curve(model, X_train, X_test,
                                                                   e_train, t_train, event_times, model_name)
@@ -160,22 +162,18 @@ if __name__ == "__main__":
                 surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
             
             # Make dataframe
-            surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+            surv_preds = pd.DataFrame(surv_preds, columns=event_times)
 
             # Compute metrics
-            try:
-                lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
-                ibs = lifelines_eval.integrated_brier_score()
-                mae_hinge = lifelines_eval.mae(method="Hinge")
-                mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
-                d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
-                km_mse = lifelines_eval.km_calibration()
-                ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
-                inbll = ev.integrated_nbll(event_times)
-                ci = ev.concordance_td()
-            except:
-                print("Failed computing metrics...")
-                break
+            lifelines_eval = LifelinesEvaluator(surv_preds.T, y_test["time"], y_test["event"], t_train, e_train)
+            ibs = lifelines_eval.integrated_brier_score()
+            mae_hinge = lifelines_eval.mae(method="Hinge")
+            mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
+            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            km_mse = lifelines_eval.km_calibration()
+            ev = EvalSurv(surv_preds.T, y_test["time"], y_test["event"], censor_surv="km")
+            inbll = ev.integrated_nbll(event_times)
+            ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:

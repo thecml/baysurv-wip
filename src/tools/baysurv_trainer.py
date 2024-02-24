@@ -71,11 +71,13 @@ class Trainer:
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                     self.train_loss_metric.update_state(loss)
                 else:
-                    logits_cpd = tf.zeros((runs, n_samples), dtype=np.float32)
                     preds = []
                     for _ in range(runs):
                         y_pred = self.model(x, training=True)
-                        preds.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
+                        if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                            preds.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
+                        else:
+                            preds.append(tf.reshape(y_pred, y_pred.shape[0]))
                     logits_cpd = tf.stack(preds)
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     if self.model_name in ["VI", "VI-EPI"]:
@@ -116,8 +118,14 @@ class Trainer:
                 self.valid_loss_metric.update_state(loss)
             else:
                 logits_cpd = np.zeros((runs, n_samples), dtype=np.float32)
+                preds = []
                 for i in range(0, runs):
-                    logits_cpd[i,:] = np.reshape(self.model(x, training=False).sample(), n_samples)
+                    y_pred = self.model(x, training=False)
+                    if self.model_name in ["MLP-ALEA", "VI", "MCD"]:
+                        preds.append(tf.reshape(y_pred.sample(), y_pred.shape[0]))
+                    else:
+                        preds.append(tf.reshape(y_pred, y_pred.shape[0]))
+                logits_cpd = tf.stack(preds)    
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 self.valid_loss_metric.update_state(loss)
