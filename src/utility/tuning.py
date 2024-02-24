@@ -123,19 +123,19 @@ def get_mlp_sweep_config():
                 "values": [0.99, 0.97, 0.95, 0.9, 0.0]
             },
             "optimizer": {
-                "values": ["Adam", "SGD", "RMSprop"]
+                "values": ["Adam"]
             },
             "activation_fn": {
                 "values": ["relu", "selu"]
             },
             "dropout": {
-                "values": [0.25]
+                "values": [0.1, 0.2]
             },
             "batch_size": {
                 "values": [32]
             },
             "num_epochs": {
-                "values": [10, 25, 50, 100]
+                "values": [100]
             },
             "early_stop": {
                 "values": [False]
