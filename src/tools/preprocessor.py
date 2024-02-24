@@ -322,7 +322,7 @@ class Preprocessor:
     data_transformed = data_transformed.reset_index(drop=True)
 
     if self.one_hot:
-      data_transformed[self._cat_feats] = data_transformed[self._cat_feats].astype('category')
+      data_transformed[self._cat_feats] = data_transformed[self._cat_feats].astype('object')
       features = self._cat_feats
       data_encoded = self.one_hot_encoder.transform(data_transformed[self._cat_feats])
 
@@ -368,7 +368,7 @@ class Preprocessor:
     output = output.reset_index(drop=True)
 
     if self.one_hot:
-      output[cat_feats] = output[cat_feats].astype('category')
+      output[cat_feats] = output[cat_feats].astype('object')
       features = cat_feats
       data_encoded = self.one_hot_encoder.transform(output[self.cat_feats])
 

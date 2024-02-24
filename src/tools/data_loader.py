@@ -104,11 +104,9 @@ class MimicDataLoader(BaseDataLoader):
         outcomes = outcomes[['event', 'time']]
 
         data = data.drop(['event', "time"], axis=1)
-
-        obj_cols = data.select_dtypes(['bool']).columns.tolist() \
-                + data.select_dtypes(['object']).columns.tolist()
-        for col in obj_cols:
-            data[col] = data[col].astype('category')
+        
+        obj_cols = ['is_male', 'is_white', 'renal', 'cns', 'coagulation', 'cardiovascular']
+        data[obj_cols] = data[obj_cols].astype('object')
 
         self.X = pd.DataFrame(data)
 
@@ -143,7 +141,7 @@ class SeerDataLoader(BaseDataLoader):
         obj_cols = data.select_dtypes(['bool']).columns.tolist() \
                 + data.select_dtypes(['object']).columns.tolist()
         for col in obj_cols:
-            data[col] = data[col].astype('category')
+            data[col] = data[col].astype('object')
 
         self.X = pd.DataFrame(data)
 
@@ -259,7 +257,7 @@ class FlchainDataLoader(BaseDataLoader):
         obj_cols = X.select_dtypes(['bool']).columns.tolist() \
                    + X.select_dtypes(['object']).columns.tolist()
         for col in obj_cols:
-            X[col] = X[col].astype('category')
+            X[col] = X[col].astype('object')
 
         self.X = pd.DataFrame(X)
         self.num_features = self._get_num_features(self.X)

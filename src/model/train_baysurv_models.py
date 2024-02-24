@@ -157,10 +157,6 @@ if __name__ == "__main__":
                                                                              n_samples_train, n_samples_test), axis=0)
             test_time = time() - test_start_time
             
-            # Check monotonicity
-            if not check_monotonicity(surv_preds):
-                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
-            
             # Make dataframe
             surv_preds = pd.DataFrame(surv_preds, columns=event_times)
             
@@ -241,7 +237,7 @@ if __name__ == "__main__":
             path = Path.joinpath(pt.MODELS_DIR, f"{dataset_name.lower()}_{model_name.lower()}/")
             model.save_weights(path)
             
-    # Save results
-    training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
-    test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
+            # Save results
+            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
+            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
         
