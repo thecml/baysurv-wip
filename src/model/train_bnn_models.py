@@ -40,8 +40,10 @@ random.seed(0)
 
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN"]
-MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
+#DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN"]
+#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
+DATASETS = ["FLCHAIN"]
+MODELS = ["MCD-EPI", "MCD"]
 N_EPOCHS = 100
 
 test_results = pd.DataFrame()

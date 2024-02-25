@@ -7,6 +7,12 @@ import os
 def map_model_name(model_name):
     if model_name == "MLP":
         model_name = "Baseline (MLP)"
+    if model_name == "MLP-ALEA":
+        model_name = "Aleatoric"
+    if model_name == "MLP-ALEA":
+        model_name = "Epistemic"
+    else:
+        model_name = "Both"
     return model_name
 
 if __name__ == "__main__":
@@ -15,8 +21,8 @@ if __name__ == "__main__":
     
     results = results.round(3)
     
-    model_names = ["MLP", "MCD", "SNGP"]
-    dataset_names = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+    model_names = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
+    dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
     
     for dataset_name in dataset_names:
         for index, model_name in enumerate(model_names):
@@ -25,20 +31,15 @@ if __name__ == "__main__":
             else:
                 text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
-            ci = float(res['CI'])
-            ibs = float(res['IBS'])
-            mae_hinge = float(res['MAEHinge'])
-            mae_pseudo = float(res['MAEPseudo'])
-            km = float(res['KM'])
-            inbll = float(res['INBLL'])
+            ici = float(res['ICI'])
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
-            ici = float(res['ICI'])
+            km = float(res['KM'])
             if d_calib == 1.0:
                 d_calib = "Yes"
             else:
                 d_calib = "No"
-            if model_name in ["MLP", "SNGP"]:
+            if model_name in ["MLP"]:
                 c_calib = "-"
             else:
                 if c_calib == 1.0:
@@ -47,7 +48,7 @@ if __name__ == "__main__":
                     c_calib = "No"
             model_name = map_model_name(model_name)
             text += f"{model_name} & "
-            text += f"{ci} & {mae_hinge} & {mae_pseudo} & {ibs} & {inbll} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
+            text += f"{ici} & {d_calib} & {c_calib} & {km} \\\\"
             print(text)
         print()
         

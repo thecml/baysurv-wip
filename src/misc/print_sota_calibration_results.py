@@ -27,8 +27,8 @@ if __name__ == "__main__":
     
     results = results.round(3)
 
-    model_names = ["cox", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
-    dataset_names = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+    model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
+    dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
     model_citations = ['\cite{cox_regression_1972}', '\cite{simon_regularization_2011}',
                        '\cite{hothorn_survival_2005}', '\cite{ishwaran_random_2008}',
                        '\cite{nagpal_deep_2021}', '\cite{nagpal_deep_cox_2021}',
@@ -38,15 +38,10 @@ if __name__ == "__main__":
         for index, (model_name, model_citation) in enumerate(zip(model_names, model_citations)):
             text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
-            ci = float(res['CI'])
-            ibs = float(res['IBS'])
-            mae_hinge = float(res['MAEHinge'])
-            mae_pseudo = float(res['MAEPseudo'])
-            km = float(res['KM'])
-            inbll = float(res['INBLL'])
+            ici = float(res['ICI'])
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
-            ici = float(res['ICI'])
+            km = float(res['KM'])
             if d_calib == 1.0:
                 d_calib = "Yes"
             else:
@@ -59,9 +54,7 @@ if __name__ == "__main__":
                 else:
                     c_calib = "No"
             model_name = map_model_name(model_name)
-            text += f"{model_name} {model_citation} & "
-            text += f"{ci} & {mae_hinge} & {mae_pseudo} & {ibs} & {inbll} & {ici} & {d_calib} & {c_calib} & {km} \\\\"
-            if model_name == "BayesianMTLR":
-                text += " \midrule"
+            text += f"{model_name} & "
+            text += f"{ici} & {d_calib} & {c_calib} & {km} \\\\"
             print(text)
         print()
