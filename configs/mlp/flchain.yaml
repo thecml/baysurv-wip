@@ -1,11 +1,14 @@
 # Network
 network_layers: [16]
-activiation_fn: "selu"
+activiation_fn: "relu"
 dropout_rate: 0.25
-l2_reg: 0
+l2_reg: 0.001
 batch_size: 32
 early_stop: True
 patience: 5
+n_samples_train: 100
+n_samples_valid: 100
+n_samples_test: 1000
 
 optimizer:
   class_name: Adam
