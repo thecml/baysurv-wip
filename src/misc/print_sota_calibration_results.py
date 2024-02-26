@@ -10,15 +10,15 @@ def map_model_name(model_name):
     if model_name == "coxboost":
         model_name = "CoxBoost"
     if model_name == "rsf":
-        model_name = "Random Survival Forest"
+        model_name = "RSF"
     if model_name == "dsm":
-        model_name = "Deep Survival Machines"
+        model_name = "DSM"
     if model_name == "dcm":
-        model_name == "Deep Cox Mixtures"
+        model_name = "DCM"
     if model_name == "baycox":
-        model_name = "BayesianCox"
+        model_name = "BayCox"
     if model_name == "baymtlr":
-        model_name = "BayesianMTLR"
+        model_name = "BayMTLR"
     return model_name
 
 if __name__ == "__main__":
@@ -54,7 +54,7 @@ if __name__ == "__main__":
                 else:
                     c_calib = "No"
             model_name = map_model_name(model_name)
-            text += f"{model_name} & "
+            text += f"{model_name} {model_citation} & "
             text += f"{ici} & {d_calib} & {c_calib} & {km} \\\\"
             print(text)
         print()

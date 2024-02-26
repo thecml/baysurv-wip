@@ -12,22 +12,22 @@ def map_model_name(model_name):
     if model_name == "coxboost":
         model_name = "CoxBoost"
     if model_name == "rsf":
-        model_name = "Random Survival Forest"
+        model_name = "RSF"
     if model_name == "dsm":
-        model_name = "Deep Survival Machines"
+        model_name = "DSM"
     if model_name == "dcm":
-        model_name == "Deep Cox Mixtures"
+        model_name = "DCM"
     if model_name == "baycox":
-        model_name = "BayesianCox"
+        model_name = "BayCox"
     if model_name == "baymtlr":
-        model_name = "BayesianMTLR"
+        model_name = "BayMTLR"
     return model_name
 
 if __name__ == "__main__":
     path = Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv")
     results = pd.read_csv(path)
     
-    results = results.round(3)
+    results = results.round(2)
     
     model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
     dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
@@ -37,11 +37,8 @@ if __name__ == "__main__":
                        '\cite{qi_using_2023}', '\cite{qi_using_2023}']
     
     for dataset_name in dataset_names:
-        for index, model_name in enumerate(model_names):
-            if index > 0:
-                text = "+ "
-            else:
-                text = ""
+        for index, (model_citation ,model_name) in enumerate(zip(model_citations, model_names)):
+            text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
             t_train = float(res['TrainTime'])
             ci = float(res['CI'])
@@ -49,7 +46,7 @@ if __name__ == "__main__":
             ibs = float(res['IBS'])
             inbll = float(res['INBLL'])            
             model_name = map_model_name(model_name)
-            text += f"{model_name} & "
+            text += f"{model_name} {model_citation} & "
             text += f"{t_train} & {ci} & {mae} & {ibs} & {inbll} \\\\"
             print(text)
         print()
