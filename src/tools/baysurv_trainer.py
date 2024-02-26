@@ -78,9 +78,10 @@ class Trainer:
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 elif self.model_name == "MCD":
-                    logits_cpd = tf.stack([tf.reshape(self.model(x, training=True), n_samples) for _ in range(runs)])
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                    logits_dist = self.model(x, training=True)
+                    logits_cpd = tf.stack([tf.reshape(logits_dist, n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 else:
                     raise NotImplementedError()
                 self.train_loss_metric.update_state(loss)
