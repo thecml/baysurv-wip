@@ -55,7 +55,7 @@ if __name__ == "__main__":
         
         # Load training parameters
         config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
-        optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+        #optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
         activation_fn = config['activiation_fn']
         layers = config['network_layers']
         dropout_rate = config['dropout_rate']
@@ -81,6 +81,14 @@ if __name__ == "__main__":
         y_train = convert_to_structured(df_train["time"], df_train["event"])
         y_valid = convert_to_structured(df_valid["time"], df_valid["event"])
         y_test = convert_to_structured(df_test["time"], df_test["event"])
+        
+        STEPS_PER_EPOCH = len(X_train) // batch_size
+        lr_schedule = tf.keras.optimizers.schedules.InverseTimeDecay(
+        0.001,
+        decay_steps=STEPS_PER_EPOCH*1000,
+        decay_rate=1,
+        staircase=False)
+        optimizer = tf.keras.optimizers.Adam(lr_schedule)
         
         # Scale data
         X_train, X_valid, X_test = scale_data(X_train, X_valid, X_test, cat_features, num_features)
