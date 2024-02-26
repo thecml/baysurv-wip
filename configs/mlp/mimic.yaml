@@ -1,7 +1,7 @@
 # Network
-network_layers: [128]
+network_layers: [64, 128]
 activiation_fn: "relu"
-dropout_rate: 0.25
+dropout_rate: 0.1
 l2_reg: 0.001
 batch_size: 32
 early_stop: True
