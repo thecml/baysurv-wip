@@ -30,7 +30,7 @@ if __name__ == "__main__":
     results = results.round(2)
     
     model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
-    dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
+    dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]
     model_citations = ['\cite{cox_regression_1972}', '\cite{simon_regularization_2011}',
                        '\cite{hothorn_survival_2005}', '\cite{ishwaran_random_2008}',
                        '\cite{nagpal_deep_2021}', '\cite{nagpal_deep_cox_2021}',
@@ -40,6 +40,8 @@ if __name__ == "__main__":
         for index, (model_citation ,model_name) in enumerate(zip(model_citations, model_names)):
             text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
+            if res.empty:
+                break
             t_train = float(res['TrainTime'])
             ci = float(res['CI'])
             mae = float(res['MAEHinge'])

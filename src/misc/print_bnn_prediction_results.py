@@ -7,9 +7,9 @@ import os
 def map_model_name(model_name):
     if model_name == "MLP":
         model_name = "Baseline (MLP)"
-    if model_name == "MLP-ALEA":
+    elif model_name == "MLP-ALEA":
         model_name = "Aleatoric"
-    if model_name == "MLP-ALEA":
+    elif model_name == "MCD-EPI":
         model_name = "Epistemic"
     else:
         model_name = "Both"
@@ -22,7 +22,7 @@ if __name__ == "__main__":
     results = results.round(3)
     
     model_names = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-    dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
+    dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]
     
     for dataset_name in dataset_names:
         for index, model_name in enumerate(model_names):

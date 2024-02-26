@@ -38,6 +38,8 @@ if __name__ == "__main__":
         for index, (model_name, model_citation) in enumerate(zip(model_names, model_citations)):
             text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
+            if res.empty:
+                break
             ici = float(res['ICI'])
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
