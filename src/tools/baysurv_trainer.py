@@ -90,6 +90,8 @@ class Trainer:
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_weights))
         epoch_loss = self.train_loss_metric.result()
         self.train_loss.append(float(epoch_loss))
+        
+        print(f"Epoch loss: {epoch_loss}")
                 
         # Track variance
         if len(batch_variances) > 0:
