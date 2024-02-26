@@ -65,11 +65,12 @@ class Trainer:
                     batch_variances.append(0)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 elif self.model_name == "VI":
-                    logits = self.model(x, training=True)
-                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                    loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                    batch_variances.append(0)
+                    logits_dist = self.model(x, training=True)
+                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                     self.train_loss_metric.update_state(cox_loss)
+                    loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
                 elif self.model_name == "SNGP":
                     logits, covmat = self.model(x, training=True)
                     batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
@@ -122,9 +123,8 @@ class Trainer:
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
             elif self.model_name == "VI":
                 logits_cpd = tf.stack([tf.reshape(self.model(x, training=False), n_samples) for _ in range(runs)])
-                batch_variances.append(0)
-                mean_cpd = tf.expand_dims(tf.math.reduce_mean(logits_cpd, axis=0), axis=1)
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=mean_cpd)
+                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
             elif self.model_name == "MLP-ALEA":
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])

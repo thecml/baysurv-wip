@@ -40,10 +40,9 @@ random.seed(0)
 
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-#DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN", "MIMIC"]
-#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-DATASETS = ["MIMIC"]
-MODELS = ["MCD"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN", "MIMIC"]
+#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]DATASETS = ["MIMIC"]
+MODELS = ["VI"]
 N_EPOCHS = 100
 
 test_results = pd.DataFrame()
@@ -123,6 +122,12 @@ if __name__ == "__main__":
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function=CoxPHLossGaussian()
+            elif model_name == "VI":
+                model = make_vi_model(n_train_samples=len(X_train),
+                                      input_shape=X_train.shape[1:], output_dim=2,
+                                      layers=layers, activation_fn=activation_fn,
+                                      dropout_rate=dropout_rate)
+                loss_function=CoxPHLossGaussian()
             else:
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
@@ -182,7 +187,7 @@ if __name__ == "__main__":
             ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
-            if model_name in ["MLP-ALEA", "VI-EPI", "MCD-EPI", "MCD"]:
+            if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD"]:
                 surv_probs = compute_nondeterministic_survival_curve(model, X_train, sanitized_x_test,
                                                                      e_train, t_train, event_times,
                                                                      n_samples_train, n_samples_test)
