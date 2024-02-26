@@ -6,9 +6,9 @@ l2_reg: 0.001
 batch_size: 32
 early_stop: True
 patience: 5
-n_samples_train: 100
-n_samples_valid: 100
-n_samples_test: 1000
+n_samples_train: 10
+n_samples_valid: 10
+n_samples_test: 100
 
 optimizer:
   class_name: Adam
