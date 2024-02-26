@@ -40,7 +40,7 @@ random.seed(0)
 
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-#DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN"]
+#DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN", "MIMIC"]
 #MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
 DATASETS = ["MIMIC"]
 MODELS = ["MCD"]
