@@ -2,7 +2,7 @@
 network_layers: [64, 128]
 activiation_fn: "relu"
 dropout_rate: 0.1
-l2_reg: 0.001
+l2_reg: 0.0001
 batch_size: 32
 early_stop: True
 patience: 5
@@ -11,8 +11,6 @@ n_samples_valid: 10
 n_samples_test: 100
 
 optimizer:
-  class_name: SGD
+  class_name: Adam
   config:
-    learning_rate: 0.005
-    momentum: 0.95
-    decay: 0.0001
+    learning_rate: 0.001
