@@ -218,12 +218,10 @@ def get_mcd_sweep_config():
         },
         "parameters": {
             "network_layers": {
-                "values": [[16], [16, 16], [32], [32, 32], [32, 32, 32],
-                           [64], [32, 64], [32, 64, 64],
-                           [128], [64, 128], [32, 64, 128]]
+                "values": [[32]]
             },
             "learning_rate": {
-                "values": [0.001, 0.005, 0.01]
+                "values": [0.0005, 0.001, 0.005, 0.01]
             },
             "weight_decay": {
                 "values": [1e-3, 1e-4, 1e-5, None]
@@ -238,7 +236,7 @@ def get_mcd_sweep_config():
                 "values": [0.1, 0.2, 0.25, 0.5]
             },
             "batch_size": {
-                "values": [32]
+                "values": [32, 64, 128]
             },
             "num_epochs": {
                 "values": [100]
@@ -252,6 +250,15 @@ def get_mcd_sweep_config():
             "patience": {
                 "values": [10]
             },
+            "n_samples_train": {
+                "values": [10, 50, 100]
+            },
+            "n_samples_valid": {
+                "values": [10, 50, 100]
+            },
+            "n_samples_test": {
+                "values": [100]
+            }
         }
     }
 

@@ -127,6 +127,7 @@ def train_model():
     surv_preds = np.mean(compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_valid),
                                                                  e_train, t_train, event_times,
                                                                  n_samples_train, n_samples_valid), axis=0)
+    surv_preds = pd.DataFrame(surv_preds, columns=event_times)
     
     # Compute CI
     try:
