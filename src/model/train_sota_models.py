@@ -45,8 +45,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN"]
-MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
+DATASETS = ["MIMIC"]
+MODELS = ["baycox", "baymtlr"]
 
 results = pd.DataFrame()
 
@@ -301,5 +301,5 @@ if __name__ == "__main__":
                 joblib.dump(model, path)
 
             # Save results
-            results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
+            results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results_bay.csv"), index=False)
     

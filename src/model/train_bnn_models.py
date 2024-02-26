@@ -42,8 +42,8 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 #DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN"]
 #MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]
-DATASETS = ["FLCHAIN"]
-MODELS = ["MCD-EPI", "MCD"]
+DATASETS = ["MIMIC"]
+MODELS = ["MCD"]
 N_EPOCHS = 100
 
 test_results = pd.DataFrame()
@@ -239,6 +239,6 @@ if __name__ == "__main__":
             model.save_weights(path)
             
             # Save results
-            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
-            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
+            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results_mimic_1.csv"), index=False)
+            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results_mimic_1.csv"), index=False)
         
