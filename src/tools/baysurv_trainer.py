@@ -89,6 +89,12 @@ class Trainer:
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                elif self.model_name == "MCD-REG":
+                    logits_dist = self.model(x, training=True)
+                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                    logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 else:
                     raise NotImplementedError()
                 self.train_loss_metric.update_state(loss)
@@ -139,6 +145,12 @@ class Trainer:
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+            elif self.model_name == "MCD-REG":
+                logits_dist = self.model(x, training=False)
+                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
             self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
         self.valid_loss.append(float(epoch_loss))
