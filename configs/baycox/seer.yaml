@@ -8,8 +8,8 @@ verbose: True
 lr: 0.005
 num_epochs: 5000
 dropout: 0.25
-n_samples_train: 100
-n_samples_test: 1000
+n_samples_train: 10
+n_samples_test: 100
 batch_size: 32
 early_stop: True
 patience: 50
