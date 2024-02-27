@@ -31,7 +31,7 @@ from tools.Evaluations.util import make_monotonic, check_monotonicity
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-np.seterr(divide ='ignore')
+np.seterr(divide='ignore')
 np.seterr(invalid='ignore')
 
 np.random.seed(0)
@@ -43,6 +43,8 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "SNGP", "MCD", "MCD-REG"]
 N_EPOCHS = 100
+
+tf.config.set_visible_devices([], 'GPU') # use CPU
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
