@@ -69,7 +69,7 @@ class CoxPHLossGaussian(tf.keras.losses.Loss):
         losses = (tf.math.multiply(event, (rr - y_pred)))
         variances = tf.math.multiply(event, 0.5*np.log(y_var))
         
-        return losses/(2*y_var) + variances
+        return losses + variances
 
 class CoxPHLoss(tf.keras.losses.Loss):
     """Negative partial log-likelihood of Cox's proportional hazards model."""

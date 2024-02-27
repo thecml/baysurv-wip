@@ -31,14 +31,13 @@ if __name__ == "__main__":
             else:
                 text = ""
             res = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
-            t_train = float(res['TrainTime'])
             ci = float(res['CI'])
-            mae = float(res['MAEHinge'])
+            mae_h = float(res['MAEHinge'])
+            mae_po = float(res['MAEPseudo'])
             ibs = float(res['IBS'])
-            inbll = float(res['INBLL'])            
             model_name = map_model_name(model_name)
             text += f"{model_name} & "
-            text += f"{t_train} & {ci} & {mae} & {ibs} & {inbll} \\\\"
+            text += f"{ci} & {mae_h} & {mae_po} & {ibs} \\\\"
             print(text)
         print()
         

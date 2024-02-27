@@ -45,13 +45,12 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-DATASETS = ["MIMIC"]
-MODELS = ["baycox", "baymtlr"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 
 # Setup device
-#device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "cpu" # use CPU
 device = torch.device(device)
 

@@ -10,9 +10,9 @@ matplotlib_style = 'fivethirtyeight'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 from sklearn.model_selection import train_test_split
 from utility.training import get_data_loader, scale_data, split_time_event
-from tools.baysurv_builder import make_mcd_model, make_mlp_model, make_vi_model
+from tools.baysurv_builder import make_mcd_model, make_mlp_model, make_vi_model, make_sngp_model
 from utility.config import load_config
-from utility.loss import CoxPHLoss
+from utility.loss import CoxPHLoss, CoxPHLossGaussian
 import paths as pt
 from utility.survival import compute_nondeterministic_survival_curve, compute_survival_times
 import joblib
@@ -37,6 +37,21 @@ def load_mlp_model(dataset_name, n_input_dims):
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
     mlp_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mlp')
+    mlp_model.compile(loss=loss_fn, optimizer=optimizer)
+    return mlp_model
+
+def load_sngp_model(dataset_name, n_input_dims):
+    config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name}.yaml")
+    optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
+    loss_fn = CoxPHLoss()
+    activation_fn = config['activiation_fn']
+    layers = config['network_layers']
+    dropout_rate = config['dropout_rate']
+    l2_reg = config['l2_reg']
+    mlp_model = make_sngp_model(input_shape=n_input_dims, output_dim=1,
+                                layers=layers, activation_fn=activation_fn,
+                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
+    mlp_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_sngp')
     mlp_model.compile(loss=loss_fn, optimizer=optimizer)
     return mlp_model
 
@@ -88,14 +103,14 @@ def load_vi_epi_model(dataset_name, n_train_samples, n_input_dims):
 def load_mcd_model(dataset_name, n_input_dims):
     config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name}.yaml")
     optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
-    loss_fn = CoxPHLoss()
+    loss_fn = CoxPHLossGaussian()
     activation_fn = config['activiation_fn']
     layers = config['network_layers']
     dropout_rate = config['dropout_rate']
     l2_reg = config['l2_reg']
     mcd_model = make_mcd_model(input_shape=n_input_dims, output_dim=2,
-                            layers=layers, activation_fn=activation_fn,
-                            dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                               layers=layers, activation_fn=activation_fn,
+                               dropout_rate=dropout_rate, regularization_pen=l2_reg)
     mcd_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mcd')
     mcd_model.compile(loss=loss_fn, optimizer=optimizer)
     return mcd_model

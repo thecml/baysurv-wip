@@ -40,9 +40,8 @@ random.seed(0)
 
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
-DATASETS = ["SUPPORT", "SEER", "METABRIC", "FLCHAIN", "MIMIC"]
-#MODELS = ["MLP", "MLP-ALEA", "MCD-EPI", "MCD"]DATASETS = ["MIMIC"]
-MODELS = ["VI"]
+DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
+MODELS = ["MLP", "SNGP", "MCD"]
 N_EPOCHS = 100
 
 test_results = pd.DataFrame()
@@ -112,6 +111,11 @@ if __name__ == "__main__":
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLoss()
+            elif model_name == "SNGP":
+                model = make_sngp_model(input_shape=X_train.shape[1:], output_dim=1,
+                                        layers=layers, activation_fn=activation_fn,
+                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
+                loss_function = CoxPHLoss()
             elif model_name == "MLP-ALEA":
                 model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
@@ -128,11 +132,13 @@ if __name__ == "__main__":
                                       layers=layers, activation_fn=activation_fn,
                                       dropout_rate=dropout_rate)
                 loss_function=CoxPHLossGaussian()
-            else:
+            elif model_name == "MCD":
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function=CoxPHLossGaussian()
+            else:
+                raise ValueError("Model not found")
             
             # Train model
             trainer = Trainer(model=model, model_name=model_name,
@@ -244,6 +250,6 @@ if __name__ == "__main__":
             model.save_weights(path)
             
             # Save results
-            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results.csv"), index=False)
-            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results.csv"), index=False)
+            training_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_training_results_sngp.csv"), index=False)
+            test_results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"baysurv_test_results_sngp.csv"), index=False)
         
