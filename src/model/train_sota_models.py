@@ -300,5 +300,5 @@ if __name__ == "__main__":
                 joblib.dump(model, path)
 
             # Save results
-            results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results_bay.csv"), index=False)
+            results.to_csv(Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv"), index=False)
     
