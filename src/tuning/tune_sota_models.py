@@ -30,7 +30,7 @@ class dotdict(dict):
 os.environ["WANDB_SILENT"] = "true"
 import wandb
 
-N_RUNS = 100
+N_RUNS = 10
 PROJECT_NAME = "baysurv_bo"
 
 # Setup device

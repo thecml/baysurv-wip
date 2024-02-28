@@ -24,7 +24,7 @@ def get_baymtlr_sweep_config():
                 "values": [0]
             },
             "batch_size": {
-                "values": [32]
+                "values": [32, 64, 128]
             }
         }
     }
@@ -50,7 +50,7 @@ def get_baycox_sweep_config():
                 "values": [False]
             },
             "batch_size": {
-                "values": [32]
+                "values": [32, 64, 128]
             },
             "patience": {
                 "values": [0]
@@ -138,7 +138,7 @@ def get_mcd_sweep_config():
                 "values": [0.1, 0.2, 0.25, 0.5]
             },
             "batch_size": {
-                "values": [32]
+                "values": [32, 64, 128]
             },
             "num_epochs": {
                 "values": [100]
@@ -188,7 +188,7 @@ def get_mlp_sweep_config():
                 "values": [0.1, 0.2, 0.25]
             },
             "batch_size": {
-                "values": [32]
+                "values": [32, 64, 128]
             },
             "num_epochs": {
                 "values": [100]
