@@ -1,5 +1,5 @@
 # Network
-network_layers: [64]
+network_layers: [128]
 activiation_fn: "relu"
 dropout_rate: 0.5
 l2_reg: 0.001

@@ -64,37 +64,36 @@ class Trainer:
                     logits = self.model(x, training=True)
                     batch_variances.append(0)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
+                elif self.model_name == "SNGP":
+                    logits, covmat = self.model(x, training=True)
+                    batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 elif self.model_name == "VI":
+                    logits_dist = self.model(x, training=True)
+                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                    logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
+                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
+                    self.train_loss_metric.update_state(cox_loss)
+                    loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
+                elif self.model_name == "VI-VA":
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                     self.train_loss_metric.update_state(cox_loss)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                elif self.model_name == "SNGP":
-                    logits, covmat = self.model(x, training=True)
-                    batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                elif self.model_name == "MLP-ALEA":
-                    logits_dist = self.model(x, training=True)
-                    logits_cpd = tf.stack([tf.reshape(logits_dist, n_samples) for _ in range(runs)])
-                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                elif self.model_name == "MCD-EPI":
-                    logits_cpd = tf.stack([tf.reshape(self.model(x, training=True), n_samples) for _ in range(runs)])
-                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 elif self.model_name == "MCD":
-                    logits_dist = self.model(x, training=True)
-                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                elif self.model_name == "MCD-REG":
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
+                elif self.model_name == "MCD-VA":
+                    logits_dist = self.model(x, training=True)
+                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 else:
                     raise NotImplementedError()
                 self.train_loss_metric.update_state(loss)
@@ -128,29 +127,31 @@ class Trainer:
                 batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
             elif self.model_name == "VI":
-                logits_cpd = tf.stack([tf.reshape(self.model(x, training=False), n_samples) for _ in range(runs)])
-                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-            elif self.model_name == "MLP-ALEA":
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-            elif self.model_name == "MCD-EPI":
-                logits_cpd = tf.stack([tf.reshape(self.model(x, training=False), n_samples) for _ in range(runs)])
+                logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
+                cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
+                self.train_loss_metric.update_state(cox_loss)
+                loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
+            elif self.model_name == "VI-VA":
+                logits_dist = self.model(x, training=False)
+                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
+                self.train_loss_metric.update_state(cox_loss)
+                loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
             elif self.model_name == "MCD":
-                logits_dist = self.model(x, training=False)
-                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-            elif self.model_name == "MCD-REG":
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
+            elif self.model_name == "MCD-VA":
+                logits_dist = self.model(x, training=False)
+                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
+                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
             self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
         self.valid_loss.append(float(epoch_loss))

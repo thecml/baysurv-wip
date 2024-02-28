@@ -42,7 +42,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "SNGP", "VI", "VI-VA", "MCD", "MCD-VA"]
-N_EPOCHS = 100
+N_EPOCHS = 1000
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
 
@@ -118,32 +118,28 @@ if __name__ == "__main__":
                                         layers=layers, activation_fn=activation_fn,
                                         dropout_rate=dropout_rate, regularization_pen=l2_reg)
                 loss_function = CoxPHLoss()
-            elif model_name == "MLP-ALEA":
-                model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=2,
-                                       layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLossGaussian()
-            elif model_name == "MCD-EPI":
-                model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=1,
-                                       layers=layers, activation_fn=activation_fn,
-                                       dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function=CoxPHLossGaussian()
             elif model_name == "VI":
                 model = make_vi_model(n_train_samples=len(X_train),
                                       input_shape=X_train.shape[1:], output_dim=2,
                                       layers=layers, activation_fn=activation_fn,
                                       dropout_rate=dropout_rate)
-                loss_function=CoxPHLossGaussian()
+                loss_function = CoxPHLoss()
+            elif model_name == "VI-VA":
+                model = make_vi_model(n_train_samples=len(X_train),
+                                      input_shape=X_train.shape[1:], output_dim=2,
+                                      layers=layers, activation_fn=activation_fn,
+                                      dropout_rate=dropout_rate)
+                loss_function = CoxPHLossGaussian()
             elif model_name == "MCD":
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function=CoxPHLossGaussian()
-            elif model_name == "MCD-REG":
+                loss_function = CoxPHLoss()
+            elif model_name == "MCD-VA":
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function=CoxPHLoss()
+                loss_function = CoxPHLossGaussian()
             else:
                 raise ValueError("Model not found")
             
@@ -201,7 +197,7 @@ if __name__ == "__main__":
             ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
-            if model_name in ["MLP-ALEA", "VI", "VI-EPI", "MCD-EPI", "MCD", "MCD-REG"]:
+            if model_name in ["VI", "VI-VA", "MCD", "MCD-VA"]:
                 surv_probs = compute_nondeterministic_survival_curve(model, X_train, sanitized_x_test,
                                                                      e_train, t_train, event_times,
                                                                      n_samples_train, n_samples_test)
