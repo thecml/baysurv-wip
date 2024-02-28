@@ -228,7 +228,7 @@ if __name__ == "__main__":
             ibs = lifelines_eval.integrated_brier_score()
             mae_hinge = lifelines_eval.mae(method="Hinge")
             mae_pseudo = lifelines_eval.mae(method="Pseudo_obs")
-            d_calib = 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
+            d_calib = lifelines_eval.d_calibration()[0] # 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"],
                           sanitized_y_test["event"], censor_surv="km")
@@ -257,11 +257,7 @@ if __name__ == "__main__":
                                                               sanitized_t_test, sanitized_e_test)
                 data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                 _, pvalue = chisquare(data)
-                alpha = 0.05
-                if pvalue[0] <= alpha:
-                    c_calib = 0
-                else:
-                    c_calib = 1
+                c_calib = pvalue[0]
             else:
                 c_calib = 0
         

@@ -3,25 +3,7 @@ import paths as pt
 from pathlib import Path
 import glob
 import os
-
-def map_model_name(model_name):
-    if model_name == "cox":
-        model_name = "CoxPH"
-    if model_name == "coxnet":
-        model_name = "CoxNet"
-    if model_name == "coxboost":
-        model_name = "CoxBoost"
-    if model_name == "rsf":
-        model_name = "RSF"
-    if model_name == "dsm":
-        model_name = "DSM"
-    if model_name == "dcm":
-        model_name = "DCM"
-    if model_name == "baycox":
-        model_name = "BayCox"
-    if model_name == "baymtlr":
-        model_name = "BayMTLR"
-    return model_name
+from utility.model import map_model_name
 
 if __name__ == "__main__":
     path = Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv")

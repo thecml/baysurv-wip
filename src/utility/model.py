@@ -21,6 +21,37 @@ import numpy as np
 curr_dir = os.getcwd()
 root_dir = Path(curr_dir).absolute().parent # TODO: Fix this to properly set path
 
+def map_model_name(model_name):
+    if model_name == "MLP":
+        model_name = "Baseline (MLP)"
+    elif model_name == "SNGP":
+        model_name = "+ SNGP"
+    elif model_name == "VI":
+        model_name = "+ VI"
+    elif model_name == "VI-VA":
+        model_name = "+ VI-VA"
+    elif model_name == "MCD":
+        model_name = "+ MCD"
+    elif model_name == "MCD-VA":
+        model_name = "+ MCD-VA"
+    elif model_name == "cox":
+        model_name = "CoxPH"
+    elif model_name == "coxnet":
+        model_name = "CoxNet"
+    elif model_name == "coxboost":
+        model_name = "CoxBoost"
+    elif model_name == "rsf":
+        model_name = "RSF"
+    elif model_name == "dsm":
+        model_name = "DSM"
+    elif model_name == "dcm":
+        model_name = "DCM"
+    elif model_name == "baycox":
+        model_name = "BayCox"
+    elif model_name == "baymtlr":
+        model_name = "BayMTLR"
+    return model_name
+
 def load_sota_model(dataset_name, model_name):
     return joblib.load(Path.joinpath(pt.MODELS_DIR,
                                      f"{dataset_name.lower()}_{model_name.lower()}.joblib"))
