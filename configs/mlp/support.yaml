@@ -1,5 +1,5 @@
 # Network
-network_layers: [16]
+network_layers: [128]
 activiation_fn: "relu"
 dropout_rate: 0.25
 l2_reg: 0.001
@@ -14,3 +14,4 @@ optimizer:
   class_name: Adam
   config:
     learning_rate: 0.001
+    weight_decay: 0.001

@@ -42,7 +42,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["MLP", "SNGP", "VI", "MCD1", "MCD2", "MCD3"]
-N_EPOCHS = 1000
+N_EPOCHS = 100
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
 
