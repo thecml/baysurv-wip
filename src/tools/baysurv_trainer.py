@@ -76,24 +76,12 @@ class Trainer:
                     cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                     self.train_loss_metric.update_state(cox_loss)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                elif self.model_name == "VI-VA":
-                    logits_dist = self.model(x, training=True)
-                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                    self.train_loss_metric.update_state(cox_loss)
-                    loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                elif self.model_name == "MCD":
+                elif self.model_name in ["MCD1", "MCD2", "MCD3"]:
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
-                elif self.model_name == "MCD-VA":
-                    logits_dist = self.model(x, training=True)
-                    logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                    batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
                 else:
                     raise NotImplementedError()
                 self.train_loss_metric.update_state(loss)
@@ -134,24 +122,12 @@ class Trainer:
                 cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 self.train_loss_metric.update_state(cox_loss)
                 loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-            elif self.model_name == "VI-VA":
-                logits_dist = self.model(x, training=False)
-                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
-                self.train_loss_metric.update_state(cox_loss)
-                loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-            elif self.model_name == "MCD":
+            elif self.model_name in ["MCD1", "MCD2", "MCD3"]:
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
-            elif self.model_name == "MCD-VA":
-                logits_dist = self.model(x, training=False)
-                logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
-                batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
-                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_cpd)
             self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
         self.valid_loss.append(float(epoch_loss))
