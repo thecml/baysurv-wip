@@ -66,7 +66,7 @@ class CoxPHLossGaussian(tf.keras.losses.Loss):
         rr = logsumexp_masked(pred_t, riskset, axis=1, keepdims=True)
         assert rr.shape.as_list() == y_pred.shape.as_list()
         
-        losses = (tf.math.multiply(event, (rr - y_pred)))
+        losses = (tf.math.multiply(event, (rr - y_pred)/(0.5*(np.exp(-np.log(y_var))))))
         variances = tf.math.multiply(event, 0.5*np.log(y_var))
         
         return losses + variances
