@@ -99,9 +99,10 @@ def load_vi_model(dataset_name, n_train_samples, n_input_dims):
     activation_fn = config['activiation_fn']
     layers = config['network_layers']
     dropout_rate = config['dropout_rate']
+    l2_reg = config['l2_reg']
     vi_model = make_vi_model(n_train_samples=n_train_samples, input_shape=n_input_dims,
                             output_dim=2, layers=layers, activation_fn=activation_fn,
-                            dropout_rate=dropout_rate)
+                            dropout_rate=dropout_rate, regularization_pen=l2_reg)
     vi_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_vi')
     vi_model.compile(loss=loss_fn, optimizer=optimizer)
     return vi_model
