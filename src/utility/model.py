@@ -19,7 +19,7 @@ import joblib
 import numpy as np
 
 curr_dir = os.getcwd()
-root_dir = Path(curr_dir).absolute().parent # TODO: Fix this to properly set path
+root_dir = Path(curr_dir).absolute() # TODO: Fix this to properly set path
 
 def map_model_name(model_name):
     if model_name == "MLP":
@@ -131,7 +131,7 @@ def load_vi_epi_model(dataset_name, n_train_samples, n_input_dims):
     vi_model.compile(loss=loss_fn, optimizer=optimizer)
     return vi_model
 
-def load_mcd_model(dataset_name, n_input_dims):
+def load_mcd_model(dataset_name, model_name, n_input_dims):
     config = load_config(pt.MLP_CONFIGS_DIR, f"{dataset_name}.yaml")
     optimizer = tf.keras.optimizers.deserialize(config['optimizer'])
     loss_fn = CoxPHLossGaussian()
@@ -142,7 +142,7 @@ def load_mcd_model(dataset_name, n_input_dims):
     mcd_model = make_mcd_model(input_shape=n_input_dims, output_dim=2,
                                layers=layers, activation_fn=activation_fn,
                                dropout_rate=dropout_rate, regularization_pen=l2_reg)
-    mcd_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_mcd')
+    mcd_model.load_weights(f'{root_dir}/models/{dataset_name.lower()}_{model_name}')
     mcd_model.compile(loss=loss_fn, optimizer=optimizer)
     return mcd_model
     
