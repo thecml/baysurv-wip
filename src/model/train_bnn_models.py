@@ -41,7 +41,7 @@ random.seed(0)
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
+MODELS = ["mlp", "sngp", "mcd1", "mcd2", "mcd3", "vi"]
 N_EPOCHS = 100
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
