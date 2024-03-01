@@ -7,6 +7,7 @@ import paths as pt
 matplotlib_style = 'default'
 import matplotlib.pyplot as plt; plt.style.use(matplotlib_style)
 import seaborn as sns
+from utility.model import map_model_name
 
 plt.rcParams.update({'axes.labelsize': 'small',
                      'axes.titlesize': 'small',
@@ -47,16 +48,6 @@ def get_y_label(metric_name):
     else:
         return "INBLL"
 
-def get_label_name(model_name):
-    if model_name == "MLP":
-        return "Baseline (MLP)"
-    elif model_name == "MLP-ALEA":
-        return "Aleatoric"
-    elif model_name == "VI-EPI":
-        return "Epistemic"
-    else:
-        return "Aleatoric & Epistemic"
-
 def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dataset_name):
     n_percentiles = len(percentiles.keys())
     fig, axes = plt.subplots(n_percentiles, 2, figsize=(12, 12))
@@ -74,7 +65,7 @@ def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dat
             axes[i][1].set_title(f"Probabilities at {q}th percentile")
             axes[i][0].grid()
             axes[i][1].grid()
-            sns.lineplot(data, x='Pred', y='Obs', color=TFColor[model_idx], ax=axes[i][0], legend=False, label=get_label_name(model_name))
+            sns.lineplot(data, x='Pred', y='Obs', color=TFColor[model_idx], ax=axes[i][0], legend=False, label=map_model_name(model_name))
             sns.kdeplot(preds, fill=True, common_norm=True, alpha=.5, cut=0, linewidth=1, color=TFColor[model_idx], ax=axes[i][1])
         ax=axes[i][0].plot([0, 1], [0, 1], c="k", ls="--", linewidth=1.5)
     fig.tight_layout()
@@ -82,7 +73,6 @@ def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dat
     fig.legend(handles, labels, loc='upper right')
     plt.savefig(Path.joinpath(pt.RESULTS_DIR, f"{dataset_name.lower()}_calibration.pdf"),
                 format='pdf', bbox_inches="tight")
-    plt.show()
     plt.close()
 
 def plot_training_curves(results, n_epochs, dataset_name, model_names, metric_names):
@@ -91,7 +81,7 @@ def plot_training_curves(results, n_epochs, dataset_name, model_names, metric_na
         for (k, model_name) in enumerate(model_names):
             model_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
             metric_results = model_results[metric_name]            
-            axes[j].plot(range(n_epochs), metric_results, label=get_label_name(model_name),
+            axes[j].plot(range(n_epochs), metric_results, label=map_model_name(model_name),
                             marker="o", color=TFColor[k], linewidth=1)
         axes[j].set_xlabel('Epoch', fontsize="medium")
         axes[j].set_ylabel(get_y_label(metric_name), fontsize="medium")

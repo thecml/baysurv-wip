@@ -4,7 +4,7 @@ from sklearn.model_selection import train_test_split
 from sksurv.linear_model.coxph import BreslowEstimator
 from utility.training import get_data_loader, scale_data, split_time_event
 from utility.survival import survival_probability_calibration
-from utility.model import load_mlp_model, load_sota_model, load_mcd_model, load_sngp_model
+from utility.model import load_mlp_model, load_sota_model, load_mcd_model, load_sngp_model, load_vi_model
 from utility.survival import compute_nondeterministic_survival_curve
 from utility.plot import plot_calibration_curves
 from collections import defaultdict
@@ -26,7 +26,7 @@ N_SAMPLES_TEST = 100
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "SEER"
+    dataset_name = "METABRIC"
     dl = get_data_loader(dataset_name).load_data()
     num_features, cat_features = dl.get_features()
     df = dl.get_data()
@@ -66,19 +66,24 @@ if __name__ == "__main__":
     n_train_samples = X_train.shape[0]
     cox_model = load_sota_model(dataset_name, "cox")
     mlp_model = load_mlp_model(dataset_name, n_input_dims)
-    mcd_model = load_mcd_model(dataset_name, "MCD1", n_input_dims)
+    sngp_model = load_sngp_model(dataset_name, n_input_dims)
+    vi_model = load_vi_model(dataset_name, len(X_train), n_input_dims)
+    mcd_model1 = load_mcd_model(dataset_name, "mcd1", n_input_dims)
+    mcd_model2 = load_mcd_model(dataset_name, "mcd2", n_input_dims)
+    mcd_model3 = load_mcd_model(dataset_name, "mcd3", n_input_dims)
 
     # Compute calibration curves
     pred_obs, predictions, deltas = defaultdict(dict), defaultdict(dict), defaultdict(dict)
-    models = {'CPH': cox_model} #RSF': rsf_model, 'MLP': mlp_model, 'SNGP': sngp_model, 'MCD': mcd_model
+    models = {'mlp': mlp_model, "sngp": sngp_model, "vi": vi_model,
+              'mcd1': mcd_model1, 'mcd2': mcd_model2, 'mcd3': mcd_model2}
     for t0 in percentiles.values():
         for model_name, model in models.items():
-            if model_name in ["CPH", "RSF", "MLP", "SNGP"]:
+            if model_name in ["cox", "rsf", "mlp", "sngp"]:
                 surv_preds = compute_deterministic_survival_curve(model, X_train, X_test, e_train, t_train, event_times, model_name)
             else:
                 surv_preds = np.mean(compute_nondeterministic_survival_curve(model, X_train, X_test,
-                                                                                e_train, t_train, event_times,
-                                                                                N_SAMPLES_TRAIN, N_SAMPLES_TEST), axis=0)
+                                                                             e_train, t_train, event_times,
+                                                                             N_SAMPLES_TRAIN, N_SAMPLES_TEST), axis=0)
             surv_preds = pd.DataFrame(surv_preds, columns=event_times)
             pred_t0, obs_t0, predictions_at_t0, deltas_t0 = survival_probability_calibration(surv_preds, t_test, e_test, t0)
             pred_obs[t0][model_name] = (pred_t0, obs_t0)

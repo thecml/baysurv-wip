@@ -389,10 +389,10 @@ def convert_to_structured(T, E):
 
 def compute_deterministic_survival_curve(model, X_train, X_test, e_train, t_train,
                                          event_times, model_name):
-    if model_name == "SNGP":
+    if model_name == "sngp":
         train_logits = model.predict(X_train, verbose=False)[0].reshape(-1)
         test_logits = model.predict(X_test, verbose=False)[0].reshape(-1)
-    elif model_name == "MLP":
+    elif model_name == "mlp":
         train_logits = model.predict(X_train, verbose=False).reshape(-1)
         test_logits = model.predict(X_test, verbose=False).reshape(-1)
     else:

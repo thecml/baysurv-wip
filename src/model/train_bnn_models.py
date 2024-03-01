@@ -41,7 +41,7 @@ random.seed(0)
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["MLP", "SNGP", "VI", "MCD1", "MCD2", "MCD3"]
+MODELS = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
 N_EPOCHS = 100
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
@@ -65,6 +65,7 @@ if __name__ == "__main__":
         n_samples_train = config['n_samples_train']
         n_samples_valid = config['n_samples_valid']
         n_samples_test = config['n_samples_test']
+        loss_function = CoxPHLoss()
 
         # Load data
         dl = get_data_loader(dataset_name).load_data()
@@ -106,44 +107,39 @@ if __name__ == "__main__":
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
         # Make models
+        
         for model_name in MODELS:
-            if model_name == "MLP":
+            if model_name == "mlp":
                 dropout_rate = config['dropout_rate']
                 model = make_mlp_model(input_shape=X_train.shape[1:], output_dim=1,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
-            elif model_name == "SNGP":
+            elif model_name == "sngp":
                 dropout_rate = config['dropout_rate']
                 model = make_sngp_model(input_shape=X_train.shape[1:], output_dim=1,
                                         layers=layers, activation_fn=activation_fn,
                                         dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
-            elif model_name == "VI":
+            elif model_name == "vi":
                 dropout_rate = config['dropout_rate']
                 model = make_vi_model(n_train_samples=len(X_train),
                                       input_shape=X_train.shape[1:], output_dim=2,
                                       layers=layers, activation_fn=activation_fn,
-                                      dropout_rate=dropout_rate)
-                loss_function = CoxPHLoss()
-            elif model_name == "MCD1":
+                                      dropout_rate=dropout_rate, regularization_pen=l2_reg)
+            elif model_name == "mcd1":
                 dropout_rate = 0.1
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
-            elif model_name == "MCD2":
+            elif model_name == "mcd2":
                 dropout_rate = 0.2
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
-            elif model_name == "MCD3":
+            elif model_name == "mcd3":
                 dropout_rate = 0.5
                 model = make_mcd_model(input_shape=X_train.shape[1:], output_dim=2,
                                        layers=layers, activation_fn=activation_fn,
                                        dropout_rate=dropout_rate, regularization_pen=l2_reg)
-                loss_function = CoxPHLoss()
             else:
                 raise ValueError("Model not found")
             
@@ -168,7 +164,7 @@ if __name__ == "__main__":
 
             # Compute survival function
             test_start_time = time()
-            if model_name in ["MLP", "SNGP"]:
+            if model_name in ["mlp", "sngp"]:
                 surv_preds = compute_deterministic_survival_curve(model, X_train, X_test,
                                                                   e_train, t_train, event_times, model_name)
             else:
@@ -201,7 +197,7 @@ if __name__ == "__main__":
             ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
-            if model_name in ["VI", "MCD1", "MCD2", "MCD3"]:
+            if model_name in ["vi", "mcd1", "mcd2", "mcd3"]:
                 surv_probs = compute_nondeterministic_survival_curve(model, X_train, sanitized_x_test,
                                                                      e_train, t_train, event_times,
                                                                      n_samples_train, n_samples_test)

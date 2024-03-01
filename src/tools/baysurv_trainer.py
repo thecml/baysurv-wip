@@ -41,7 +41,7 @@ class Trainer:
     def train_and_evaluate(self):
         stop_training = False
         for epoch in range(1, self.num_epochs+1):
-            if epoch > 0 and self.model_name == "SNGP":
+            if epoch > 0 and self.model_name == "sngp":
                 self.model.layers[-1].reset_covariance_matrix() # reset covmat for SNGP
             self.train(epoch)
             if self.valid_ds is not None:
@@ -60,15 +60,15 @@ class Trainer:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             n_samples = y_event.shape[0]
             with tf.GradientTape() as tape:
-                if self.model_name == "MLP":
+                if self.model_name == "mlp":
                     logits = self.model(x, training=True)
                     batch_variances.append(0)
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                elif self.model_name == "SNGP":
+                elif self.model_name == "sngp":
                     logits, covmat = self.model(x, training=True)
                     batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
                     loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-                elif self.model_name == "VI":
+                elif self.model_name == "vi":
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
@@ -76,7 +76,7 @@ class Trainer:
                     cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                     self.train_loss_metric.update_state(cox_loss)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-                elif self.model_name in ["MCD1", "MCD2", "MCD3"]:
+                elif self.model_name in ["mcd1", "mcd2", "mcd3"]:
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
@@ -106,15 +106,15 @@ class Trainer:
         for x, y in self.valid_ds:
             y_event = tf.expand_dims(y["label_event"], axis=1)
             n_samples = y_event.shape[0]
-            if self.model_name == "MLP":
+            if self.model_name == "mlp":
                 logits = self.model(x, training=False)
                 batch_variances.append(0) # zero variance for MLP
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-            elif self.model_name == "SNGP":
+            elif self.model_name == "sngp":
                 logits, covmat = self.model(x, training=False)
                 batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
                 loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
-            elif self.model_name == "VI":
+            elif self.model_name == "vi":
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
@@ -122,7 +122,7 @@ class Trainer:
                 cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 self.train_loss_metric.update_state(cox_loss)
                 loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
-            elif self.model_name in ["MCD1", "MCD2", "MCD3"]:
+            elif self.model_name in ["mcd1", "mcd2", "mcd3"]:
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
