@@ -75,7 +75,7 @@ def plot_calibration_curves(percentiles, pred_obs, predictions, model_names, dat
                 format='pdf', bbox_inches="tight")
     plt.close()
 
-def plot_training_curves(results, n_epochs, dataset_name, model_names, metric_names):
+def plot_training_curves(results, dataset_name, model_names, metric_names):
     fig, axes = plt.subplots(1, 4, figsize=(18, 4))
     for (j, metric_name) in enumerate(metric_names):
         for (k, model_name) in enumerate(model_names):

@@ -8,8 +8,7 @@ from utility.model import map_model_name
 if __name__ == "__main__":
     path = Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv")
     results = pd.read_csv(path)
-    
-    results = results.round(2)
+    results = results.round(3)
     
     model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
     dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]

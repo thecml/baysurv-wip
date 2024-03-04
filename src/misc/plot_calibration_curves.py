@@ -26,7 +26,7 @@ N_SAMPLES_TEST = 100
 
 if __name__ == "__main__":
     # Load data
-    dataset_name = "METABRIC"
+    dataset_name = "SUPPORT"
     dl = get_data_loader(dataset_name).load_data()
     num_features, cat_features = dl.get_features()
     df = dl.get_data()
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 
     # Compute calibration curves
     pred_obs, predictions, deltas = defaultdict(dict), defaultdict(dict), defaultdict(dict)
-    models = {'mlp': mlp_model, "sngp": sngp_model, "vi": vi_model,
+    models = {'cox': cox_model, 'mlp': mlp_model, "sngp": sngp_model, "vi": vi_model,
               'mcd1': mcd_model1, 'mcd2': mcd_model2, 'mcd3': mcd_model2}
     for t0 in percentiles.values():
         for model_name, model in models.items():

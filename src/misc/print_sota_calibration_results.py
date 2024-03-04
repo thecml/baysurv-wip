@@ -6,7 +6,6 @@ from utility.model import map_model_name
 if __name__ == "__main__":
     path = Path.joinpath(pt.RESULTS_DIR, f"sota_results.csv")
     results = pd.read_csv(path)
-    
     results = results.round(3)
 
     model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
@@ -26,6 +25,10 @@ if __name__ == "__main__":
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
             km = float(res['KM'])
+            if d_calib > 0.05:
+                d_calib = str(d_calib) + r"$^{\ast}$"
+            if c_calib > 0.05:
+                c_calib = str(c_calib) + r"$^{\ast}$"
             if model_name in ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm"]:
                 c_calib = "-"
             model_name = map_model_name(model_name)
