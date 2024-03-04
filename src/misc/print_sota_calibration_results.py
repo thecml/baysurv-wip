@@ -10,7 +10,7 @@ if __name__ == "__main__":
     results = results.round(3)
 
     model_names = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
-    dataset_names = ["METABRIC", "SEER", "FLCHAIN", "SUPPORT"]
+    dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]
     model_citations = ['\cite{cox_regression_1972}', '\cite{simon_regularization_2011}',
                        '\cite{hothorn_survival_2005}', '\cite{ishwaran_random_2008}',
                        '\cite{nagpal_deep_2021}', '\cite{nagpal_deep_cox_2021}',
@@ -26,17 +26,8 @@ if __name__ == "__main__":
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
             km = float(res['KM'])
-            if d_calib == 1.0:
-                d_calib = "Yes"
-            else:
-                d_calib = "No"
             if model_name in ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm"]:
                 c_calib = "-"
-            else:
-                if c_calib == 1.0:
-                    c_calib = "Yes"
-                else:
-                    c_calib = "No"
             model_name = map_model_name(model_name)
             text += f"{model_name} {model_citation} & "
             text += f"{ici} & {d_calib} & {c_calib} & {km} \\\\"

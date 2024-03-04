@@ -11,7 +11,7 @@ if __name__ == "__main__":
     
     results = results.round(2)
     
-    model_names = ["VI"]
+    model_names = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
     dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]
     
     for dataset_name in dataset_names:
@@ -29,4 +29,5 @@ if __name__ == "__main__":
             text += f"{model_name} & "
             text += f"{ci} & {mae_h} & {mae_po} & {ibs} \\\\"
             print(text)
+        print()
         
