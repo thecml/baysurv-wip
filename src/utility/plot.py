@@ -80,11 +80,12 @@ def plot_training_curves(results, dataset_name, model_names, metric_names):
     for (j, metric_name) in enumerate(metric_names):
         for (k, model_name) in enumerate(model_names):
             model_results = results.loc[(results['DatasetName'] == dataset_name) & (results['ModelName'] == model_name)]
-            metric_results = model_results[metric_name]            
+            metric_results = model_results[metric_name]
+            n_epochs = len(model_results)
             axes[j].plot(range(n_epochs), metric_results, label=map_model_name(model_name),
                             marker="o", color=TFColor[k], linewidth=1)
         axes[j].set_xlabel('Epoch', fontsize="medium")
-        axes[j].set_ylabel(get_y_label(metric_name), fontsize="medium")
+        axes[j].set_ylabel(metric_name, fontsize="medium")
         axes[j].grid()
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right')
