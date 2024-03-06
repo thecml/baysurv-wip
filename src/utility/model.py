@@ -20,11 +20,11 @@ def map_model_name(model_name):
     elif model_name == "vi":
         model_name = "VI"
     elif model_name == "mcd1":
-        model_name = "MCD " + r"($p$=0.1)"
+        model_name = "MCD " + r"($p$ = 0.1)"
     elif model_name == "mcd2":
-        model_name = "MCD " + r"($p$=0.2)"
+        model_name = "MCD " + r"($p$ = 0.2)"
     elif model_name == "mcd3":
-        model_name = "MCD " + r"($p$=0.5)"
+        model_name = "MCD " + r"($p$ = 0.5)"
     elif model_name == "cox":
         model_name = "CoxPH"
     elif model_name == "coxnet":

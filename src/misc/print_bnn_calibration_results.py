@@ -11,7 +11,7 @@ if __name__ == "__main__":
     results = results.round(3)
     
     model_names = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
-    dataset_names = ["MIMIC"]
+    dataset_names = ["METABRIC", "SEER", "SUPPORT", "MIMIC"]
     
     for dataset_name in dataset_names:
         for index, model_name in enumerate(model_names):
@@ -24,7 +24,11 @@ if __name__ == "__main__":
             d_calib = float(res['DCalib'])
             c_calib = float(res['CCalib'])
             km = float(res['KM'])
-            if model_name in ["MLP"]:
+            if d_calib > 0.05:
+                d_calib = str(d_calib) + r"$^{\ast}$"
+            if c_calib > 0.05:
+                c_calib = str(c_calib) + r"$^{\ast}$"
+            if model_name == "MLP":
                 c_calib = "-"
             model_name = map_model_name(model_name)
             text += f"{model_name} & "
