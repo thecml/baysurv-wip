@@ -10,7 +10,7 @@ import paths as pt
 import joblib
 
 curr_dir = os.getcwd()
-root_dir = Path(curr_dir).absolute() # TODO: Fix this to properly set path
+root_dir = Path(curr_dir).absolute().parent # TODO: Fix this to properly set path
 
 def map_model_name(model_name):
     if model_name == "mlp":
