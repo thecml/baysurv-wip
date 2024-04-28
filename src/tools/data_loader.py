@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 from sksurv.datasets import load_veterans_lung_cancer, load_gbsg2, load_aids, load_whas500, load_flchain
 from sklearn.model_selection import train_test_split
-#import shap
 from abc import ABC, abstractmethod
 from typing import Tuple, List
 from tools.preprocessor import Preprocessor

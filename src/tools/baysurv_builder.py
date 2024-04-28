@@ -10,15 +10,6 @@ tfd = tfp.distributions
 tfb = tfp.bijectors
 kl = tfd.kullback_leibler
 
-NUM_MC_SAMPLES = 10
-
-@kl.RegisterKL(tfd.Normal, tfd.HalfCauchy)
-def _mc_kl_msf_msf(a, b, seed=None, name='_mc_kl_norm_hc'):
-  with tf.name_scope(name):
-    s = a.sample(NUM_MC_SAMPLES, seed)
-    return tf.reduce_mean(
-        a.log_prob(s) - b.log_prob(s), axis=0, name='KL_NORM_HC')
-
 def normal_loc(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
 
@@ -27,13 +18,6 @@ def normal_loc_scale(params):
 
 def normal_fs(params):
     return tfd.Normal(loc=params[:,0:1], scale=1)
-
-def get_horseshoe_prior(dtype, shape, name, trainable, add_variable_fn):
-  horseshoe_prior = tfp.distributions.Independent(tfp.distributions.HalfCauchy(
-                                      loc = tf.zeros(shape, dtype = dtype),
-                                      scale = 1/tf.sqrt(1.0 * tf.ones(shape, dtype = dtype))),
-                                      reinterpreted_batch_ndims = 1)
-  return horseshoe_prior
 
 def make_mlp_model(input_shape, output_dim, layers, activation_fn, dropout_rate, regularization_pen):
     inputs = tf.keras.layers.Input(input_shape)

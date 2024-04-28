@@ -16,7 +16,6 @@ import paths as pt
 import joblib
 from time import time
 from utility.config import load_config
-from utility.loss import CoxPHLoss
 from pycox.evaluation import EvalSurv
 import torch
 from utility.survival import survival_probability_calibration
@@ -46,7 +45,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["cox", "coxnet", "coxboost", "rsf", "dsm", "dcm", "baycox", "baymtlr"]
+MODELS = ["cox", "coxnet", "coxboost", "rsf", "dcph", "dsm", "dcm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 
@@ -86,12 +85,10 @@ if __name__ == "__main__":
         t_test, e_test = split_time_event(y_test)
         
         # Make event times
-        event_times = calculate_event_times(t_train, e_train)
-        mtlr_times = make_time_bins(t_train, event=e_train)
+        time_bins = make_time_bins(t_train, event=e_train)
         
         # Calculate quantiles
-        event_times_pct = calculate_percentiles(event_times)
-        mtlr_times_pct = calculate_percentiles(mtlr_times)
+        times_pct = calculate_percentiles(time_bins)
         
         for model_name in MODELS:
             print(f"Training {model_name}")
@@ -118,7 +115,7 @@ if __name__ == "__main__":
                 model = make_cox_model(config)
                 train_start_time = time()
                 model.fit(X_train_arr, y_train)
-                train_time = time() - train_start_time  
+                train_time = time() - train_start_time
             elif model_name == "coxnet":
                 config = load_config(pt.COXNET_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
                 model = make_coxnet_model(config)
@@ -135,9 +132,7 @@ if __name__ == "__main__":
                 config = load_config(pt.DCPH_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
                 model = make_dcph_model(config)
                 train_start_time = time()
-                model.fit(X_train, t_train, e_train, batch_size=config['batch_size'],
-                          iters=config['iters'], val_data=(X_valid, t_valid, e_valid),
-                          learning_rate=config['learning_rate'], optimizer=config['optimizer'])
+                model.fit(X_train, pd.DataFrame(y_train), val_data=(X_valid, pd.DataFrame(y_valid)))
                 train_time = time() - train_start_time
             elif model_name == "dcm":
                 config = load_config(pt.DCM_CONFIGS_DIR, f"{dataset_name.lower()}.yaml")
@@ -161,57 +156,59 @@ if __name__ == "__main__":
                 config = dotdict(load_config(pt.BAYCOX_CONFIGS_DIR, f"{dataset_name.lower()}.yaml"))
                 model = make_baycox_model(num_features, config)
                 train_start_time = time()
-                model = train_bnn_model(model, data_train, data_valid, mtlr_times,
+                model = train_bnn_model(model, data_train, data_valid, time_bins,
                                         config=config, random_state=0, reset_model=True, device=device)
                 train_time = time() - train_start_time
             elif model_name == "baymtlr":
                 config = dotdict(load_config(pt.BAYMTLR_CONFIGS_DIR, f"{dataset_name.lower()}.yaml"))
-                model = make_baymtlr_model(num_features, mtlr_times, config)
+                model = make_baymtlr_model(num_features, time_bins, config)
                 train_start_time = time()
                 model = train_bnn_model(model, data_train, data_valid,
-                                        mtlr_times, config=config,
+                                        time_bins, config=config,
                                         random_state=0, reset_model=True, device=device)
                 train_time = time() - train_start_time
             
             # Compute survival function
             test_start_time = time()
             if model_name == "dsm":
-                surv_preds = model.predict_survival(X_test, times=list(event_times))
+                surv_preds = model.predict_survival(X_test, times=list(time_bins.numpy()))
             elif model_name == "dcph":
-                surv_preds = model.predict_survival(X_test, t=list(event_times))
+                surv_preds = model.predict_survival(X_test, times=list(time_bins.numpy()))
             elif model_name == "dcm":
-                surv_preds = model.predict_survival(X_test, times=list(event_times))
+                surv_preds = model.predict_survival(X_test, times=list(time_bins.numpy()))
             elif model_name == "rsf": # uses KM estimator instead
                 test_surv_fn = model.predict_survival_function(X_test_arr)
-                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
             elif model_name == "coxboost":
                 test_surv_fn = model.predict_survival_function(X_test_arr)
-                surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+                surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
             elif model_name == "baycox":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
-                survival_outputs, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
+                survival_outputs, cox_time_bins, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
                 surv_preds = survival_outputs.numpy()
             elif model_name == "baymtlr":
                 baycox_test_data = torch.tensor(data_test.drop(["time", "event"], axis=1).values,
                                                 dtype=torch.float, device=device)
-                survival_outputs, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
+                survival_outputs, mtlr_time_bins, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, time_bins, config)
                 surv_preds = survival_outputs.numpy()
             else:
                 surv_preds = compute_deterministic_survival_curve(model, X_train_arr, X_test_arr,
-                                                                  e_train, t_train, event_times, model_name)
+                                                                  e_train, t_train, time_bins, model_name)
             test_time = time() - test_start_time
             
             # Check monotonicity
             if not check_monotonicity(surv_preds):
-                surv_preds = make_monotonic(surv_preds, event_times, method='ceil')
+                surv_preds = make_monotonic(surv_preds, time_bins, method='ceil')
                 
             # Make dataframe
-            if model_name == "baymtlr":
-                mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
-                surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
+            if model_name == "baycox":
+                surv_preds = pd.DataFrame(surv_preds, columns=cox_time_bins.numpy())
+            elif model_name == "baymtlr":
+                mtlr_time_bins = torch.cat([torch.tensor([0]).to(mtlr_time_bins.device), mtlr_time_bins], 0)
+                surv_preds = pd.DataFrame(surv_preds, columns=mtlr_time_bins.numpy())
             else:
-                surv_preds = pd.DataFrame(surv_preds, columns=event_times)
+                surv_preds = pd.DataFrame(surv_preds, columns=time_bins.numpy())
                 
             # Sanitize
             surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
@@ -232,16 +229,17 @@ if __name__ == "__main__":
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"],
                           sanitized_y_test["event"], censor_surv="km")
-            inbll = ev.integrated_nbll(event_times)
+            inbll = ev.integrated_nbll(time_bins.numpy())
             ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ['baycox', 'baymtlr']:
                 baycox_test_data = torch.tensor(sanitized_x_test, dtype=torch.float, device=device)
                 if model_name == "baycox":
-                    _, _, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
+                    _, cox_time_bins, ensemble_outputs = make_ensemble_cox_prediction(model, baycox_test_data, config)
                 else:
-                    _, _, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, mtlr_times, config)
+                    _, mtlr_time_bins, ensemble_outputs = make_ensemble_mtlr_prediction(model, baycox_test_data, time_bins, config)
+                    mtlr_time_bins = torch.cat([torch.tensor([0]).to(mtlr_time_bins.device), mtlr_time_bins], 0)
                 n_samples_test = config['n_samples_test']
                 credible_region_sizes = np.arange(0.1, 1, 0.1)
                 coverage_stats = {}
@@ -250,10 +248,10 @@ if __name__ == "__main__":
                     lower_outputs = torch.kthvalue(ensemble_outputs, k=1 + drop_num, dim=0)[0]
                     upper_outputs = torch.kthvalue(ensemble_outputs, k=n_samples_test - drop_num, dim=0)[0]
                     if model_name == 'baycox':
-                        coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs,
+                        coverage_stats[percentage] = coverage(cox_time_bins, upper_outputs, lower_outputs,
                                                               sanitized_t_test, sanitized_e_test)
                     else:
-                        coverage_stats[percentage] = coverage(mtlr_times, upper_outputs, lower_outputs,
+                        coverage_stats[percentage] = coverage(mtlr_time_bins, upper_outputs, lower_outputs,
                                                               sanitized_t_test, sanitized_e_test)
                 data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                 _, pvalue = chisquare(data)
@@ -264,14 +262,14 @@ if __name__ == "__main__":
             # Compute calibration curves
             deltas = dict()
             if model_name != "baymtlr": # use event times for non-mtlr model
-                for t0 in event_times_pct.values():
+                for t0 in times_pct.values():
                     _, _, _, deltas_t0 = survival_probability_calibration(sanitized_surv_preds,
                                                                           sanitized_y_test["time"],
                                                                           sanitized_y_test["event"],
                                                                           t0)
                     deltas[t0] = deltas_t0
             else:
-                for t0 in mtlr_times_pct.values():
+                for t0 in times_pct.values():
                     _, _, _, deltas_t0 = survival_probability_calibration(sanitized_surv_preds,
                                                                           sanitized_y_test["time"],
                                                                           sanitized_y_test["event"],

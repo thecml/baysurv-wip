@@ -13,9 +13,6 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-#def make_deephit_model(config):
-#    return DeepHitSingle()
-
 def make_baycox_model(num_features, config):
     return BayesCox(in_features=num_features, config=config)
     
@@ -87,7 +84,7 @@ def make_dsm_model(config):
 
 def make_dcph_model(config):
     layers = config['network_layers']
-    n_iter = config['n_iter']
+    n_iter = config['iters']
     learning_rate = config['learning_rate']
     return SurvivalModel('dcph', random_seed=0, iters=n_iter, layers=layers, learning_rate=learning_rate, batch_size=32)
 

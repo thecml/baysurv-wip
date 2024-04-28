@@ -27,6 +27,8 @@ from scipy.stats import chisquare
 import torch
 from utility.survival import survival_probability_calibration
 from tools.Evaluations.util import make_monotonic, check_monotonicity
+from utility.survival import make_time_bins
+from utility.loss import cox_nll_tf
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -41,13 +43,14 @@ random.seed(0)
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["mlp", "sngp", "mcd1", "mcd2", "mcd3", "vi"]
+MODELS = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
 N_EPOCHS = 100
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
+loss_function = cox_nll_tf
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
@@ -65,8 +68,7 @@ if __name__ == "__main__":
         n_samples_train = config['n_samples_train']
         n_samples_valid = config['n_samples_valid']
         n_samples_test = config['n_samples_test']
-        loss_function = CoxPHLoss()
-
+        
         # Load data
         dl = get_data_loader(dataset_name).load_data()
         num_features, cat_features = dl.get_features()
@@ -96,10 +98,10 @@ if __name__ == "__main__":
         t_test, e_test = split_time_event(y_test)
 
         # Make event times
-        event_times = calculate_event_times(t_train, e_train)
+        time_bins = make_time_bins(t_train, event=e_train)
         
         # Calculate quantiles
-        event_times_pct = calculate_percentiles(event_times)
+        event_times_pct = calculate_percentiles(time_bins)
 
         # Make data loaders
         train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
@@ -107,7 +109,6 @@ if __name__ == "__main__":
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
         # Make models
-        
         for model_name in MODELS:
             if model_name == "mlp":
                 dropout_rate = config['dropout_rate']
@@ -166,15 +167,15 @@ if __name__ == "__main__":
             test_start_time = time()
             if model_name in ["mlp", "sngp"]:
                 surv_preds = compute_deterministic_survival_curve(model, X_train, X_test,
-                                                                  e_train, t_train, event_times, model_name)
+                                                                  e_train, t_train, time_bins, model_name)
             else:
                 surv_preds = np.mean(compute_nondeterministic_survival_curve(model, np.array(X_train), np.array(X_test),
-                                                                             e_train, t_train, event_times,
+                                                                             e_train, t_train, time_bins,
                                                                              n_samples_train, n_samples_test), axis=0)
             test_time = time() - test_start_time
             
             # Make dataframe
-            surv_preds = pd.DataFrame(surv_preds, columns=event_times)
+            surv_preds = pd.DataFrame(surv_preds, columns=time_bins.numpy())
             
             # Sanitize
             surv_preds = surv_preds.fillna(0).replace([np.inf, -np.inf], 0)
@@ -193,13 +194,13 @@ if __name__ == "__main__":
             d_calib = lifelines_eval.d_calibration()[0] # 1 if lifelines_eval.d_calibration()[0] > 0.05 else 0
             km_mse = lifelines_eval.km_calibration()
             ev = EvalSurv(sanitized_surv_preds.T, sanitized_y_test["time"], sanitized_y_test["event"], censor_surv="km")
-            inbll = ev.integrated_nbll(event_times)
+            inbll = ev.integrated_nbll(time_bins.numpy())
             ci = ev.concordance_td()
             
             # Calculate C-cal for BNN models
             if model_name in ["vi", "mcd1", "mcd2", "mcd3"]:
                 surv_probs = compute_nondeterministic_survival_curve(model, X_train, sanitized_x_test,
-                                                                     e_train, t_train, event_times,
+                                                                     e_train, t_train, time_bins,
                                                                      n_samples_train, n_samples_test)
                 credible_region_sizes = np.arange(0.1, 1, 0.1)
                 surv_times = torch.from_numpy(surv_probs)
@@ -208,11 +209,10 @@ if __name__ == "__main__":
                     drop_num = math.floor(0.5 * n_samples_test * (1 - percentage))
                     lower_outputs = torch.kthvalue(surv_times, k=1 + drop_num, dim=0)[0]
                     upper_outputs = torch.kthvalue(surv_times, k=n_samples_test - drop_num, dim=0)[0]
-                    coverage_stats[percentage] = coverage(event_times, upper_outputs, lower_outputs,
+                    coverage_stats[percentage] = coverage(time_bins, upper_outputs, lower_outputs,
                                                           sanitized_t_test, sanitized_e_test)
                 data = [list(coverage_stats.keys()), list(coverage_stats.values())]
                 _, pvalue = chisquare(data)
-                alpha = 0.05
                 c_calib = pvalue[0]
             else:
                 c_calib = 0

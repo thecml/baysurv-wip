@@ -306,3 +306,21 @@ def cox_nll(
             neg_log_loss += C1/2 * torch.norm(v, p=2)
 
     return neg_log_loss
+
+def cox_nll_tf(risk_pred, true_times, true_indicator):
+    eps = 1e-20
+    risk_pred = tf.reshape(risk_pred, (-1, 1))
+    true_times = tf.reshape(true_times, (-1, 1))
+    true_indicator = tf.reshape(true_indicator, (-1, 1))
+    true_indicator = tf.cast(true_indicator, tf.float32)
+    mask = tf.ones((tf.shape(true_times)[0], tf.shape(true_times)[0]), dtype=true_times.dtype)
+    true_times_T = tf.transpose(true_times)
+    condition = (true_times_T - true_times) > 0
+    mask = tf.where(condition, 0, mask)
+    max_risk = tf.reduce_max(risk_pred)
+    log_loss = tf.exp(risk_pred - max_risk) * mask
+    log_loss = tf.reduce_sum(log_loss, axis=0)
+    log_loss = tf.math.log(log_loss + eps)
+    log_loss = tf.reshape(log_loss, (-1, 1)) + max_risk
+    loss = -tf.reduce_sum((risk_pred - log_loss) * true_indicator) / tf.reduce_sum(true_indicator)
+    return loss
