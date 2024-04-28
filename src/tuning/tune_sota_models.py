@@ -203,7 +203,7 @@ def train_model():
     if model_name == "dsm":
         surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
     elif model_name == "dcph":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, t=list(event_times)), columns=event_times)
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
     elif model_name == "dcm":
         surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
     elif model_name == "cox":
