@@ -84,7 +84,7 @@ def make_dsm_model(config):
 
 def make_dcph_model(config):
     layers = config['network_layers']
-    n_iter = config['iters']
+    n_iter = config['n_iter']
     learning_rate = config['learning_rate']
     return SurvivalModel('dcph', random_seed=0, iters=n_iter, layers=layers, learning_rate=learning_rate, batch_size=32)
 
