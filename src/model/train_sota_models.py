@@ -45,7 +45,7 @@ class dotdict(dict):
     __delattr__ = dict.__delitem__
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
-MODELS = ["dcph"] #"cox", "coxnet", "coxboost", "rsf", "dcph", "dsm", "baycox", "baymtlr"
+MODELS = ["cox", "coxnet", "coxboost", "rsf", "dcph", "dsm", "baycox", "baymtlr"]
 
 results = pd.DataFrame()
 
