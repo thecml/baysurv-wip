@@ -27,6 +27,7 @@ from utility.training import make_stratified_split
 from utility.survival import convert_to_structured
 from utility.training import make_stratified_split, scale_data
 from pycox.evaluation import EvalSurv
+from utility.survival import make_time_bins
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -109,7 +110,7 @@ def train_model():
     t_valid, e_valid = split_time_event(y_valid)
 
     # Calculate event times
-    event_times = calculate_event_times(t_train, e_train)
+    time_bins = make_time_bins(t_train, event=e_train)
     
     # Make datasets
     train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size,
@@ -146,7 +147,7 @@ def train_model():
 
     # Compute survival function
     surv_preds = pd.DataFrame(compute_deterministic_survival_curve(
-        model, X_train, X_valid, e_train, t_train, event_times, model_name), columns=event_times)
+        model, X_train, X_valid, e_train, t_train, time_bins, model_name), columns=time_bins.numpy())
     
     # Compute CI
     try:

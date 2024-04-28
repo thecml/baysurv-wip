@@ -17,6 +17,7 @@ from utility.survival import convert_to_structured
 from tools.Evaluations.util import make_monotonic
 from pycox.evaluation import EvalSurv
 import torch
+from utility.survival import make_time_bins
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -145,8 +146,7 @@ def train_model():
     t_valid, e_valid = split_time_event(y_valid)
 
     # Make event times
-    event_times = calculate_event_times(t_train, e_train)
-    mtlr_times = make_time_bins(t_train, event=e_train)
+    time_bins = make_time_bins(t_train, event=e_train)
     
     # Make and train mdoel
     if model_name == "cox":
@@ -201,23 +201,23 @@ def train_model():
     
     # Compute survival function
     if model_name == "dsm":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(time_bins)), columns=time_bins.numpy())
     elif model_name == "dcph":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(time_bins)), columns=time_bins.numpy())
     elif model_name == "dcm":
-        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(event_times)), columns=event_times)
+        surv_preds = pd.DataFrame(model.predict_survival(X_valid, times=list(time_bins)), columns=time_bins.numpy())
     elif model_name == "cox":
         test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+        surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
     elif model_name == "coxnet":
         test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+        surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
     elif model_name == "rsf":
         test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+        surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
     elif model_name == "coxboost":
         test_surv_fn = model.predict_survival_function(X_valid)
-        surv_preds = np.row_stack([fn(event_times) for fn in test_surv_fn])
+        surv_preds = np.row_stack([fn(time_bins) for fn in test_surv_fn])
     elif model_name == "baycox":
         baycox_valid_data = torch.tensor(data_valid.drop(["time", "event"], axis=1).values,
                                         dtype=torch.float, device=device)
@@ -230,18 +230,18 @@ def train_model():
         surv_preds = survival_outputs.numpy()
     else:
         surv_preds = compute_deterministic_survival_curve(model, np.array(X_train), np.array(X_valid),
-                                                          e_train, t_train, event_times, model_name)
+                                                          e_train, t_train, time_bins, model_name)
         
     # Make DCM monotonic
     if model_name == "dcm":
-        surv_preds = make_monotonic(surv_preds.to_numpy(), event_times, method='ceil')
+        surv_preds = make_monotonic(surv_preds.to_numpy(), time_bins, method='ceil')
         
     # Convert to DataFrame
     if model_name == "baymtlr":
         mtlr_times = torch.cat([torch.tensor([0]).to(mtlr_times.device), mtlr_times], 0)
         surv_preds = pd.DataFrame(surv_preds, columns=mtlr_times.numpy())
     else:
-        surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=event_times)
+        surv_preds = pd.DataFrame(surv_preds, dtype=np.float64, columns=time_bins.numpy())
     
     try:
         ev = EvalSurv(surv_preds.T, t_valid, e_valid, censor_surv="km")
