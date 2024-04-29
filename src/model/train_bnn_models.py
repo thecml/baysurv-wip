@@ -39,6 +39,7 @@ np.seterr(invalid='ignore')
 np.random.seed(0)
 tf.random.set_seed(0)
 random.seed(0)
+torch.manual_seed(0)
 
 training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
