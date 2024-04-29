@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
         # Make data loaders
         train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
-        valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)()
+        valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size, shuffle=True)() # shuffle=True to avoid NaNs
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
         # Make models
