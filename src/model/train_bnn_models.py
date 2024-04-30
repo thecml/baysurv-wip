@@ -44,7 +44,7 @@ training_results, test_results = pd.DataFrame(), pd.DataFrame()
 
 DATASETS = ["SUPPORT", "SEER", "METABRIC", "MIMIC"]
 MODELS = ["mlp", "sngp", "vi", "mcd1", "mcd2", "mcd3"]
-N_EPOCHS = 1000
+N_EPOCHS = 100
 
 tf.config.set_visible_devices([], 'GPU') # use CPU
 
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
         # Make data loaders
         train_ds = InputFunction(X_train, t_train, e_train, batch_size=batch_size, drop_last=True, shuffle=True)()
-        valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size, shuffle=True)() # shuffle=True to avoid NaNs
+        valid_ds = InputFunction(X_valid, t_valid, e_valid, batch_size=batch_size)() # shuffle=True to avoid NaNs
         test_ds = InputFunction(X_test, t_test, e_test, batch_size=batch_size)()
 
         # Make models
