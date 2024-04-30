@@ -63,17 +63,17 @@ class Trainer:
                 if self.model_name == "mlp":
                     logits = self.model(x, training=True)
                     batch_variances.append(0)
-                    loss = self.loss_fn(logits, y['label_time'], y['label_event'])
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 elif self.model_name == "sngp":
                     logits, covmat = self.model(x, training=True)
                     batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
-                    loss = self.loss_fn(logits, y['label_time'], y['label_event'])
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
                 elif self.model_name == "vi":
                     logits_dist = self.model(x, training=True)
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
-                    cox_loss = self.loss_fn(logits_mean, y['label_time'], y['label_event'])
+                    cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                     self.train_loss_metric.update_state(cox_loss)
                     loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
                 elif self.model_name in ["mcd1", "mcd2", "mcd3"]:
@@ -81,7 +81,7 @@ class Trainer:
                     logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                     batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                     logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
-                    loss = self.loss_fn(logits_mean, y['label_time'], y['label_event'])
+                    loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 else:
                     raise NotImplementedError()
                 self.train_loss_metric.update_state(loss)
@@ -109,17 +109,17 @@ class Trainer:
             if self.model_name == "mlp":
                 logits = self.model(x, training=False)
                 batch_variances.append(0) # zero variance for MLP
-                loss = self.loss_fn(logits, y['label_time'], y['label_event'])
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
             elif self.model_name == "sngp":
                 logits, covmat = self.model(x, training=False)
                 batch_variances.append(np.mean(tf.linalg.diag_part(covmat)[:, None]))
-                loss = self.loss_fn(logits, y['label_time'], y['label_event'])
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits)
             elif self.model_name == "vi":
                 logits_dist = self.model(x, training=False)
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
-                cox_loss = self.loss_fn(logits_mean, y['label_time'], y['label_event'])
+                cox_loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
                 self.train_loss_metric.update_state(cox_loss)
                 loss = cox_loss + tf.reduce_mean(self.model.losses) # CoxPHLoss + KL-divergence
             elif self.model_name in ["mcd1", "mcd2", "mcd3"]:
@@ -127,7 +127,7 @@ class Trainer:
                 logits_cpd = tf.stack([tf.reshape(logits_dist.sample(), n_samples) for _ in range(runs)])
                 batch_variances.append(np.mean(tf.math.reduce_variance(logits_cpd, axis=0, keepdims=True)))
                 logits_mean = tf.expand_dims(tf.reduce_mean(logits_cpd, axis=0), axis=1)
-                loss = self.loss_fn(logits_mean, y['label_time'], y['label_event'])
+                loss = self.loss_fn(y_true=[y_event, y["label_riskset"]], y_pred=logits_mean)
             self.valid_loss_metric.update_state(loss)
         epoch_loss = self.valid_loss_metric.result()
         self.valid_loss.append(float(epoch_loss))

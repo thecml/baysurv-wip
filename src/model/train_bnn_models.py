@@ -28,7 +28,6 @@ import torch
 from utility.survival import survival_probability_calibration
 from tools.Evaluations.util import make_monotonic, check_monotonicity
 from utility.survival import make_time_bins
-from utility.loss import cox_nll_tf
 
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -51,7 +50,7 @@ tf.config.set_visible_devices([], 'GPU') # use CPU
 
 test_results = pd.DataFrame()
 training_results = pd.DataFrame()
-loss_function = cox_nll_tf
+loss_function = CoxPHLoss()
 
 if __name__ == "__main__":
     # For each dataset, train models and plot scores
